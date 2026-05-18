@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Sparkles, FolderOpen, Settings } from "lucide-react";
+import { Home, Factory, FolderOpen, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/dashboard", label: "Inicio", icon: Home },
-  { href: "/studio", label: "Studio", icon: Sparkles },
-  { href: "/projects", label: "Proyectos", icon: FolderOpen },
-  { href: "/settings", label: "Ajustes", icon: Settings },
+  { href: "/fabrica", label: "Fábrica", icon: Factory },
+  { href: "/proyectos", label: "Proyectos", icon: FolderOpen },
+  { href: "/mi-negocio", label: "Negocio", icon: Briefcase },
 ];
 
 export function BottomNav() {
