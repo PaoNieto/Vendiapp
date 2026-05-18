@@ -55,45 +55,43 @@ export default function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/studio"
+            href="/producto"
             className={cn(
               buttonVariants({ size: "lg" }),
               "h-11 hidden rounded-xl px-5 sm:inline-flex",
             )}
           >
             <Sparkles className="mr-2 h-4 w-4" />
-            Nueva generación
+            Empezar recorrido
           </Link>
         </div>
 
         {/* Mobile primary CTA */}
         <Link
-          href="/studio"
+          href="/producto"
           className={cn(
             buttonVariants({ size: "lg" }),
             "mt-5 flex h-12 w-full rounded-xl text-base sm:hidden",
           )}
         >
           <Sparkles className="mr-2 h-4 w-4" />
-          Nueva generación
+          Empezar recorrido
         </Link>
 
-        {/* Stats / créditos en mobile */}
+        {/* Plan card en mobile (en desktop sale en sidebar) */}
         <Card className="glass mt-6 rounded-2xl border-0 p-5 lg:hidden">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground">
-                Créditos restantes
-              </p>
+              <p className="text-xs font-medium text-muted-foreground">Plan</p>
               <p className="text-2xl font-semibold tracking-tight text-foreground">
-                10
+                Pro
               </p>
             </div>
             <Link
-              href="/settings/billing"
+              href="/ajustes"
               className="text-xs font-medium text-primary hover:underline"
             >
-              Conseguí más →
+              Administrar →
             </Link>
           </div>
         </Card>
@@ -116,7 +114,7 @@ export default function DashboardPage() {
                 Subí fotos de tu producto y referencias visuales para empezar.
               </p>
               <Link
-                href="/studio"
+                href="/producto"
                 className={cn(
                   buttonVariants({ size: "lg" }),
                   "mt-5 inline-flex h-11 rounded-xl px-5",
@@ -130,7 +128,7 @@ export default function DashboardPage() {
               {RECENT_GENERATIONS.map((gen) => (
                 <Link
                   key={gen.id}
-                  href={`/generations/${gen.id}`}
+                  href="/fabrica"
                   className="glass group block overflow-hidden rounded-2xl transition-all hover:scale-[1.02]"
                 >
                   <div className="aspect-[4/5] bg-gradient-to-br from-primary/10 to-accent/20" />

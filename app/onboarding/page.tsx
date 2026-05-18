@@ -40,7 +40,7 @@ export default function OnboardingPage() {
     setSubmitting(true);
     // TODO: persistir businessType, useCases en profiles y crear project con projectName
     await new Promise((r) => setTimeout(r, 500));
-    router.push("/studio");
+    router.push("/mi-negocio");
   }
 
   return (
