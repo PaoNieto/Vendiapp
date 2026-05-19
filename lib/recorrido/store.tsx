@@ -7,11 +7,19 @@ import {
   useEffect,
   useState,
 } from "react";
+import type { UploadedImage } from "@/components/fabrica";
 import type { OutputRatio } from "@/lib/constants";
 
+/**
+ * El shape usa `UploadedImage[]` (no `string[]`) para producto y referencias porque
+ * cuando conectemos Gemini/Supabase Storage vamos a necesitar el `File`. Las imágenes
+ * NO se persisten en localStorage: los blob URLs se invalidan al reload y los `File`
+ * tampoco son serializables — al rehidratar las listas quedan vacías y el usuario debe
+ * volver a subir. El resto del brief sí persiste.
+ */
 export type RecorridoState = {
-  productImages: string[];
-  referenceImages: string[];
+  productImages: UploadedImage[];
+  referenceImages: UploadedImage[];
   mood: string | null;
   palette: string[];
   occasion: string | null;
@@ -42,6 +50,16 @@ type RecorridoContextValue = {
 
 const RecorridoContext = createContext<RecorridoContextValue | null>(null);
 
+/** Subset que sí se serializa a localStorage. Excluye listas de imágenes. */
+type PersistedState = Omit<RecorridoState, "productImages" | "referenceImages">;
+
+function pickPersisted(state: RecorridoState): PersistedState {
+  const { productImages: _p, referenceImages: _r, ...rest } = state;
+  void _p;
+  void _r;
+  return rest;
+}
+
 export function RecorridoProvider({ children }: { children: React.ReactNode }) {
   const [state, setLocalState] = useState<RecorridoState>(INITIAL);
   const [hydrated, setHydrated] = useState(false);
@@ -50,7 +68,9 @@ export function RecorridoProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setLocalState({ ...INITIAL, ...JSON.parse(stored) });
+        const parsed = JSON.parse(stored) as Partial<PersistedState>;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage post-mount; el SSR no tiene acceso.
+        setLocalState((prev) => ({ ...prev, ...parsed }));
       }
     } catch {
       // ignore
@@ -60,7 +80,11 @@ export function RecorridoProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(pickPersisted(state)));
+    } catch {
+      // ignore (quota, etc.)
+    }
   }, [state, hydrated]);
 
   const setState = useCallback((partial: Partial<RecorridoState>) => {

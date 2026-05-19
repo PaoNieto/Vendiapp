@@ -43,6 +43,7 @@ export function NegocioProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage post-mount; el SSR no tiene acceso.
         setLocalState({ ...INITIAL, ...JSON.parse(stored) });
       }
     } catch {

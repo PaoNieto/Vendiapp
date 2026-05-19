@@ -12,6 +12,10 @@ type StationShellProps = {
   prevLabel?: string;
   nextHref?: string;
   nextLabel?: string;
+  /** When true, renders the "next" CTA as a disabled button (no navigation). */
+  nextDisabled?: boolean;
+  /** Optional hint shown next to the disabled next CTA (e.g. "Falta subir una foto"). */
+  nextDisabledHint?: string;
 };
 
 export function StationShell({
@@ -23,6 +27,8 @@ export function StationShell({
   prevLabel,
   nextHref,
   nextLabel,
+  nextDisabled = false,
+  nextDisabledHint,
 }: StationShellProps) {
   return (
     <div className="px-5 py-6 sm:px-8 sm:py-8">
@@ -56,16 +62,38 @@ export function StationShell({
               <div />
             )}
             {nextHref ? (
-              <Link
-                href={nextHref}
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "h-12 rounded-xl",
-                )}
-              >
-                {nextLabel ?? "Continuar"}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              nextDisabled ? (
+                <div className="flex flex-col items-end gap-1">
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled
+                    className={cn(
+                      buttonVariants({ size: "lg" }),
+                      "h-12 cursor-not-allowed rounded-xl opacity-50",
+                    )}
+                  >
+                    {nextLabel ?? "Continuar"}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                  {nextDisabledHint && (
+                    <span className="text-[11px] text-muted-foreground">
+                      {nextDisabledHint}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={nextHref}
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "h-12 rounded-xl",
+                  )}
+                >
+                  {nextLabel ?? "Continuar"}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )
             ) : (
               <div />
             )}
