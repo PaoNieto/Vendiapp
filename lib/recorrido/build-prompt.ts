@@ -1,10 +1,11 @@
 import { OUTPUT_RATIOS } from "@/lib/constants";
-import type { RecorridoState } from "@/lib/recorrido/store";
+import type { Version } from "@/lib/versions/store";
 
 /**
- * Catálogos sincronizados con la Estación 03 (Estilo).
- * Si cambian las opciones visibles, actualizá también estos arrays para que
- * el prompt natural use las etiquetas correctas en español.
+ * Catálogos de mood / ocasión / paleta — los conserva este módulo porque la UI
+ * los seguía consumiendo desde acá. Quedan disponibles para que las pantallas
+ * que refactorice el agente `frontend` puedan reutilizarlos al armar el prompt
+ * en la versión.
  */
 export const MOOD_OPTIONS = [
   { value: "minimalista", label: "Minimalista" },
@@ -38,66 +39,35 @@ export const PALETTE_OPTIONS = [
 export type MoodValue = (typeof MOOD_OPTIONS)[number]["value"];
 export type OccasionValue = (typeof OCCASION_OPTIONS)[number]["value"];
 
-function moodLabel(value: string | null): string | null {
-  if (!value) return null;
-  return MOOD_OPTIONS.find((m) => m.value === value)?.label ?? null;
-}
-
-function occasionLabel(value: string | null): string | null {
-  if (!value) return null;
-  return OCCASION_OPTIONS.find((o) => o.value === value)?.label ?? null;
-}
-
-function paletteLabels(hexes: string[]): string[] {
-  const result: string[] = [];
-  for (const hex of hexes) {
-    const label = PALETTE_OPTIONS.find((p) => p.value === hex)?.label;
-    if (label) result.push(label);
-  }
-  return result;
-}
-
 function ratioLabel(value: string): string {
   return OUTPUT_RATIOS.find((r) => r.value === value)?.label ?? value;
 }
 
-function joinEs(parts: string[]): string {
-  if (parts.length === 0) return "";
-  if (parts.length === 1) return parts[0];
-  if (parts.length === 2) return `${parts[0]} y ${parts[1]}`;
-  return `${parts.slice(0, -1).join(", ")} y ${parts[parts.length - 1]}`;
-}
-
 /**
- * Arma un prompt en español natural a partir del brief acumulado.
- * Se usa como autocompletado de la Estación 05 (Prompt).
+ * Arma un prompt en español natural a partir de una `Version`.
+ *
+ * El brief acumulado del recorrido viejo (mood / paleta / ocasión / variations)
+ * ya no vive como datos estructurados en el cliente — el usuario lo escribe
+ * libremente en `version.user_prompt`. Esta función conserva su rol de
+ * "scaffold" devolviendo un prompt base si el usuario no escribió todavía,
+ * combinando los datos estructurados que sí siguen viviendo en la versión:
+ * cantidad de variaciones, ratio y existencia de referencias.
  */
-export function buildPromptFromBrief(state: RecorridoState): string {
-  const variations = `${state.variations} ${state.variations === 1 ? "imagen" : "imágenes"}`;
-  const ratio = ratioLabel(state.ratio).toLowerCase();
-  const mood = moodLabel(state.mood);
-  const occasion = occasionLabel(state.occasion);
-  const palette = paletteLabels(state.palette);
-
-  const sentences: string[] = [];
-
-  sentences.push(
-    `Generá ${variations} de mi producto en formato ${ratio} (${state.ratio}).`,
-  );
-
-  if (mood && palette.length > 0) {
-    sentences.push(`Estilo ${mood.toLowerCase()}, paleta ${joinEs(palette).toLowerCase()}.`);
-  } else if (mood) {
-    sentences.push(`Estilo ${mood.toLowerCase()}.`);
-  } else if (palette.length > 0) {
-    sentences.push(`Paleta ${joinEs(palette).toLowerCase()}.`);
+export function buildPromptFromBrief(version: Version): string {
+  // Si el usuario ya escribió algo a mano, no lo pisamos: devolvemos lo suyo.
+  if (version.user_prompt.trim().length > 0) {
+    return version.user_prompt;
   }
 
-  if (occasion) {
-    sentences.push(`Ocasión: ${occasion.toLowerCase()}.`);
-  }
+  const count = version.variations_default;
+  const variations = `${count} ${count === 1 ? "imagen" : "imágenes"}`;
+  const ratio = ratioLabel(version.output_ratio).toLowerCase();
 
-  if (state.referenceImages.length > 0) {
+  const sentences: string[] = [
+    `Generá ${variations} de mi producto en formato ${ratio} (${version.output_ratio}).`,
+  ];
+
+  if (version.reference_images.length > 0) {
     sentences.push("Tomá inspiración de las referencias adjuntas.");
   }
 

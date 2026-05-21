@@ -1,95 +1,104 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { StationShell } from "@/components/app/station-shell";
-import { NumberStepper, RatioSelector } from "@/components/fabrica";
-import { MAX_VARIATIONS, OUTPUT_RATIOS } from "@/lib/constants";
+import {
+  NumberStepper,
+  RatioSelector,
+  type RatioValue,
+} from "@/components/fabrica";
 import { useRecorrido } from "@/lib/recorrido/store";
+import { useVersions } from "@/lib/versions/store";
 
-const RATIO_OPTIONS = OUTPUT_RATIOS.map((r) => ({
-  value: r.value,
-  label: r.label,
-  hint: r.description,
-}));
-
-/** Costo estimado por variación. Placeholder visual hasta que conectemos billing. */
-const CREDITS_PER_VARIATION = 1;
-
+/**
+ * Estación 02 — Formato. Edita `output_ratio` y `variations_default` de la
+ * versión activa. Sin versión seteada después de hidratar, redirige al
+ * catálogo (mismo gate que `/referencias`).
+ *
+ * NOTA: la card de "vas a usar X créditos" del flujo viejo ya no aparece —
+ * el modelo de créditos lo decide la Fábrica cuando se genere.
+ */
 export default function FormatoPage() {
-  const { state, setState, hydrated } = useRecorrido();
-  const totalCredits = state.variations * CREDITS_PER_VARIATION;
+  const router = useRouter();
+  const recorrido = useRecorrido();
+  const versions = useVersions();
+
+  const allHydrated = recorrido.hydrated && versions.hydrated;
+  const { productId, versionId } = recorrido.state;
+  const version = versionId ? versions.getById(versionId) : undefined;
+
+  useEffect(() => {
+    if (!allHydrated) return;
+    if (!productId || !versionId || !version) {
+      router.replace("/productos");
+    }
+  }, [allHydrated, productId, versionId, version, router]);
+
+  if (!allHydrated || !productId || !versionId || !version) {
+    return <FormatoSkeleton />;
+  }
+
+  function handleRatioChange(ratio: RatioValue) {
+    versions.updateVersion(versionId!, { output_ratio: ratio });
+  }
+
+  function handleVariationsChange(n: number) {
+    versions.updateVersion(versionId!, { variations_default: n });
+  }
 
   return (
     <StationShell
-      number="04"
+      number="02"
       title="Formato"
-      description="Elegí el aspecto (cuadrado, vertical, historia, horizontal) y cuántas variaciones querés generar."
-      prevHref="/estilo"
-      prevLabel="Volver"
-      nextHref="/prompt"
-      nextLabel="Continuar a Prompt"
+      description="Elegí el aspecto y cuántas variaciones querés por tanda."
+      prevHref="/referencias"
+      prevLabel="Volver a Referencias"
+      nextHref="/fabrica"
+      nextLabel="Mandar a la Fábrica"
     >
-      {!hydrated ? (
-        <div
-          aria-busy
-          className="glass min-h-[300px] animate-pulse rounded-2xl border border-dashed border-white/70"
-        />
-      ) : (
-        <div className="space-y-8">
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Proporción
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Elegí el formato según dónde vas a usar la imagen.
-              </p>
-            </div>
-            <RatioSelector
-              value={state.ratio}
-              onChange={(ratio) => setState({ ratio })}
-              options={RATIO_OPTIONS}
-            />
-          </section>
+      <div className="flex flex-col gap-8">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-foreground">Proporción</h2>
+          <RatioSelector
+            value={version.output_ratio}
+            onChange={handleRatioChange}
+          />
+        </section>
 
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">
-                Variaciones
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Cantidad de imágenes distintas que querés que la IA genere.
-              </p>
-            </div>
-            <NumberStepper
-              value={state.variations}
-              onChange={(variations) => setState({ variations })}
-              min={1}
-              max={MAX_VARIATIONS}
-              suffix="variaciones"
-            />
-          </section>
-
-          <div
-            className="glass flex items-center gap-3 rounded-2xl border border-white/60 px-4 py-3"
-            role="status"
-            aria-live="polite"
-          >
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-foreground">
-                Vas a usar {totalCredits}{" "}
-                {totalCredits === 1 ? "crédito" : "créditos"}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {CREDITS_PER_VARIATION} crédito por variación.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-foreground">
+            Variaciones por tanda
+          </h2>
+          <NumberStepper
+            value={version.variations_default}
+            onChange={handleVariationsChange}
+            min={1}
+            max={10}
+            suffix="por tanda"
+          />
+        </section>
+      </div>
     </StationShell>
+  );
+}
+
+function FormatoSkeleton() {
+  return (
+    <div className="px-5 py-6 sm:px-8 sm:py-8">
+      <div className="mx-auto max-w-3xl">
+        <div className="h-3 w-12 animate-pulse rounded-full bg-white/30" />
+        <div className="mt-2 h-8 w-56 animate-pulse rounded-full bg-white/40" />
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-32 animate-pulse rounded-2xl bg-white/40"
+            />
+          ))}
+        </div>
+        <div className="mt-8 h-20 w-48 animate-pulse rounded-2xl bg-white/40" />
+      </div>
+    </div>
   );
 }

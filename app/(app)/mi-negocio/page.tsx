@@ -15,10 +15,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { buttonVariants } from "@/components/ui/button";
+import { PillButton } from "@/components/dashboard";
 import { useNegocio } from "@/lib/negocio/store";
 import { validateGoogleApiKey } from "@/lib/ai/validate-key";
-import { cn } from "@/lib/utils";
 
 const INDUSTRIES = [
   "Moda y ropa",
@@ -78,7 +77,7 @@ export default function MiNegocioPage() {
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center gap-3">
           <Briefcase className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
             Mi Negocio
           </h1>
         </div>
@@ -89,7 +88,7 @@ export default function MiNegocioPage() {
 
         {/* Perfil de marca */}
         <Card className="glass mt-6 rounded-3xl border-0 p-6">
-          <h2 className="text-base font-semibold text-foreground">
+          <h2 className="text-base font-medium text-foreground">
             Perfil de marca
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -140,17 +139,13 @@ export default function MiNegocioPage() {
               </div>
             </div>
 
-            <button
-              type="button"
+            <PillButton
+              size="sm"
               onClick={handleSaveProfile}
               disabled={!state.brandName}
-              className={cn(
-                buttonVariants({ size: "sm" }),
-                "h-9 rounded-lg disabled:opacity-50",
-              )}
             >
               {savedAt ? "Guardado ✓" : "Guardar perfil"}
-            </button>
+            </PillButton>
           </div>
         </Card>
 
@@ -158,7 +153,7 @@ export default function MiNegocioPage() {
         <Card className="glass mt-4 rounded-3xl border-0 p-6">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">
+            <h2 className="text-base font-medium text-foreground">
               API key de Google AI Studio
             </h2>
           </div>
@@ -200,24 +195,21 @@ export default function MiNegocioPage() {
                     )}
                   </button>
                 </div>
-                <button
-                  type="button"
+                <PillButton
+                  size="sm"
                   onClick={handleValidate}
                   disabled={
                     !state.apiKey ||
                     keyStatus.kind === "validating"
                   }
-                  className={cn(
-                    buttonVariants({ size: "sm" }),
-                    "h-10 shrink-0 rounded-lg px-4 disabled:opacity-50",
-                  )}
+                  className="shrink-0"
                 >
                   {keyStatus.kind === "validating" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     "Validar"
                   )}
-                </button>
+                </PillButton>
               </div>
             </div>
 

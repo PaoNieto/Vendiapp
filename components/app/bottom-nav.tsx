@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Factory, FolderOpen, Briefcase } from "lucide-react";
+import { Home, Factory, Package, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/dashboard", label: "Inicio", icon: Home },
+  { href: "/productos", label: "Productos", icon: Package },
   { href: "/fabrica", label: "Fábrica", icon: Factory },
-  { href: "/proyectos", label: "Proyectos", icon: FolderOpen },
   { href: "/mi-negocio", label: "Negocio", icon: Briefcase },
 ];
 

@@ -34,6 +34,16 @@
   --color-glass: var(--glass);
   --color-glass-border: var(--glass-border);
 
+  /* Paleta premium Vendí — verde marca + champagne. */
+  --color-champagne: var(--champagne);
+  --color-champagne-deep: var(--champagne-deep);
+  --color-amber: var(--amber);
+  --color-green-dark: var(--green-dark);
+  --color-green-text: var(--green-text);
+  --color-green-bg-start: var(--green-bg-start);
+  --color-green-bg-mid: var(--green-bg-mid);
+  --color-green-bg-end: var(--green-bg-end);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -43,72 +53,107 @@
 }
 
 :root {
-  /* Vendí — paleta verde mint/teal premium */
-  --background: #C8E6D5;
-  --foreground: #1A2E25;
+  /*
+    Vendí — identidad premium VERDE MARCA + CHAMPAGNE.
+    Los tokens "semánticos" (primary, accent, success, warning, etc.) ahora
+    apuntan a la paleta verde profundo + champagne. Reemplazó por completo
+    la paleta mint/teal placeholder anterior.
+  */
 
-  --card: rgba(255, 255, 255, 0.7);
-  --card-foreground: #1A2E25;
+  /* Fondos & texto base. El fondo del shell con blobs vive en AppBackground;
+     este background plano queda solo como fallback para pantallas que no se
+     monten dentro del shell (rutas sueltas, errores 500, etc.). */
+  --background: #fafaf7;
+  --foreground: #0f2818; /* green-dark */
 
-  --popover: #FFFFFF;
-  --popover-foreground: #1A2E25;
+  --card: rgba(255, 255, 255, 0.72);
+  --card-foreground: #0f2818;
 
-  --primary: #2D5F47;
-  --primary-foreground: #FFFFFF;
+  --popover: #ffffff;
+  --popover-foreground: #0f2818;
 
-  --secondary: rgba(255, 255, 255, 0.6);
-  --secondary-foreground: #1A2E25;
+  /* CTAs principales — verde profundo con texto champagne sobre encima. */
+  --primary: #0f2818; /* green-dark */
+  --primary-foreground: #f5dca0; /* champagne */
 
-  --muted: rgba(255, 255, 255, 0.4);
-  --muted-foreground: #4A6B5A;
+  --secondary: rgba(255, 255, 255, 0.72);
+  --secondary-foreground: #0f2818;
 
-  --accent: #5BAE85;
-  --accent-foreground: #FFFFFF;
+  /* Texto muted = green-text. Fondo muted = blanco muy suave para chips/badges. */
+  --muted: rgba(255, 255, 255, 0.5);
+  --muted-foreground: #2d4a32; /* green-text */
 
-  --destructive: #D67373;
-  --success: #5BAE85;
-  --warning: #E8A87C;
+  /* Accent = champagne profundo, complemento cálido del verde para
+     destacar elementos sin gritar. */
+  --accent: #e8c882; /* champagne-deep */
+  --accent-foreground: #0f2818;
 
-  --border: rgba(255, 255, 255, 0.8);
-  --input: rgba(255, 255, 255, 0.8);
-  --ring: #2D5F47;
+  --destructive: #b85454; /* rojo terroso coherente con la paleta cálida */
 
-  --glass: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.8);
+  /* Success en verde oscuro saturado — coherente con la marca, NO el mint
+     verdoso pastel anterior que se confundía con el fondo. */
+  --success: #2d6a3e;
+
+  /* Warning = amber profundo (más legible sobre cards glass que el champagne). */
+  --warning: #b8893c; /* amber */
+
+  /* Borders & inputs — blanco apenas visible para no romper la sensación glass. */
+  --border: rgba(255, 255, 255, 0.65);
+  --input: rgba(255, 255, 255, 0.72);
+  --ring: #0f2818;
+
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.9);
+
+  /* Paleta premium — verde de marca + champagne. */
+  --green-bg-start: #b8d4a8;
+  --green-bg-mid: #a3c994;
+  --green-bg-end: #c4dfb5;
+  --green-dark: #0f2818;
+  --green-text: #2d4a32;
+  --champagne: #f5dca0;
+  --champagne-deep: #e8c882;
+  --amber: #b8893c;
 
   --radius: 1.25rem; /* 20px base — generoso para sensación premium */
 }
 
 .dark {
-  --background: #1A2E25;
-  --foreground: #E8F1EC;
+  /*
+    Modo oscuro coherente: fondo verde muy oscuro, texto champagne suave,
+    primary se invierte a champagne para que destaque sobre lo negro.
+  */
+  --background: #0a1a10;
+  --foreground: #f5dca0;
 
   --card: rgba(255, 255, 255, 0.05);
-  --card-foreground: #E8F1EC;
+  --card-foreground: #f5dca0;
 
-  --popover: #1A2E25;
-  --popover-foreground: #E8F1EC;
+  --popover: #0a1a10;
+  --popover-foreground: #f5dca0;
 
-  --primary: #5BAE85;
-  --primary-foreground: #1A2E25;
+  --primary: #f5dca0;
+  --primary-foreground: #0f2818;
 
-  --secondary: rgba(255, 255, 255, 0.08);
-  --secondary-foreground: #E8F1EC;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #f5dca0;
 
   --muted: rgba(255, 255, 255, 0.05);
-  --muted-foreground: #A0C9B0;
+  --muted-foreground: #c4dfb5;
 
-  --accent: #5BAE85;
-  --accent-foreground: #1A2E25;
+  --accent: #e8c882;
+  --accent-foreground: #0f2818;
 
-  --destructive: #D67373;
+  --destructive: #b85454;
+  --success: #5fae7a;
+  --warning: #d4a25c;
 
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.1);
-  --ring: #5BAE85;
+  --border: rgba(245, 220, 160, 0.18);
+  --input: rgba(245, 220, 160, 0.12);
+  --ring: #f5dca0;
 
-  --glass: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass: rgba(15, 40, 24, 0.5);
+  --glass-border: rgba(245, 220, 160, 0.15);
 }
 
 @layer base {
@@ -119,24 +164,111 @@
     @apply font-sans antialiased;
   }
   body {
+    /*
+      Sin gradient en body — el shell con blobs lo aporta AppBackground en los
+      layouts (app) y (auth). Dejamos un color sólido neutro como fallback para
+      cualquier ruta que se monte fuera de un shell (errores, 404, etc.).
+    */
     @apply text-foreground min-h-dvh;
-    background: linear-gradient(135deg, #C8E6D5 0%, #A0C9B0 100%);
-    background-attachment: fixed;
+    background: var(--background);
+  }
+
+  /*
+    Defaults tipográficos premium: headings en weight 500 (no 600/700).
+    Las páginas pueden override con font-semibold cuando necesiten más
+    énfasis, pero la base ahora es weight 500 según el brief original.
+  */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 500;
+    letter-spacing: -0.01em;
   }
 }
 
 @layer utilities {
-  /* Glassmorphism premium reutilizable */
-  .glass {
-    background: var(--glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-  }
+  /*
+    .glass / .glass-strong — DEPRECADAS como variantes propias.
+    Ambas apuntan ahora al mismo treatment premium sólido que .glass-card,
+    para que cualquier página que todavía use .glass / .glass-strong herede
+    la identidad nueva sin migraciones manuales.
+
+    Si en el futuro hace falta una variante "más translúcida" o "menos
+    sombreada", crear una utility nueva (.glass-soft, etc.). No revertir
+    estas dos.
+  */
+  .glass,
   .glass-strong {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(30px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 12px 32px rgba(15, 40, 24, 0.12),
+      0 2px 6px rgba(15, 40, 24, 0.06);
+  }
+
+  /* Glass premium SÓLIDO — los 3 ingredientes load-bearing: opacidad 0.72,
+     border casi opaco, inset shadow blanco arriba. No tocar. */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(30px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 12px 32px rgba(15, 40, 24, 0.12),
+      0 2px 6px rgba(15, 40, 24, 0.06);
+  }
+  .glass-card-compact {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(30px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 12px 32px rgba(15, 40, 24, 0.12),
+      0 2px 6px rgba(15, 40, 24, 0.06);
+  }
+
+  /* Eyebrow — micro-label uppercase para encabezados de stats/sección. */
+  .eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    color: var(--color-green-text);
+  }
+
+  /* Tabular nums — números grandes alineados en columnas (Resumen). */
+  .numeric-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+    Shell con gradient verde + isolation para blobs absolute.
+    overflow: hidden para que los blobs no escapen y no generen scroll
+    horizontal en mobile. isolation: isolate evita que el z-index de los
+    blobs se mezcle con el del Sidebar/BottomNav.
+  */
+  .dashboard-shell {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background: linear-gradient(
+      135deg,
+      var(--color-green-bg-start) 0%,
+      var(--color-green-bg-mid) 40%,
+      var(--color-green-bg-end) 100%
+    );
+  }
+  .dashboard-content {
+    position: relative;
+    z-index: 1;
   }
 }

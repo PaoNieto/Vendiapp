@@ -69,7 +69,7 @@ export default function OnboardingPage() {
           <Card className="glass-strong rounded-3xl border-0 p-7 shadow-xl sm:p-9">
             {step === 1 && (
               <>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                <h1 className="text-2xl font-medium tracking-tight text-foreground">
                   ¿A qué te dedicás?
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -110,7 +110,7 @@ export default function OnboardingPage() {
 
             {step === 2 && (
               <>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                <h1 className="text-2xl font-medium tracking-tight text-foreground">
                   ¿Para qué vas a usar Vendí?
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -160,7 +160,7 @@ export default function OnboardingPage() {
 
             {step === 3 && (
               <>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                <h1 className="text-2xl font-medium tracking-tight text-foreground">
                   Creá tu primer proyecto
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">

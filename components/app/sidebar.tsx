@@ -4,25 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
-  Package,
-  Images,
-  Palette,
-  Crop,
-  MessageSquare,
   Factory,
-  FolderOpen,
+  Package,
   Briefcase,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STATIONS = [
-  { href: "/producto", n: "01", label: "Producto", icon: Package },
-  { href: "/referencias", n: "02", label: "Referencias", icon: Images },
-  { href: "/estilo", n: "03", label: "Estilo", icon: Palette },
-  { href: "/formato", n: "04", label: "Formato", icon: Crop },
-  { href: "/prompt", n: "05", label: "Prompt", icon: MessageSquare },
-];
+// El sidebar quedó reducido a 5 items principales. El concepto de "recorrido"
+// como navegación de menú desapareció: las pantallas `/referencias` y `/formato`
+// siguen existiendo pero solo se accede a ellas desde el flujo "+ Nueva Versión"
+// o desde los botones "Editar referencias"/"Editar configuración" del drawer
+// o del detalle de versión.
 
 type SidebarProps = {
   plan: string;
@@ -43,24 +36,18 @@ export function Sidebar({ plan }: SidebarProps) {
       <nav className="mt-8 flex-1 space-y-1 overflow-y-auto">
         <NavItem
           href="/dashboard"
-          label="Inicio"
+          label="Dashboard"
           icon={Home}
           active={isActive(pathname, "/dashboard")}
         />
 
-        <SectionLabel>Recorrido</SectionLabel>
-        {STATIONS.map((s) => (
-          <NavItem
-            key={s.href}
-            href={s.href}
-            label={s.label}
-            icon={s.icon}
-            number={s.n}
-            active={isActive(pathname, s.href)}
-          />
-        ))}
+        <NavItem
+          href="/productos"
+          label="Catálogo de Productos"
+          icon={Package}
+          active={isActive(pathname, "/productos")}
+        />
 
-        <SectionDivider />
         <NavItem
           href="/fabrica"
           label="Fábrica"
@@ -68,14 +55,7 @@ export function Sidebar({ plan }: SidebarProps) {
           active={isActive(pathname, "/fabrica")}
           emphasize
         />
-        <NavItem
-          href="/proyectos"
-          label="Proyectos"
-          icon={FolderOpen}
-          active={isActive(pathname, "/proyectos")}
-        />
 
-        <SectionDivider />
         <NavItem
           href="/mi-negocio"
           label="Mi Negocio"
@@ -94,7 +74,7 @@ export function Sidebar({ plan }: SidebarProps) {
         <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Plan
         </div>
-        <div className="mt-1 text-base font-semibold tracking-tight text-foreground">
+        <div className="mt-1 text-base font-medium tracking-tight text-foreground">
           {plan}
         </div>
       </div>
@@ -106,24 +86,11 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="px-3 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function SectionDivider() {
-  return <div className="my-2 h-px bg-border/60" />;
-}
-
 type NavItemProps = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   active: boolean;
-  number?: string;
   emphasize?: boolean;
 };
 
@@ -132,7 +99,6 @@ function NavItem({
   label,
   icon: Icon,
   active,
-  number,
   emphasize,
 }: NavItemProps) {
   return (
@@ -148,16 +114,6 @@ function NavItem({
       )}
     >
       <Icon className="h-4 w-4" strokeWidth={active ? 2.5 : 2} />
-      {number && (
-        <span
-          className={cn(
-            "font-mono text-[10px]",
-            active ? "text-primary-foreground/80" : "text-muted-foreground",
-          )}
-        >
-          {number}
-        </span>
-      )}
       <span>{label}</span>
     </Link>
   );

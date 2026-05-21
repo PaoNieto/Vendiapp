@@ -7,36 +7,25 @@ import {
   useEffect,
   useState,
 } from "react";
-import type { UploadedImage } from "@/components/fabrica";
-import type { OutputRatio } from "@/lib/constants";
 
 /**
- * El shape usa `UploadedImage[]` (no `string[]`) para producto y referencias porque
- * cuando conectemos Gemini/Supabase Storage vamos a necesitar el `File`. Las imágenes
- * NO se persisten en localStorage: los blob URLs se invalidan al reload y los `File`
- * tampoco son serializables — al rehidratar las listas quedan vacías y el usuario debe
- * volver a subir. El resto del brief sí persiste.
+ * El "recorrido" ya no acumula brief — eso vive en `versions` (store y tabla
+ * 0003). Acá solo trackeamos qué producto + versión está activa para que las
+ * pantallas sepan a quién escribirle.
+ *
+ * Cualquier campo viejo del brief (`referenceImages`, `mood`, `palette`,
+ * `occasion`, `ratio`, `variations`, `userPrompt`) que aún viva en el
+ * localStorage de un usuario que ya tenía la app abierta se descarta en
+ * silencio durante la hidratación.
  */
 export type RecorridoState = {
-  productImages: UploadedImage[];
-  referenceImages: UploadedImage[];
-  mood: string | null;
-  palette: string[];
-  occasion: string | null;
-  ratio: OutputRatio;
-  variations: number;
-  userPrompt: string;
+  productId: string | null;
+  versionId: string | null;
 };
 
 const INITIAL: RecorridoState = {
-  productImages: [],
-  referenceImages: [],
-  mood: null,
-  palette: [],
-  occasion: null,
-  ratio: "1:1",
-  variations: 5,
-  userPrompt: "",
+  productId: null,
+  versionId: null,
 };
 
 const STORAGE_KEY = "vendi:recorrido";
@@ -50,14 +39,27 @@ type RecorridoContextValue = {
 
 const RecorridoContext = createContext<RecorridoContextValue | null>(null);
 
-/** Subset que sí se serializa a localStorage. Excluye listas de imágenes. */
-type PersistedState = Omit<RecorridoState, "productImages" | "referenceImages">;
+/**
+ * Whitelist de keys del shape actual. Filtra campos legacy del brief antes
+ * de aplicar sobre `INITIAL`, así un blob viejo no contamina el state.
+ */
+const KNOWN_KEYS: ReadonlyArray<keyof RecorridoState> = [
+  "productId",
+  "versionId",
+];
 
-function pickPersisted(state: RecorridoState): PersistedState {
-  const { productImages: _p, referenceImages: _r, ...rest } = state;
-  void _p;
-  void _r;
-  return rest;
+function filterKnown(parsed: Record<string, unknown>): Partial<RecorridoState> {
+  const out: Partial<RecorridoState> = {};
+  for (const key of KNOWN_KEYS) {
+    if (key in parsed) {
+      const value = parsed[key];
+      // Sólo aceptamos string | null. Cualquier otra cosa cae a INITIAL.
+      if (value === null || typeof value === "string") {
+        out[key] = value;
+      }
+    }
+  }
+  return out;
 }
 
 export function RecorridoProvider({ children }: { children: React.ReactNode }) {
@@ -68,9 +70,10 @@ export function RecorridoProvider({ children }: { children: React.ReactNode }) {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as Partial<PersistedState>;
+        const parsed = JSON.parse(stored) as Record<string, unknown>;
+        const known = filterKnown(parsed);
         // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage post-mount; el SSR no tiene acceso.
-        setLocalState((prev) => ({ ...prev, ...parsed }));
+        setLocalState((prev) => ({ ...prev, ...known }));
       }
     } catch {
       // ignore
@@ -81,7 +84,7 @@ export function RecorridoProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(pickPersisted(state)));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // ignore (quota, etc.)
     }

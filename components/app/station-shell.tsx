@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { PillButton } from "@/components/dashboard";
 
 type StationShellProps = {
   number: string;
@@ -37,7 +36,7 @@ export function StationShell({
           <span className="font-mono text-sm font-semibold text-primary">
             {number}
           </span>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
             {title}
           </h1>
         </div>
@@ -50,10 +49,7 @@ export function StationShell({
             {prevHref ? (
               <Link
                 href={prevHref}
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "lg" }),
-                  "h-12 rounded-xl",
-                )}
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-green-text hover:text-green-dark"
               >
                 <ArrowLeft className="h-4 w-4" />
                 {prevLabel ?? "Volver"}
@@ -64,18 +60,10 @@ export function StationShell({
             {nextHref ? (
               nextDisabled ? (
                 <div className="flex flex-col items-end gap-1">
-                  <button
-                    type="button"
-                    disabled
-                    aria-disabled
-                    className={cn(
-                      buttonVariants({ size: "lg" }),
-                      "h-12 cursor-not-allowed rounded-xl opacity-50",
-                    )}
-                  >
+                  <PillButton size="md" disabled aria-disabled>
                     {nextLabel ?? "Continuar"}
                     <ArrowRight className="h-4 w-4" />
-                  </button>
+                  </PillButton>
                   {nextDisabledHint && (
                     <span className="text-[11px] text-muted-foreground">
                       {nextDisabledHint}
@@ -83,16 +71,12 @@ export function StationShell({
                   )}
                 </div>
               ) : (
-                <Link
-                  href={nextHref}
-                  className={cn(
-                    buttonVariants({ size: "lg" }),
-                    "h-12 rounded-xl",
-                  )}
-                >
-                  {nextLabel ?? "Continuar"}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
+                <PillButton size="md" asChild>
+                  <Link href={nextHref}>
+                    {nextLabel ?? "Continuar"}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </PillButton>
               )
             ) : (
               <div />
