@@ -11,6 +11,11 @@ import {
 import type { OutputRatio } from "@/lib/constants";
 import { useUser } from "@/lib/auth/use-user";
 import { createClient } from "@/lib/supabase/client";
+import {
+  isPersistedUrl,
+  uploadImagesToBucket,
+  type UploadResult,
+} from "@/lib/supabase/storage";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:generations` (con generations + images embebidas). Ya no se escribe
@@ -18,6 +23,10 @@ import { createClient } from "@/lib/supabase/client";
 // `public.generated_images`, filtradas por `auth.uid()` vía RLS). Si encontrás
 // un `vendi:generations` viejo en tu browser, ignoralo: ya no es la fuente
 // de verdad.
+
+// TODO(migration): script one-off para migrar dataURLs existentes de la DB a
+// Storage. Por ahora se manejan en cliente con backwards compat — las URLs
+// http/https subidas conviven en `image_url` con dataURLs viejos.
 
 /**
  * Shape espejo de la tabla `public.generations` de Supabase.
@@ -462,6 +471,9 @@ export function GenerationsProvider({
     (generationId: string, urls: string[]) => {
       const currentUser = user;
       const now = new Date().toISOString();
+      // Optimistic: insertamos las imágenes con los dataURLs originales para
+      // que la UI las pinte de inmediato. Luego de subir a Storage, pisamos
+      // `image_url` con la URL persistida.
       const newImages: GeneratedImage[] = urls.map((url, index) => ({
         id: crypto.randomUUID(),
         generation_id: generationId,
@@ -483,7 +495,6 @@ export function GenerationsProvider({
       if (!currentUser) {
         console.error("attachImages called without a logged-in user");
         setError("No hay sesión activa.");
-        // Rollback de las imágenes optimistas.
         const newIds = new Set(newImages.map((img) => img.id));
         setLocalState((prev) => ({
           ...prev,
@@ -492,49 +503,102 @@ export function GenerationsProvider({
         return;
       }
 
-      // Bulk insert — N rows en una sola request. Si falla, rollback de
-      // todas las imágenes optimistas (no parcial).
-      const payload = newImages.map((img) => ({
-        id: img.id,
-        generation_id: img.generation_id,
-        user_id: currentUser.id,
-        image_url: img.image_url,
-        thumbnail_url: img.thumbnail_url,
-        variation_index: img.variation_index,
-        metadata: img.metadata,
-        is_favorite: img.is_favorite,
-        is_downloaded: img.is_downloaded,
-        strict_prompt: img.strict_prompt,
-      }));
+      void (async () => {
+        // Partimos los inputs en "ya URL persistida" vs "para subir".
+        type Slot =
+          | { kind: "kept"; value: string; idx: number }
+          | { kind: "pending"; value: string; idx: number };
+        const slots: Slot[] = urls.map((u, idx) =>
+          isPersistedUrl(u)
+            ? { kind: "kept", value: u, idx }
+            : { kind: "pending", value: u, idx },
+        );
+        const pendingInputs = slots
+          .filter((s): s is Extract<Slot, { kind: "pending" }> => s.kind === "pending")
+          .map((s) => s.value);
 
-      void supabase
-        .from("generated_images")
-        .insert(payload)
-        .select()
-        .then(({ data, error: insertError }) => {
-          if (insertError) {
-            console.error("Failed to insert generated_images:", insertError);
-            setError(insertError.message);
-            const newIds = new Set(newImages.map((img) => img.id));
-            setLocalState((prev) => ({
-              ...prev,
-              images: prev.images.filter((img) => !newIds.has(img.id)),
-            }));
-            return;
+        let uploaded: UploadResult[] = [];
+        if (pendingInputs.length > 0) {
+          uploaded = await uploadImagesToBucket({
+            bucket: "generated-images",
+            userId: currentUser.id,
+            resourceId: generationId,
+            dataUrls: pendingInputs,
+          });
+        }
+
+        const failures: string[] = [];
+        let uploadCursor = 0;
+        const finalUrls = slots.map((slot) => {
+          if (slot.kind === "kept") return slot.value;
+          const res = uploaded[uploadCursor];
+          uploadCursor += 1;
+          if (!res || !res.ok) {
+            if (res && !res.ok) failures.push(res.error);
+            return slot.value;
           }
-          // Reemplazamos los optimistas por las rows reales del server.
-          const returned = Array.isArray(data) ? data : [];
-          const parsedById = new Map<string, GeneratedImage>();
-          for (const row of returned) {
-            const parsed = parseGeneratedImageRow(row);
-            if (parsed) parsedById.set(parsed.id, parsed);
-          }
+          return res.url;
+        });
+
+        if (failures.length > 0) {
+          console.error("Some generated-image uploads failed:", failures);
+          setError(`No pude subir ${failures.length} imagen(es) generada(s).`);
+        }
+
+        // Sync state local con las URLs reales.
+        const persistedById = new Map<string, string>();
+        newImages.forEach((img, i) => {
+          persistedById.set(img.id, finalUrls[i]);
+        });
+        setLocalState((prev) => ({
+          ...prev,
+          images: prev.images.map((img) => {
+            const next = persistedById.get(img.id);
+            return next ? { ...img, image_url: next } : img;
+          }),
+        }));
+
+        // Bulk insert con las URLs reales (o dataURLs degradados si fallaron).
+        const payload = newImages.map((img, i) => ({
+          id: img.id,
+          generation_id: img.generation_id,
+          user_id: currentUser.id,
+          image_url: finalUrls[i],
+          thumbnail_url: img.thumbnail_url,
+          variation_index: img.variation_index,
+          metadata: img.metadata,
+          is_favorite: img.is_favorite,
+          is_downloaded: img.is_downloaded,
+          strict_prompt: img.strict_prompt,
+        }));
+
+        const { data, error: insertError } = await supabase
+          .from("generated_images")
+          .insert(payload)
+          .select();
+        if (insertError) {
+          console.error("Failed to insert generated_images:", insertError);
+          setError(insertError.message);
+          const newIds = new Set(newImages.map((img) => img.id));
           setLocalState((prev) => ({
             ...prev,
-            images: prev.images.map((img) => parsedById.get(img.id) ?? img),
+            images: prev.images.filter((img) => !newIds.has(img.id)),
           }));
-          setError(null);
-        });
+          return;
+        }
+        // Reemplazamos los optimistas por las rows reales del server.
+        const returned = Array.isArray(data) ? data : [];
+        const parsedById = new Map<string, GeneratedImage>();
+        for (const row of returned) {
+          const parsed = parseGeneratedImageRow(row);
+          if (parsed) parsedById.set(parsed.id, parsed);
+        }
+        setLocalState((prev) => ({
+          ...prev,
+          images: prev.images.map((img) => parsedById.get(img.id) ?? img),
+        }));
+        if (failures.length === 0) setError(null);
+      })();
     },
     [supabase, user],
   );

@@ -12,12 +12,17 @@ import type { OutputRatio } from "@/lib/constants";
 import type { CuratedStyleId } from "@/app/(app)/referencias/page";
 import { useUser } from "@/lib/auth/use-user";
 import { createClient } from "@/lib/supabase/client";
+import { isPersistedUrl, uploadImageToBucket } from "@/lib/supabase/storage";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:analyses`. Ya no se escribe ni lee — los datos viven en Supabase
 // (tabla `public.analyses`, migración 0005, filtrada por `auth.uid()` vía RLS).
 // Si encontrás un `vendi:analyses` viejo en tu browser, ignoralo: ya no es la
 // fuente de verdad.
+
+// TODO(migration): script one-off para migrar dataURLs existentes de la DB a
+// Storage. Por ahora se manejan en cliente con backwards compat — la columna
+// `image_url` puede contener URLs http(s) nuevas o dataURLs viejos.
 
 /**
  * Store de análisis IA persistidos.
@@ -198,38 +203,63 @@ export function AnalysesProvider({ children }: { children: React.ReactNode }) {
         return optimistic;
       }
 
-      void supabase
-        .from("analyses")
-        .insert({
-          id: optimistic.id,
-          user_id: currentUser.id,
-          image_url: optimistic.image_url,
-          output_ratio: optimistic.output_ratio,
-          composition: optimistic.composition,
-          lighting: optimistic.lighting,
-          why_it_sells: optimistic.why_it_sells,
-          identified_styles: optimistic.identified_styles,
-        })
-        .select()
-        .single()
-        .then(({ data, error: insertError }) => {
-          if (insertError) {
-            console.error("Failed to insert analysis:", insertError);
-            setError(insertError.message);
+      void (async () => {
+        // Subimos la foto a Storage antes de persistir la fila (Postgres recibe
+        // la URL persistida, no el dataURL). Si el upload falla, igual
+        // insertamos con el dataURL como fallback graceful — peor caso, la foto
+        // queda gigante en la tabla pero el análisis no se pierde.
+        let imageUrl = optimistic.image_url;
+        if (!isPersistedUrl(imageUrl)) {
+          const result = await uploadImageToBucket({
+            bucket: "analysis-uploads",
+            userId: currentUser.id,
+            resourceId: optimistic.id,
+            dataUrl: imageUrl,
+          });
+          if (result.ok) {
+            imageUrl = result.url;
             setLocalState((prev) => ({
-              analyses: prev.analyses.filter((a) => a.id !== optimistic.id),
+              analyses: prev.analyses.map((a) =>
+                a.id === optimistic.id ? { ...a, image_url: result.url } : a,
+              ),
             }));
-            return;
+          } else {
+            console.error("Failed to upload analysis image:", result.error);
+            setError(`No pude subir la foto del análisis: ${result.error}`);
           }
-          const parsed = parseAnalysisRow(data);
-          if (!parsed) return;
+        }
+
+        const { data, error: insertError } = await supabase
+          .from("analyses")
+          .insert({
+            id: optimistic.id,
+            user_id: currentUser.id,
+            image_url: imageUrl,
+            output_ratio: optimistic.output_ratio,
+            composition: optimistic.composition,
+            lighting: optimistic.lighting,
+            why_it_sells: optimistic.why_it_sells,
+            identified_styles: optimistic.identified_styles,
+          })
+          .select()
+          .single();
+        if (insertError) {
+          console.error("Failed to insert analysis:", insertError);
+          setError(insertError.message);
           setLocalState((prev) => ({
-            analyses: prev.analyses.map((a) =>
-              a.id === parsed.id ? parsed : a,
-            ),
+            analyses: prev.analyses.filter((a) => a.id !== optimistic.id),
           }));
-          setError(null);
-        });
+          return;
+        }
+        const parsed = parseAnalysisRow(data);
+        if (!parsed) return;
+        setLocalState((prev) => ({
+          analyses: prev.analyses.map((a) =>
+            a.id === parsed.id ? parsed : a,
+          ),
+        }));
+        if (isPersistedUrl(imageUrl)) setError(null);
+      })();
 
       return optimistic;
     },

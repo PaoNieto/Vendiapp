@@ -15,12 +15,21 @@ import {
 } from "@/lib/constants";
 import { useUser } from "@/lib/auth/use-user";
 import { createClient } from "@/lib/supabase/client";
+import {
+  isPersistedUrl,
+  uploadImagesToBucket,
+  type UploadResult,
+} from "@/lib/supabase/storage";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:versions`. Ya no se escribe ni lee — los datos viven en Supabase
 // (tabla `public.versions`, filtrada por `auth.uid()` vía RLS). Si encontrás
 // un `vendi:versions` viejo en tu browser, ignoralo: ya no es la fuente
 // de verdad.
+
+// TODO(migration): script one-off para migrar dataURLs existentes de la DB a
+// Storage. Por ahora se manejan en cliente con backwards compat — las URLs
+// http/https subidas conviven en `reference_images` con dataURLs viejos.
 
 /**
  * Shape espejo de la tabla `public.versions` (migración 0003).
@@ -93,6 +102,53 @@ const ALLOWED_RATIOS: ReadonlyArray<OutputRatio> = ["1:1", "4:5", "9:16", "16:9"
 
 function isOutputRatio(v: unknown): v is OutputRatio {
   return typeof v === "string" && (ALLOWED_RATIOS as readonly string[]).includes(v);
+}
+
+/**
+ * Sube las referencias que sean dataURL/blob a `references-uploads`. Las que
+ * ya sean URLs http(s) pasan sin tocar. Si una falla, conserva el input
+ * original (degradación graceful).
+ */
+async function uploadReferenceImages(
+  userId: string,
+  versionId: string,
+  inputs: string[],
+): Promise<{ urls: string[]; failures: string[] }> {
+  if (inputs.length === 0) return { urls: [], failures: [] };
+
+  type Slot = { kind: "kept"; value: string } | { kind: "pending"; value: string };
+  const slots: Slot[] = inputs.map((input) =>
+    isPersistedUrl(input)
+      ? { kind: "kept", value: input }
+      : { kind: "pending", value: input },
+  );
+  const pending = slots
+    .filter((s): s is { kind: "pending"; value: string } => s.kind === "pending")
+    .map((s) => s.value);
+
+  let uploaded: UploadResult[] = [];
+  if (pending.length > 0) {
+    uploaded = await uploadImagesToBucket({
+      bucket: "references-uploads",
+      userId,
+      resourceId: versionId,
+      dataUrls: pending,
+    });
+  }
+
+  const failures: string[] = [];
+  let uploadCursor = 0;
+  const urls = slots.map((slot) => {
+    if (slot.kind === "kept") return slot.value;
+    const res = uploaded[uploadCursor];
+    uploadCursor += 1;
+    if (!res || !res.ok) {
+      if (res && !res.ok) failures.push(res.error);
+      return slot.value;
+    }
+    return res.url;
+  });
+  return { urls, failures };
 }
 
 function parseVersionRow(row: unknown): Version | null {
@@ -203,39 +259,57 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
         return optimistic;
       }
 
-      void supabase
-        .from("versions")
-        .insert({
-          id: optimistic.id,
-          user_id: currentUser.id,
-          product_id: optimistic.product_id,
-          name: optimistic.name,
-          description: optimistic.description,
-          reference_images: optimistic.reference_images,
-          output_ratio: optimistic.output_ratio,
-          variations_default: optimistic.variations_default,
-          user_prompt: optimistic.user_prompt,
-        })
-        .select()
-        .single()
-        .then(({ data, error: insertError }) => {
-          if (insertError) {
-            console.error("Failed to insert version:", insertError);
-            setError(insertError.message);
-            setLocalState((prev) => ({
-              versions: prev.versions.filter((v) => v.id !== optimistic.id),
-            }));
-            return;
-          }
-          const parsed = parseVersionRow(data);
-          if (!parsed) return;
+      // Pipeline: subir refs → reemplazar URLs en state → INSERT con URLs reales.
+      void (async () => {
+        const { urls: persistedRefs, failures } = await uploadReferenceImages(
+          currentUser.id,
+          optimistic.id,
+          optimistic.reference_images,
+        );
+        if (failures.length > 0) {
+          console.error("Some reference uploads failed:", failures);
+          setError(`No pude subir ${failures.length} referencia(s).`);
+        }
+        setLocalState((prev) => ({
+          versions: prev.versions.map((v) =>
+            v.id === optimistic.id
+              ? { ...v, reference_images: persistedRefs }
+              : v,
+          ),
+        }));
+
+        const { data, error: insertError } = await supabase
+          .from("versions")
+          .insert({
+            id: optimistic.id,
+            user_id: currentUser.id,
+            product_id: optimistic.product_id,
+            name: optimistic.name,
+            description: optimistic.description,
+            reference_images: persistedRefs,
+            output_ratio: optimistic.output_ratio,
+            variations_default: optimistic.variations_default,
+            user_prompt: optimistic.user_prompt,
+          })
+          .select()
+          .single();
+        if (insertError) {
+          console.error("Failed to insert version:", insertError);
+          setError(insertError.message);
           setLocalState((prev) => ({
-            versions: prev.versions.map((v) =>
-              v.id === parsed.id ? parsed : v,
-            ),
+            versions: prev.versions.filter((v) => v.id !== optimistic.id),
           }));
-          setError(null);
-        });
+          return;
+        }
+        const parsed = parseVersionRow(data);
+        if (!parsed) return;
+        setLocalState((prev) => ({
+          versions: prev.versions.map((v) =>
+            v.id === parsed.id ? parsed : v,
+          ),
+        }));
+        if (failures.length === 0) setError(null);
+      })();
 
       return optimistic;
     },
@@ -257,47 +331,69 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!currentUser || !snapshot) return;
-
-      const patch: Record<string, unknown> = {};
-      if ("name" in partial) patch.name = partial.name;
-      if ("description" in partial) patch.description = partial.description;
-      if ("reference_images" in partial)
-        patch.reference_images = partial.reference_images;
-      if ("output_ratio" in partial) patch.output_ratio = partial.output_ratio;
-      if ("variations_default" in partial)
-        patch.variations_default = partial.variations_default;
-      if ("user_prompt" in partial) patch.user_prompt = partial.user_prompt;
-      // product_id NO se patcha — una versión no migra entre productos.
-
-      if (Object.keys(patch).length === 0) return;
-
       const captured = snapshot;
-      void supabase
-        .from("versions")
-        .update(patch)
-        .eq("id", id)
-        .select()
-        .single()
-        .then(({ data, error: updateError }) => {
-          if (updateError) {
-            console.error("Failed to update version:", updateError);
-            setError(updateError.message);
-            setLocalState((prev) => ({
-              versions: prev.versions.map((v) =>
-                v.id === id ? captured : v,
-              ),
-            }));
-            return;
+
+      void (async () => {
+        // Si el caller pasó reference_images, levantamos las que sean dataURLs
+        // a Storage antes del UPDATE. Las que ya estén persistidas (http(s))
+        // pasan sin tocar — esto incluye el caso de "remover una ref" donde
+        // sólo se filtra el array existente.
+        let patchReferences: string[] | undefined;
+        if ("reference_images" in partial && Array.isArray(partial.reference_images)) {
+          const { urls, failures } = await uploadReferenceImages(
+            currentUser.id,
+            id,
+            partial.reference_images,
+          );
+          if (failures.length > 0) {
+            console.error("Some reference uploads failed:", failures);
+            setError(`No pude subir ${failures.length} referencia(s).`);
           }
-          const parsed = parseVersionRow(data);
-          if (!parsed) return;
+          patchReferences = urls;
+          // Sync state con las URLs persistidas (UX: <Image> rehidrata).
           setLocalState((prev) => ({
             versions: prev.versions.map((v) =>
-              v.id === parsed.id ? parsed : v,
+              v.id === id ? { ...v, reference_images: urls } : v,
             ),
           }));
-          setError(null);
-        });
+        }
+
+        const patch: Record<string, unknown> = {};
+        if ("name" in partial) patch.name = partial.name;
+        if ("description" in partial) patch.description = partial.description;
+        if (patchReferences !== undefined)
+          patch.reference_images = patchReferences;
+        if ("output_ratio" in partial) patch.output_ratio = partial.output_ratio;
+        if ("variations_default" in partial)
+          patch.variations_default = partial.variations_default;
+        if ("user_prompt" in partial) patch.user_prompt = partial.user_prompt;
+        // product_id NO se patcha — una versión no migra entre productos.
+
+        if (Object.keys(patch).length === 0) return;
+
+        const { data, error: updateError } = await supabase
+          .from("versions")
+          .update(patch)
+          .eq("id", id)
+          .select()
+          .single();
+        if (updateError) {
+          console.error("Failed to update version:", updateError);
+          setError(updateError.message);
+          setLocalState((prev) => ({
+            versions: prev.versions.map((v) => (v.id === id ? captured : v)),
+          }));
+          return;
+        }
+        const parsed = parseVersionRow(data);
+        if (!parsed) return;
+        setLocalState((prev) => ({
+          versions: prev.versions.map((v) =>
+            v.id === parsed.id ? parsed : v,
+          ),
+        }));
+        setError(null);
+      })();
     },
     [supabase, user],
   );

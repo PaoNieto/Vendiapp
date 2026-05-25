@@ -10,12 +10,21 @@ import {
 } from "react";
 import { useUser } from "@/lib/auth/use-user";
 import { createClient } from "@/lib/supabase/client";
+import {
+  isPersistedUrl,
+  uploadImagesToBucket,
+  type UploadResult,
+} from "@/lib/supabase/storage";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:products`. Ya no se escribe ni lee — los datos viven en Supabase
 // (tabla `public.projects`, filtrada por `auth.uid()` vía RLS). Si encontrás
 // un `vendi:products` viejo en tu browser, ignoralo: ya no es la fuente
 // de verdad. No lo borramos para no destruir datos del usuario sin aviso.
+
+// TODO(migration): script one-off para migrar dataURLs existentes de la DB a
+// Storage. Por ahora se manejan en cliente con backwards compat — las URLs
+// http/https subidas conviven en el array `product_images` con dataURLs viejos.
 
 /**
  * Shape espejo de la tabla `public.projects` de Supabase.
@@ -81,6 +90,56 @@ const ProductsContext = createContext<ProductsContextValue | null>(null);
 function svgPlaceholder(bg: string, label: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/><text x="100" y="108" font-family="system-ui,sans-serif" font-size="18" fill="#fff" text-anchor="middle">${label}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Sube las imágenes que sean dataURL/blob a Storage y mantiene en su lugar
+ * las que ya sean URLs http(s). Si una falla, conserva el input original
+ * (degradación graceful: peor caso, queda como dataURL hasta el próximo
+ * refresh — preferible a perder la imagen entera).
+ */
+async function uploadProductImages(
+  userId: string,
+  productId: string,
+  inputs: string[],
+): Promise<{ urls: string[]; failures: string[] }> {
+  if (inputs.length === 0) return { urls: [], failures: [] };
+
+  // Partimos los inputs en "ya subidos" (pasan sin tocar) y "para subir".
+  type Slot = { kind: "kept"; value: string } | { kind: "pending"; value: string };
+  const slots: Slot[] = inputs.map((input) =>
+    isPersistedUrl(input)
+      ? { kind: "kept", value: input }
+      : { kind: "pending", value: input },
+  );
+  const pending = slots
+    .filter((s): s is { kind: "pending"; value: string } => s.kind === "pending")
+    .map((s) => s.value);
+
+  let uploaded: UploadResult[] = [];
+  if (pending.length > 0) {
+    uploaded = await uploadImagesToBucket({
+      bucket: "product-uploads",
+      userId,
+      resourceId: productId,
+      dataUrls: pending,
+    });
+  }
+
+  // Re-emparejamos resultados con sus slots originales.
+  const failures: string[] = [];
+  let uploadCursor = 0;
+  const urls = slots.map((slot) => {
+    if (slot.kind === "kept") return slot.value;
+    const res = uploaded[uploadCursor];
+    uploadCursor += 1;
+    if (!res || !res.ok) {
+      if (res && !res.ok) failures.push(res.error);
+      return slot.value;
+    }
+    return res.url;
+  });
+  return { urls, failures };
 }
 
 /**
@@ -191,40 +250,59 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
         return optimistic;
       }
 
-      // Fire-and-forget: la UI ya tiene el producto. Si falla, rollback +
-      // setError. Devolvemos el optimistic shape sync para no cambiar la
-      // API pública (consumers acceden a `created.id` inmediatamente).
-      void supabase
-        .from("projects")
-        .insert({
-          id: optimistic.id,
-          user_id: currentUser.id,
-          name: optimistic.name,
-          description: optimistic.description,
-          cover_image_url: optimistic.cover_image_url,
-          product_images: optimistic.product_images,
-        })
-        .select()
-        .single()
-        .then(({ data, error: insertError }) => {
-          if (insertError) {
-            console.error("Failed to insert product:", insertError);
-            setError(insertError.message);
-            setLocalState((prev) => ({
-              products: prev.products.filter((p) => p.id !== optimistic.id),
-            }));
-            return;
-          }
-          const parsed = parseProductRow(data);
-          if (!parsed) return;
-          // Reemplazamos el optimistic por la row real (timestamps del server).
+      // Pipeline async: 1) subir imágenes a Storage (no bloqueante para la UI
+      // optimista, que ya muestra el dataURL), 2) INSERT a Postgres con las
+      // URLs reales, 3) reemplazar el optimistic por la row del server.
+      // Si Storage falla parcial o totalmente, igual insertamos lo que tenemos
+      // (URLs + dataURLs degradados) para no perder el producto entero.
+      void (async () => {
+        const inputs = optimistic.product_images;
+        const { urls, failures } = await uploadProductImages(
+          currentUser.id,
+          optimistic.id,
+          inputs,
+        );
+        if (failures.length > 0) {
+          console.error("Some product image uploads failed:", failures);
+          setError(`No pude subir ${failures.length} imagen(es) de producto.`);
+        }
+        // Sync state local con las URLs reales (UX: la <Image> rehidrata).
+        setLocalState((prev) => ({
+          products: prev.products.map((p) =>
+            p.id === optimistic.id ? { ...p, product_images: urls } : p,
+          ),
+        }));
+
+        const { data, error: insertError } = await supabase
+          .from("projects")
+          .insert({
+            id: optimistic.id,
+            user_id: currentUser.id,
+            name: optimistic.name,
+            description: optimistic.description,
+            cover_image_url: optimistic.cover_image_url,
+            product_images: urls,
+          })
+          .select()
+          .single();
+        if (insertError) {
+          console.error("Failed to insert product:", insertError);
+          setError(insertError.message);
           setLocalState((prev) => ({
-            products: prev.products.map((p) =>
-              p.id === parsed.id ? parsed : p,
-            ),
+            products: prev.products.filter((p) => p.id !== optimistic.id),
           }));
-          setError(null);
-        });
+          return;
+        }
+        const parsed = parseProductRow(data);
+        if (!parsed) return;
+        // Reemplazamos el optimistic por la row real (timestamps del server).
+        setLocalState((prev) => ({
+          products: prev.products.map((p) =>
+            p.id === parsed.id ? parsed : p,
+          ),
+        }));
+        if (failures.length === 0) setError(null);
+      })();
 
       return optimistic;
     },
@@ -329,10 +407,39 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       if (urls.length === 0) return;
       const current = state.products.find((p) => p.id === productId);
       if (!current) return;
-      const nextImages = [...current.product_images, ...urls];
-      updateProduct(productId, { product_images: nextImages });
+
+      // Optimistic: el state local muestra los dataURLs ya (UX inmediata).
+      // El reemplazo por URLs persistentes ocurre cuando termina el upload.
+      const optimisticNext = [...current.product_images, ...urls];
+      setLocalState((prev) => ({
+        products: prev.products.map((p) =>
+          p.id === productId ? { ...p, product_images: optimisticNext } : p,
+        ),
+      }));
+
+      const currentUser = user;
+      if (!currentUser) {
+        console.error("addImagesToProduct called without a logged-in user");
+        setError("No hay sesión activa.");
+        return;
+      }
+
+      void (async () => {
+        const { urls: persisted, failures } = await uploadProductImages(
+          currentUser.id,
+          productId,
+          urls,
+        );
+        if (failures.length > 0) {
+          console.error("Some product image uploads failed:", failures);
+          setError(`No pude subir ${failures.length} imagen(es) de producto.`);
+        }
+        const finalNext = [...current.product_images, ...persisted];
+        // Pasamos por `updateProduct` para reusar su UPDATE + rollback path.
+        updateProduct(productId, { product_images: finalNext });
+      })();
     },
-    [state.products, updateProduct],
+    [state.products, updateProduct, user],
   );
 
   const removeImageFromProduct = useCallback(
