@@ -17,6 +17,7 @@ import {
   type Generation,
 } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
+import { useUser, useUserInitials } from "@/lib/auth/use-user";
 import { useProducts, type Product } from "@/lib/products/store";
 import { useVersions, type Version } from "@/lib/versions/store";
 
@@ -329,15 +330,6 @@ function buildActivityEvents(
   return events.slice(0, 5);
 }
 
-/**
- * Iniciales para el avatar: primeras 2 letras del brandName en uppercase.
- * Si no hay brandName, default `"N"` (consistente con "Nati").
- */
-function brandInitials(brandName: string): string {
-  const clean = brandName.trim();
-  if (!clean) return "N";
-  return clean.slice(0, 2).toUpperCase();
-}
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Page
@@ -348,12 +340,25 @@ export default function DashboardPage() {
   const products = useProducts();
   const generations = useGenerations();
   const versions = useVersions();
+  const { user } = useUser();
+  const initials = useUserInitials();
 
   const allHydrated =
     negocio.hydrated &&
     products.hydrated &&
     generations.hydrated &&
     versions.hydrated;
+
+  // Nombre para el saludo: display_name del user auth, o fallback al email,
+  // o "Nati" si por alguna razón no hay user (no debería pasar — el middleware
+  // ya redirige a /login).
+  const userMeta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const userDisplayName =
+    typeof userMeta.display_name === "string" && userMeta.display_name.trim()
+      ? userMeta.display_name.trim()
+      : user?.email?.split("@")[0] ?? "Nati";
+  // Solo el primer nombre para el saludo (más natural que el nombre completo).
+  const displayName = userDisplayName.split(/\s+/)[0] ?? userDisplayName;
 
   return (
     <div className="px-5 py-6 sm:px-8 sm:py-8">
@@ -362,7 +367,8 @@ export default function DashboardPage() {
           <DashboardSkeleton />
         ) : (
           <DashboardContent
-            brandName={negocio.state.brandName}
+            displayName={displayName}
+            initials={initials}
             products={products}
             generations={generations}
             versions={versions}
@@ -374,12 +380,14 @@ export default function DashboardPage() {
 }
 
 function DashboardContent({
-  brandName,
+  displayName,
+  initials,
   products,
   generations,
   versions,
 }: {
-  brandName: string;
+  displayName: string;
+  initials: string;
   products: ReturnType<typeof useProducts>;
   generations: ReturnType<typeof useGenerations>;
   versions: ReturnType<typeof useVersions>;
@@ -389,9 +397,6 @@ function DashboardContent({
   const productsCount = products.state.products.length;
   const lastProduct = products.getRecent(1)[0];
   const ctaHref = nuevaImagenHref(productsCount);
-
-  const displayName = brandName.trim().length > 0 ? brandName : "Nati";
-  const initials = brandInitials(displayName);
   const now = new Date();
   const eyebrowDate = formatEyebrowDate(now);
   const saludo = getSaludo(now);
