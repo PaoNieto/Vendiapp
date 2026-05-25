@@ -18,6 +18,7 @@ import type { Generation } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useProducts } from "@/lib/products/store";
 import type { Product } from "@/lib/products/store";
+import { useUserInitials } from "@/lib/auth/use-user";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,7 +42,7 @@ export default function ProductosPage() {
   const allHydrated =
     products.hydrated && generations.hydrated && negocio.hydrated;
   const items = products.state.products;
-  const brandInitials = pickInitials(negocio.state.brandName);
+  const brandInitials = useUserInitials();
 
   return (
     <>
@@ -350,12 +351,3 @@ function CatalogSkeleton() {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
-
-function pickInitials(brandName: string): string {
-  const clean = brandName.trim();
-  if (!clean) return "N";
-  return clean.slice(0, 2).toUpperCase();
-}

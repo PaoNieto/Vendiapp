@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatRelativeTime } from "@/lib/generations/format";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
+import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useRecorrido } from "@/lib/recorrido/store";
 import { useVersions } from "@/lib/versions/store";
@@ -46,6 +47,7 @@ export default function ProductDetailPage() {
   const generations = useGenerations();
   const recorrido = useRecorrido();
   const negocio = useNegocio();
+  const brandInitials = useUserInitials();
 
   const id = params.id;
   const allHydrated =
@@ -88,8 +90,6 @@ export default function ProductDetailPage() {
   if (!allHydrated || !product) {
     return <DetailSkeleton />;
   }
-
-  const brandInitials = pickInitials(negocio.state.brandName);
 
   return (
     <>
@@ -418,8 +418,3 @@ function DetailSkeleton() {
   );
 }
 
-function pickInitials(brandName: string): string {
-  const clean = brandName.trim();
-  if (!clean) return "N";
-  return clean.slice(0, 2).toUpperCase();
-}

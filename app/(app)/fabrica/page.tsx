@@ -22,6 +22,7 @@ import { Topbar } from "@/components/app/topbar";
 import { formatRelativeTime } from "@/lib/generations/format";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
+import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useVersions } from "@/lib/versions/store";
 import { isVersionReady } from "@/lib/validations/recorrido";
@@ -63,6 +64,7 @@ function FabricaContent() {
   const versions = useVersions();
   const generations = useGenerations();
   const negocio = useNegocio();
+  const brandInitials = useUserInitials();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -267,7 +269,6 @@ function FabricaContent() {
   const totalVersions = versions.state.versions.length;
   const hasAnyVersions = totalVersions > 0;
   const hasFilteredResults = filteredVersions.length > 0;
-  const brandInitials = pickInitials(negocio.state.brandName);
 
   return (
     <>
@@ -568,12 +569,6 @@ function FabricaSkeleton() {
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
-
-function pickInitials(brandName: string): string {
-  const clean = brandName.trim();
-  if (!clean) return "N";
-  return clean.slice(0, 2).toUpperCase();
-}
 
 /**
  * Mapea el "estado efectivo" interno al status accepted por `StatusBadge`.

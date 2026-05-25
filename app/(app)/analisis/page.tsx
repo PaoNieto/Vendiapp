@@ -30,6 +30,7 @@ import {
 import { useAnalyses, type Analysis } from "@/lib/analyses/store";
 import { formatRelativeTime } from "@/lib/generations/format";
 import { useNegocio } from "@/lib/negocio/store";
+import { useUserInitials } from "@/lib/auth/use-user";
 import { analyzeImage } from "@/lib/ai/image-analyzer";
 import { formatGenerationError } from "@/lib/ai/image-generator";
 import { cn } from "@/lib/utils";
@@ -92,11 +93,6 @@ const RATIO_ASPECT: Record<RatioValue, string> = {
   "16:9": "aspect-video",
 };
 
-function pickInitials(brandName: string): string {
-  const clean = brandName.trim();
-  if (!clean) return "N";
-  return clean.slice(0, 2).toUpperCase();
-}
 
 /**
  * Convierte un `blob:` URL del uploader a un dataURL base64 que persiste en
@@ -160,7 +156,7 @@ type CreatingState =
 export default function AnalisisPage() {
   const negocio = useNegocio();
   const analyses = useAnalyses();
-  const brandInitials = pickInitials(negocio.state.brandName);
+  const brandInitials = useUserInitials();
 
   // El estado de pantalla arranca en "gallery" porque preferimos pintar la
   // galería ni bien hidrate. La transición a "creating" cuando hay 0

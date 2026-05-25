@@ -17,6 +17,7 @@ import {
 } from "@/app/(app)/referencias/page";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
+import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useRecorrido } from "@/lib/recorrido/store";
 import { useVersions } from "@/lib/versions/store";
@@ -52,6 +53,7 @@ export default function VersionDetailPage() {
   const generations = useGenerations();
   const recorrido = useRecorrido();
   const negocio = useNegocio();
+  const brandInitials = useUserInitials();
 
   const productId = params.id;
   const versionId = params.versionId;
@@ -171,7 +173,6 @@ export default function VersionDetailPage() {
   const hasCompletedGens = versionGenerations.some(
     (g) => g.status === "completed",
   );
-  const brandInitials = pickInitials(negocio.state.brandName);
   const curated = pickCuratedStyle(version.reference_images);
 
   return (
@@ -549,11 +550,6 @@ function VersionSkeleton() {
   );
 }
 
-function pickInitials(brandName: string): string {
-  const clean = brandName.trim();
-  if (!clean) return "N";
-  return clean.slice(0, 2).toUpperCase();
-}
 
 function pickCuratedStyle(refs: string[]): CuratedStyle | null {
   for (const ref of refs) {

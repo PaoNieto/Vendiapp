@@ -65,3 +65,27 @@ export function useUser() {
   if (!ctx) throw new Error("useUser must be inside UserProvider");
   return ctx;
 }
+
+/**
+ * Iniciales del usuario logueado para el `<AvatarCircle />`.
+ * Toma del `display_name` (`user_metadata`) si existe; si no, primera
+ * letra del email; fallback final "N".
+ *
+ * - "Paolo Nieto" → "PN"
+ * - "Paolo" → "P"
+ * - "paolo@example.com" → "P"
+ */
+export function useUserInitials(): string {
+  const { user } = useUser();
+  if (!user) return "N";
+  const meta = user.user_metadata as Record<string, unknown> | null;
+  const displayName =
+    meta && typeof meta.display_name === "string" ? meta.display_name : "";
+  const source = displayName.trim() || user.email?.trim() || "";
+  if (!source) return "N";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return parts[0]!.slice(0, 1).toUpperCase();
+}
