@@ -69,6 +69,13 @@ type VersionsContextValue = {
   createVersion: (input: VersionCreateInput) => Version;
   updateVersion: (id: string, partial: Partial<Version>) => void;
   removeVersion: (id: string) => void;
+  /**
+   * Clona una versión existente con su misma config (refs, ratio, variations,
+   * prompt). Devuelve la versión nueva con nombre "{original} (copia)". Las
+   * imágenes y generaciones de la original NO se copian — la copia arranca en
+   * blanco para que el usuario decida cuándo generar.
+   */
+  duplicateVersion: (id: string) => Version | undefined;
   getById: (id: string) => Version | undefined;
   getByProductId: (productId: string) => Version[];
   seedDevData: () => void;
@@ -175,6 +182,27 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const duplicateVersion = useCallback(
+    (id: string): Version | undefined => {
+      const source = state.versions.find((v) => v.id === id);
+      if (!source) return undefined;
+      const now = new Date().toISOString();
+      const copy: Version = {
+        ...source,
+        id: crypto.randomUUID(),
+        name: `${source.name} (copia)`,
+        // Refs se copian — son parte de la receta. Imágenes generadas NO,
+        // viven en `generations` ligadas al version_id viejo.
+        reference_images: [...source.reference_images],
+        created_at: now,
+        updated_at: now,
+      };
+      setLocalState((prev) => ({ versions: [copy, ...prev.versions] }));
+      return copy;
+    },
+    [state.versions],
+  );
+
   const getById = useCallback(
     (id: string) => state.versions.find((v) => v.id === id),
     [state.versions],
@@ -257,6 +285,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
       createVersion,
       updateVersion,
       removeVersion,
+      duplicateVersion,
       getById,
       getByProductId,
       seedDevData,
@@ -267,6 +296,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
       createVersion,
       updateVersion,
       removeVersion,
+      duplicateVersion,
       getById,
       getByProductId,
       seedDevData,

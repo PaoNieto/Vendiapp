@@ -43,3 +43,28 @@ export type { VersionDrawerProps } from "./version-drawer";
 
 export { FilterBar } from "./filter-bar";
 export type { FilterBarProps, FilterStatus, FilterProduct } from "./filter-bar";
+
+export { ThemeToggle } from "./theme-toggle";
+
+/* ── Cuaderno dashboard primitives (mock 2026) ───────────────────────── */
+
+export { Sparkline } from "./sparkline";
+export type { SparklineProps } from "./sparkline";
+
+export { MetricTile } from "./metric-tile";
+export type { MetricTileProps } from "./metric-tile";
+
+export { WorkflowChip } from "./workflow-chip";
+export type { WorkflowChipProps } from "./workflow-chip";
+
+export { AvatarCircle } from "./avatar-circle";
+export type { AvatarCircleProps } from "./avatar-circle";
+
+export { ActivityTimeline } from "./activity-timeline";
+export type {
+  ActivityTimelineProps,
+  ActivityEvent,
+} from "./activity-timeline";
+
+export { Thumbnail } from "./thumbnail";
+export type { ThumbnailProps, ThumbnailTone } from "./thumbnail";

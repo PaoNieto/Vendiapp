@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -10,6 +10,8 @@
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-inter);
+  --font-display: var(--font-instrument-serif), "Instrument Serif", ui-serif,
+    Georgia, serif;
 
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -34,7 +36,43 @@
   --color-glass: var(--glass);
   --color-glass-border: var(--glass-border);
 
-  /* Paleta premium Vendí — verde marca + champagne. */
+  /*
+    Cuaderno paleta — tokens semánticos propios.
+    Mapeados con prefijo `--vd-*` como fuente en :root para evitar la
+    auto-referencia (Tailwind v4 expone `--color-ink` como class `text-ink`).
+  */
+  --color-ink: var(--vd-ink);
+  --color-ink-soft: var(--vd-ink-soft);
+  --color-mute: var(--vd-mute);
+  --color-mute-on-bg: var(--vd-mute-on-bg);
+  --color-pill-bg: var(--vd-pill-bg);
+  --color-pill-fg: var(--vd-pill-fg);
+  --color-sage: var(--vd-sage);
+  --color-sage-strong: var(--vd-sage-strong);
+  --color-clay: var(--vd-clay);
+  --color-butter: var(--vd-butter);
+  --color-card-cream: var(--vd-card-cream);
+  --color-sidebar-bg: var(--vd-sidebar-bg);
+  --color-bg-a: var(--vd-bg-a);
+  --color-bg-b: var(--vd-bg-b);
+  --color-bg-c: var(--vd-bg-c);
+
+  --color-delta-positive: var(--delta-positive);
+  --color-delta-negative: var(--delta-negative);
+
+  /*
+    Cuaderno v2 — gradient pastel del body como token reutilizable.
+    Útil cuando necesitamos pintar el mismo gradient en un contenedor
+    no-body (ej. modales preview, hero de landing).
+  */
+  --color-bg-gradient: var(--bg-gradient);
+
+  /*
+    Retrocompat — los tokens viejos `green-dark`, `green-text`, `champagne`,
+    `amber`, `green-bg-*` se mantienen como ALIASES que apuntan a los nuevos
+    valores Cuaderno. Las páginas que usan `text-green-dark`, `bg-green-bg-start`,
+    etc. siguen funcionando sin tocarse — solo cambia el color resultante.
+  */
   --color-champagne: var(--champagne);
   --color-champagne-deep: var(--champagne-deep);
   --color-amber: var(--amber);
@@ -52,108 +90,222 @@
   --radius-3xl: calc(var(--radius) * 2.2);
 }
 
-:root {
+:root,
+[data-theme="light"] {
   /*
-    Vendí — identidad premium VERDE MARCA + CHAMPAGNE.
-    Los tokens "semánticos" (primary, accent, success, warning, etc.) ahora
-    apuntan a la paleta verde profundo + champagne. Reemplazó por completo
-    la paleta mint/teal placeholder anterior.
+    Vendí — identidad CUADERNO v2 (sage + cream + butter + clay + pill
+    verde-oscuro). Para el app interno (post-login) las CARDS son SÓLIDAS
+    cream — la translucencia diluía el texto sobre el pastel. La técnica
+    glass sigue disponible para la landing pública via `.glass-strong`.
+
+    Drop-in del handoff_vendi_v2: los nombres de variables se mantienen,
+    solo cambian los valores. Tokens viejos (green-dark, champagne, etc.)
+    quedan como aliases al final para no romper consumidores existentes.
   */
 
-  /* Fondos & texto base. El fondo del shell con blobs vive en AppBackground;
-     este background plano queda solo como fallback para pantallas que no se
-     monten dentro del shell (rutas sueltas, errores 500, etc.). */
-  --background: #fafaf7;
-  --foreground: #0f2818; /* green-dark */
+  /* Fondos & texto base. El gradient del shell (--bg-gradient) vive en
+     body via @layer base; este fallback sólido queda para rutas sin shell. */
+  --background: #b7ca91; /* sage mid — fallback sólido */
+  --foreground: #0d1b12; /* casi negro-verde, máximo contraste */
 
-  --card: rgba(255, 255, 255, 0.72);
-  --card-foreground: #0f2818;
+  /* CARD = cream SÓLIDO (clave). Sin rgba, sin blur. */
+  --card: #faf6e8;
+  --card-foreground: #0d1b12;
 
-  --popover: #ffffff;
-  --popover-foreground: #0f2818;
+  --popover: #faf6e8;
+  --popover-foreground: #0d1b12;
 
-  /* CTAs principales — verde profundo con texto champagne sobre encima. */
-  --primary: #0f2818; /* green-dark */
-  --primary-foreground: #f5dca0; /* champagne */
+  /* CTAs principales — pill verde-oscuro profundo con texto cream cálido
+     (no blanco puro: el blanco grita sobre el pastel). */
+  --primary: #0f1f16;
+  --primary-foreground: #f0f4e7;
 
-  --secondary: rgba(255, 255, 255, 0.72);
-  --secondary-foreground: #0f2818;
+  /* Secondary = cream alternativo para hover/zebra/lista. SÓLIDO. */
+  --secondary: #f4efdb;
+  --secondary-foreground: #0d1b12;
 
-  /* Texto muted = green-text. Fondo muted = blanco muy suave para chips/badges. */
-  --muted: rgba(255, 255, 255, 0.5);
-  --muted-foreground: #2d4a32; /* green-text */
+  /* Texto muted = vd-mute. Fondo muted = ink al 5% (apenas visible). */
+  --muted: rgba(15, 31, 22, 0.05);
+  --muted-foreground: #5a6852;
 
-  /* Accent = champagne profundo, complemento cálido del verde para
-     destacar elementos sin gritar. */
-  --accent: #e8c882; /* champagne-deep */
-  --accent-foreground: #0f2818;
+  /* Accent = sage strong (forest medio) para links + delta+. Cambió desde
+     butter para coincidir con el handoff v2 — el butter ahora vive solo
+     como --warning + accent visual del gradient. */
+  --accent: #3d5a36;
+  --accent-foreground: #f0f4e7;
 
-  --destructive: #b85454; /* rojo terroso coherente con la paleta cálida */
+  /* Destructive = vd-clay. Terracota coherente con la paleta cálida. */
+  --destructive: #a85a3f;
 
-  /* Success en verde oscuro saturado — coherente con la marca, NO el mint
-     verdoso pastel anterior que se confundía con el fondo. */
-  --success: #2d6a3e;
+  /* Success = sage profundo saturado, coherente con la marca. */
+  --success: #3d5a36;
 
-  /* Warning = amber profundo (más legible sobre cards glass que el champagne). */
-  --warning: #b8893c; /* amber */
+  /* Warning = butter más profundo (mejor legibilidad en cards cream). */
+  --warning: #c9a640;
 
-  /* Borders & inputs — blanco apenas visible para no romper la sensación glass. */
-  --border: rgba(255, 255, 255, 0.65);
-  --input: rgba(255, 255, 255, 0.72);
-  --ring: #0f2818;
+  /* Borders & inputs — ink al 10% sobre cream sólido. */
+  --border: rgba(15, 31, 22, 0.1);
+  --input: rgba(15, 31, 22, 0.1);
+  --ring: #0f1f16;
 
-  --glass: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.9);
+  /* GLASS — se mantiene SOLO para la landing pública. En app interno las
+     cards usan .glass-card que ahora renderiza SÓLIDO con var(--card). */
+  --glass: rgba(250, 246, 232, 0.62);
+  --glass-border: rgba(255, 255, 255, 0.6);
 
-  /* Paleta premium — verde de marca + champagne. */
-  --green-bg-start: #b8d4a8;
-  --green-bg-mid: #a3c994;
-  --green-bg-end: #c4dfb5;
-  --green-dark: #0f2818;
-  --green-text: #2d4a32;
-  --champagne: #f5dca0;
-  --champagne-deep: #e8c882;
-  --amber: #b8893c;
+  /* Cuaderno paleta principal — tokens FUENTE (prefijo --vd-*). */
+  --vd-ink: #0d1b12;
+  --vd-ink-soft: #283827;
+  --vd-mute: #5a6852;
+  --vd-mute-on-bg: #3d4b37;
+  --vd-pill-bg: #0f1f16;
+  --vd-pill-fg: #f0f4e7;
+  --vd-sage: #7e9a75;
+  --vd-sage-strong: #3d5a36;
+  --vd-clay: #a85a3f;
+  --vd-butter: #c9a640;
+  --vd-card-cream: #faf6e8;
+  --vd-sidebar-bg: #c6d6b2;
 
-  --radius: 1.25rem; /* 20px base — generoso para sensación premium */
+  /* Bg gradient — sage + butter hotspot top-right. */
+  --vd-bg-a: #a6c198;
+  --vd-bg-b: #b7ca91;
+  --vd-bg-c: #d6cd7c;
+
+  --delta-positive: var(--vd-sage-strong);
+  --delta-negative: var(--vd-clay);
+
+  /*
+    Body gradient — sage base + butter hotspot top-right. Lo aplicamos en
+    @layer base { body { background: var(--bg-gradient) } } para que toda
+    pantalla del app interno herede el pastel característico del Cuaderno.
+  */
+  --bg-gradient:
+    radial-gradient(ellipse 70% 80% at 88% 8%, #d6cd7c 0%, transparent 55%),
+    radial-gradient(
+      ellipse 110% 120% at 30% 80%,
+      #a6c198 0%,
+      #b7ca91 70%,
+      #b7ca91 100%
+    );
+
+  /*
+    Retrocompat: tokens viejos como aliases. No los borres — muchas páginas
+    los consumen via `text-green-dark`, `bg-green-bg-start`, etc.
+  */
+  --green-dark: var(--vd-ink);
+  --green-text: var(--vd-ink-soft);
+  --champagne: var(--vd-pill-fg);
+  --champagne-deep: var(--vd-butter);
+  --amber: var(--vd-clay);
+  --green-bg-start: var(--vd-bg-a);
+  --green-bg-mid: var(--vd-bg-b);
+  --green-bg-end: var(--vd-bg-c);
+
+  /* Mantenemos sage-strong, clay, butter como tokens viejos también. */
+  --sage-strong: var(--vd-sage-strong);
+  --clay: var(--vd-clay);
+  --butter: var(--vd-butter);
+
+  /*
+    Radius reduce a 12px base (handoff v2: "más restrained"). Antes era
+    1.25rem (20px). Cards quedan en 12px directos; los chips/buttons usan
+    rounded-full (pill, no respetan --radius).
+  */
+  --radius: 0.75rem;
 }
 
-.dark {
-  /*
-    Modo oscuro coherente: fondo verde muy oscuro, texto champagne suave,
-    primary se invierte a champagne para que destaque sobre lo negro.
-  */
-  --background: #0a1a10;
-  --foreground: #f5dca0;
+/*
+  Dark mode — toggle via [data-theme="dark"] en <html>.
+  Deep forest + glass dark + pill cream invertida. Mantiene la técnica
+  visual glass; cambian los colores base a la versión nocturna del Cuaderno.
+*/
+[data-theme="dark"] {
+  --background: #11241b; /* deep forest mid */
+  --foreground: #f0e8cb; /* warm cream texto */
 
-  --card: rgba(255, 255, 255, 0.05);
-  --card-foreground: #f5dca0;
+  /* CARD = dark green lifted, SÓLIDO en dark también. */
+  --card: #19271f;
+  --card-foreground: #f0e8cb;
 
-  --popover: #0a1a10;
-  --popover-foreground: #f5dca0;
+  --popover: #19271f;
+  --popover-foreground: #f0e8cb;
 
-  --primary: #f5dca0;
-  --primary-foreground: #0f2818;
+  /* Pill invertida: fondo cream, texto deep forest. */
+  --primary: #f0e8cb;
+  --primary-foreground: #0d1b12;
 
-  --secondary: rgba(255, 255, 255, 0.06);
-  --secondary-foreground: #f5dca0;
+  /* Secondary = sutil overlay cream-ink mix. */
+  --secondary: rgba(240, 232, 203, 0.06);
+  --secondary-foreground: #f0e8cb;
 
-  --muted: rgba(255, 255, 255, 0.05);
-  --muted-foreground: #c4dfb5;
+  --muted: rgba(240, 232, 203, 0.05);
+  --muted-foreground: #8e957c;
 
-  --accent: #e8c882;
-  --accent-foreground: #0f2818;
+  /* Accent en dark = sage claro (--vd-sage-strong de dark). */
+  --accent: #b2cc9c;
+  --accent-foreground: #0d1b12;
 
-  --destructive: #b85454;
-  --success: #5fae7a;
-  --warning: #d4a25c;
+  /* Destructive = clay más luminoso. */
+  --destructive: #e48564;
+  --success: #b2cc9c;
+  --warning: #e5c463;
 
-  --border: rgba(245, 220, 160, 0.18);
-  --input: rgba(245, 220, 160, 0.12);
-  --ring: #f5dca0;
+  --border: rgba(240, 232, 203, 0.1);
+  --input: rgba(240, 232, 203, 0.1);
+  --ring: #f0e8cb;
 
-  --glass: rgba(15, 40, 24, 0.5);
-  --glass-border: rgba(245, 220, 160, 0.15);
+  /* GLASS dark — sigue disponible para landing. */
+  --glass: rgba(25, 39, 31, 0.72);
+  --glass-border: rgba(240, 232, 203, 0.1);
+
+  /* Cuaderno tokens FUENTE en dark (prefijo --vd-*). */
+  --vd-ink: #f0e8cb;
+  --vd-ink-soft: #cfc8a8;
+  --vd-mute: #8e957c;
+  --vd-mute-on-bg: #a2ac8c;
+  --vd-pill-bg: #f0e8cb;
+  --vd-pill-fg: #0d1b12;
+  --vd-sage: #9db590;
+  --vd-sage-strong: #b2cc9c;
+  --vd-clay: #e48564;
+  --vd-butter: #e5c463;
+  --vd-card-cream: #19271f;
+  --vd-sidebar-bg: #070f0b;
+
+  /* Bg gradient en dark — deep forest. */
+  --vd-bg-a: #0b1812;
+  --vd-bg-b: #11241b;
+  --vd-bg-c: #23341c;
+
+  --delta-positive: var(--vd-sage-strong);
+  --delta-negative: var(--vd-clay);
+
+  /* Retrocompat aliases — invertidos para que el contraste sobre el fondo
+     dark siga funcionando. text-green-dark = cream (más contraste sobre
+     deep forest); text-green-text = secundario cream-warm. */
+  --green-dark: var(--vd-ink);
+  --green-text: var(--vd-ink-soft);
+  --champagne: var(--vd-pill-bg);
+  --champagne-deep: var(--vd-butter);
+  --amber: var(--vd-clay);
+  --green-bg-start: var(--vd-bg-a);
+  --green-bg-mid: var(--vd-bg-b);
+  --green-bg-end: var(--vd-bg-c);
+
+  --sage-strong: var(--vd-sage-strong);
+  --clay: var(--vd-clay);
+  --butter: var(--vd-butter);
+
+  /* Body gradient en dark — deep forest con hint butter top-right. */
+  --bg-gradient:
+    radial-gradient(ellipse 70% 80% at 88% 8%, #23341c 0%, transparent 60%),
+    radial-gradient(
+      ellipse 110% 120% at 30% 80%,
+      #0b1812 0%,
+      #11241b 70%,
+      #11241b 100%
+    );
 }
 
 @layer base {
@@ -165,84 +317,166 @@
   }
   body {
     /*
-      Sin gradient en body — el shell con blobs lo aporta AppBackground en los
-      layouts (app) y (auth). Dejamos un color sólido neutro como fallback para
-      cualquier ruta que se monte fuera de un shell (errores, 404, etc.).
+      Body usa el gradient Cuaderno (sage + butter hotspot top-right) como
+      fondo principal. fixed attachment para que no scrollée con el contenido.
+      font-weight 500 default (no 400): el 400 de Inter se diluye sobre el
+      pastel; 500 default, 600 strong, 700 emphasis.
     */
     @apply text-foreground min-h-dvh;
-    background: var(--background);
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    font-weight: 500;
   }
 
   /*
-    Defaults tipográficos premium: headings en weight 500 (no 600/700).
-    Las páginas pueden override con font-semibold cuando necesiten más
-    énfasis, pero la base ahora es weight 500 según el brief original.
+    H1/H2/H3 en Instrument Serif italic 400 — momentos editoriales premium
+    (títulos de pantalla, nombres de productos/versiones, citas inline).
+    El H4 sigue siendo Inter (chrome de UI, no display).
   */
   h1,
   h2,
-  h3,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.02em;
+  }
   h4 {
     font-weight: 500;
     letter-spacing: -0.01em;
+  }
+  /* strong/b NO se vuelve display — sigue siendo Inter 700. */
+  strong,
+  b {
+    font-weight: 700;
   }
 }
 
 @layer utilities {
   /*
-    .glass / .glass-strong — DEPRECADAS como variantes propias.
-    Ambas apuntan ahora al mismo treatment premium sólido que .glass-card,
-    para que cualquier página que todavía use .glass / .glass-strong herede
-    la identidad nueva sin migraciones manuales.
+    ─────────────────────────────────────────────────────────────────
+    CARDS — SÓLIDAS en el app interno (Cuaderno v2).
+    ─────────────────────────────────────────────────────────────────
+    Decisión del handoff v2: la translucencia diluía el texto sobre el
+    pastel sage. En el app interno los cards son cream SÓLIDO (#FAF6E8)
+    con borde ink-10% + doble shadow (contacto + lift).
 
-    Si en el futuro hace falta una variante "más translúcida" o "menos
-    sombreada", crear una utility nueva (.glass-soft, etc.). No revertir
-    estas dos.
+    Las páginas existentes consumen `.glass-card` y `.glass-card-compact`
+    por nombre — no las renombramos, solo cambiamos su comportamiento
+    para que rendericen SÓLIDO. La técnica glass real sigue disponible
+    via `.glass-strong` para la landing pública.
+
+    .glass-card           → sólido cream, 12px radius, shadow doble
+    .glass-card-compact   → sólido cream, 10px radius, shadow más sutil
+    .glass-strong         → glass real con backdrop-blur, para landing
+    .glass                → alias de .glass-strong (compat)
   */
+
+  /* ───────── LIGHT (app interno — SÓLIDO) ───────── */
+  .glass-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow:
+      0 1px 0 rgba(15, 31, 22, 0.06),
+      0 10px 28px -14px rgba(15, 31, 22, 0.28);
+    transition:
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .glass-card-compact {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow:
+      0 1px 0 rgba(15, 31, 22, 0.05),
+      0 6px 18px -10px rgba(15, 31, 22, 0.22);
+    transition:
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Glass real — para landing pública. Mantiene blur + saturate + el
+     gradient cream sobre sage. No se usa en el app interno. */
   .glass,
   .glass-strong {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(30px) saturate(160%);
-    -webkit-backdrop-filter: blur(30px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    border-radius: 18px;
+    position: relative;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: var(--glass);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      0 12px 32px rgba(15, 40, 24, 0.12),
-      0 2px 6px rgba(15, 40, 24, 0.06);
+      0 1px 2px rgba(15, 31, 22, 0.08),
+      0 14px 32px -16px rgba(15, 31, 22, 0.22);
   }
 
-  /* Glass premium SÓLIDO — los 3 ingredientes load-bearing: opacidad 0.72,
-     border casi opaco, inset shadow blanco arriba. No tocar. */
-  .glass-card {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(30px) saturate(160%);
-    -webkit-backdrop-filter: blur(30px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    border-radius: 18px;
+  /* Hover premium — opt-in via .glass-interactive. Las cards estáticas
+     no deben moverse al pasar el mouse; las clickeables sí. */
+  .glass-interactive:hover,
+  .glass-card.glass-interactive:hover,
+  .glass-card-compact.glass-interactive:hover {
+    transform: translateY(-2px);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      0 12px 32px rgba(15, 40, 24, 0.12),
-      0 2px 6px rgba(15, 40, 24, 0.06);
-  }
-  .glass-card-compact {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(30px) saturate(160%);
-    -webkit-backdrop-filter: blur(30px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    border-radius: 16px;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
-      0 12px 32px rgba(15, 40, 24, 0.12),
-      0 2px 6px rgba(15, 40, 24, 0.06);
+      0 1px 0 rgba(15, 31, 22, 0.08),
+      0 18px 40px -16px rgba(15, 31, 22, 0.32);
   }
 
-  /* Eyebrow — micro-label uppercase para encabezados de stats/sección. */
+  /* ───────── DARK (app interno — SÓLIDO dark green) ───────── */
+  [data-theme="dark"] .glass-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow:
+      0 1px 0 rgba(240, 232, 203, 0.04),
+      0 14px 32px -16px rgba(0, 0, 0, 0.65),
+      0 2px 0 rgba(0, 0, 0, 0.22);
+  }
+
+  [data-theme="dark"] .glass-card-compact {
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow:
+      0 1px 0 rgba(240, 232, 203, 0.03),
+      0 8px 20px -12px rgba(0, 0, 0, 0.55);
+  }
+
+  [data-theme="dark"] .glass,
+  [data-theme="dark"] .glass-strong {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 rgba(240, 232, 203, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 18px 36px -16px rgba(0, 0, 0, 0.6);
+  }
+
+  [data-theme="dark"] .glass-interactive:hover,
+  [data-theme="dark"] .glass-card.glass-interactive:hover,
+  [data-theme="dark"] .glass-card-compact.glass-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 rgba(240, 232, 203, 0.06),
+      0 22px 44px -16px rgba(0, 0, 0, 0.72);
+  }
+
+  /*
+    Eyebrow — micro-label uppercase para encabezados de stats/sección.
+    Drop-in v2: 10.5px, letter-spacing 1.3px, weight 600. Apunta a
+    --vd-mute para card-mounted; usa .eyebrow-on-bg cuando vive SOBRE
+    el body gradient (no sobre una card) — necesita más contraste.
+  */
   .eyebrow {
-    font-size: 11px;
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    letter-spacing: 1.3px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 500;
-    color: var(--color-green-text);
+    font-weight: 600;
+    color: var(--vd-mute);
+  }
+  .eyebrow-on-bg {
+    color: var(--vd-mute-on-bg);
   }
 
   /* Tabular nums — números grandes alineados en columnas (Resumen). */
@@ -251,21 +485,48 @@
   }
 
   /*
-    Shell con gradient verde + isolation para blobs absolute.
-    overflow: hidden para que los blobs no escapen y no generen scroll
-    horizontal en mobile. isolation: isolate evita que el z-index de los
-    blobs se mezcle con el del Sidebar/BottomNav.
+    Display serif — Instrument Serif. Para titulares editoriales y citas
+    inline. Mantenemos Inter para todo el chrome de UI; el serif aparece
+    solo en momentos premium (branding sidebar, hero titles, blockquotes).
+  */
+  .display-serif {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+  .display-serif-italic {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /*
+    Shell con gradient CUADERNO — sage base + butter hotspot top-right.
+    Reemplaza el linear-gradient verde+champagne previo y los 4 blobs
+    div absolute por un sistema de 2 radial-gradients en CSS puro (más
+    barato en GPU, mismo efecto premium).
+
+    isolation: isolate evita que el z-index del fondo se mezcle con el
+    del Sidebar/BottomNav. overflow: hidden mantiene blobs de hijos
+    contenidos dentro del shell.
   */
   .dashboard-shell {
     position: relative;
     overflow: hidden;
     isolation: isolate;
-    background: linear-gradient(
-      135deg,
-      var(--color-green-bg-start) 0%,
-      var(--color-green-bg-mid) 40%,
-      var(--color-green-bg-end) 100%
-    );
+    background:
+      radial-gradient(
+        ellipse 70% 80% at 88% 8%,
+        var(--vd-bg-c) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 110% 120% at 30% 80%,
+        var(--vd-bg-a) 0%,
+        var(--vd-bg-b) 70%,
+        var(--vd-bg-b) 100%
+      );
   }
   .dashboard-content {
     position: relative;

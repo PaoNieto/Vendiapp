@@ -7,15 +7,24 @@ import {
   Factory,
   Package,
   Briefcase,
+  ScanSearch,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 
-// El sidebar quedó reducido a 5 items principales. El concepto de "recorrido"
-// como navegación de menú desapareció: las pantallas `/referencias` y `/formato`
-// siguen existiendo pero solo se accede a ellas desde el flujo "+ Nueva Versión"
-// o desde los botones "Editar referencias"/"Editar configuración" del drawer
-// o del detalle de versión.
+// Sidebar Cuaderno v2 — sage claro SÓLIDO (NO glass).
+// Ancho 220px (handoff: "más restrained que 240+"). Branding "Vendí." en
+// Instrument Serif italic 30px con un punto sage-strong como acento de
+// marca. Eyebrow "ESPACIO" sobre la nav. 5 items: Dashboard, Catálogo
+// de Productos, Fábrica, Mi Negocio, Ajustes. Item activo: pill forest
+// (--primary) con texto cream (--primary-foreground); inactivos: ink
+// con weight 500 + hover ink-soft. Footer Plan PRO (SIN créditos —
+// Vendí es BYOK) + ThemeToggle al final.
+//
+// Antes el sidebar usaba bg-glass/30 + backdrop-blur-xl. El handoff v2
+// pide sólido sage claro (#C6D6B2 via --vd-sidebar-bg) sin blur. Más
+// liviano en GPU y coherente con la sensación "cuaderno" cálida.
 
 type SidebarProps = {
   plan: string;
@@ -25,37 +34,47 @@ export function Sidebar({ plan }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 flex-col border-r border-border/50 bg-glass/30 px-4 py-5 backdrop-blur-xl lg:flex">
+    <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
+      {/*
+        Branding: "Vendí." en serif italic 30px. El punto pintado en
+        sage-strong como acento sutil de marca. font-display resuelve
+        a Instrument Serif via @theme inline.
+      */}
       <Link
         href="/dashboard"
-        className="px-2 text-lg font-semibold tracking-tight text-foreground"
+        className="px-2.5 font-display text-[30px] italic leading-none text-foreground"
       >
-        Vendí
+        Vendí<span className="text-sage-strong">.</span>
       </Link>
 
-      <nav className="mt-8 flex-1 space-y-1 overflow-y-auto">
+      {/* Eyebrow "ESPACIO" — micro-label sobre la nav. */}
+      <div className="eyebrow mt-8 px-2.5 pb-2">Espacio</div>
+
+      <nav className="flex flex-col gap-0.5">
         <NavItem
           href="/dashboard"
           label="Dashboard"
           icon={Home}
           active={isActive(pathname, "/dashboard")}
         />
-
         <NavItem
           href="/productos"
           label="Catálogo de Productos"
           icon={Package}
           active={isActive(pathname, "/productos")}
         />
-
         <NavItem
           href="/fabrica"
           label="Fábrica"
           icon={Factory}
           active={isActive(pathname, "/fabrica")}
-          emphasize
         />
-
+        <NavItem
+          href="/analisis"
+          label="Análisis con IA"
+          icon={ScanSearch}
+          active={isActive(pathname, "/analisis")}
+        />
         <NavItem
           href="/mi-negocio"
           label="Mi Negocio"
@@ -70,13 +89,36 @@ export function Sidebar({ plan }: SidebarProps) {
         />
       </nav>
 
-      <div className="glass mt-4 rounded-2xl p-4">
-        <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Plan
+      {/* Spacer flex — empuja Plan + ThemeToggle al fondo. */}
+      <div className="flex-1" />
+
+      {/*
+        Footer PLAN — sin barra de créditos. Vendí es BYOK (el usuario
+        pone su propia API key), por lo que el concepto de "créditos
+        consumidos" no aplica. Mantenemos eyebrow + plan + renovación +
+        link discreto a Administrar.
+
+        NO usamos .glass-card acá aunque sea sólido por defecto: queremos
+        el plan card "fusionado" con el sidebar sage claro, no levantado
+        como una card cream. Solo un border-top sutil que separa.
+      */}
+      <div className="mt-4 flex flex-col gap-1 border-t border-border pt-4">
+        <div className="eyebrow">Plan</div>
+        <div className="text-sm font-semibold text-foreground">{plan}</div>
+        <div className="text-[11.5px] font-medium text-mute">
+          Se renueva el 1 de junio
         </div>
-        <div className="mt-1 text-base font-medium tracking-tight text-foreground">
-          {plan}
-        </div>
+        <Link
+          href="/ajustes"
+          className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong transition-colors hover:text-foreground"
+        >
+          Administrar <span aria-hidden>→</span>
+        </Link>
+      </div>
+
+      {/* ThemeToggle al fondo del sidebar. */}
+      <div className="mt-3 flex justify-center">
+        <ThemeToggle />
       </div>
     </aside>
   );
@@ -91,29 +133,26 @@ type NavItemProps = {
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   active: boolean;
-  emphasize?: boolean;
 };
 
-function NavItem({
-  href,
-  label,
-  icon: Icon,
-  active,
-  emphasize,
-}: NavItemProps) {
+function NavItem({ href, label, icon: Icon, active }: NavItemProps) {
   return (
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+        // Pill activo: bg forest + text cream + weight 600. Radius 8px
+        // (el handoff pide rounded suave, no rounded-full pill — esto
+        // queda en el border-radius interno de cada item, no su forma).
+        "flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13.5px] transition-colors",
         active
-          ? "bg-primary text-primary-foreground"
-          : emphasize
-            ? "text-foreground hover:bg-primary/10 hover:text-primary"
-            : "text-foreground/80 hover:bg-foreground/5 hover:text-foreground",
+          ? "bg-primary font-semibold text-primary-foreground"
+          : "font-medium text-foreground hover:bg-foreground/5",
       )}
     >
-      <Icon className="h-4 w-4" strokeWidth={active ? 2.5 : 2} />
+      <Icon
+        className={cn("h-[18px] w-[18px]", active ? "opacity-100" : "opacity-75")}
+        strokeWidth={1.6}
+      />
       <span>{label}</span>
     </Link>
   );

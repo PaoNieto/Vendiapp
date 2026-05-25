@@ -1,85 +1,121 @@
 "use client";
 
 import Link from "next/link";
-import { Package, Plus } from "lucide-react";
-import { PillButton, ProductCard } from "@/components/dashboard";
+import Image from "next/image";
+import { ImageIcon, Plus } from "lucide-react";
+import { motion } from "motion/react";
+
+import {
+  AvatarCircle,
+  PillButton,
+  Thumbnail,
+  type ThumbnailTone,
+} from "@/components/dashboard";
+import { Topbar } from "@/components/app/topbar";
 import { formatRelativeTime } from "@/lib/generations/format";
 import { useGenerations } from "@/lib/generations/store";
 import type { Generation } from "@/lib/generations/store";
+import { useNegocio } from "@/lib/negocio/store";
 import { useProducts } from "@/lib/products/store";
 import type { Product } from "@/lib/products/store";
+import { cn } from "@/lib/utils";
 
 /**
- * Catálogo de productos — grid de `ProductCard` + CTAs para crear el primero o
- * sumar otro. Consume `useProducts` + `useGenerations` para enriquecer cada
- * card con su contador real de generaciones y la última actividad.
+ * Mi Catálogo — grilla de productos según mock v2 `screen-catalogo.jsx`.
+ *
+ * Estructura:
+ *   - <Topbar title subtitle right={CTA + Avatar}>
+ *   - grid 2 / 3 / 4 columnas
+ *   - cada card: hero 4/3.4 con Thumbnail (tone derivado del id) o placeholder
+ *     neutro (círculo gris) si no hay fotos; badge "N imágenes" si gens > 0;
+ *     body con nombre en font-display italic + métricas chiquitas.
+ *
+ * Datos reales del store: si el catálogo está vacío, mostramos un empty state
+ * centrado con CTA "+ Nuevo Producto". NO inventamos productos.
  */
 export default function ProductosPage() {
   const products = useProducts();
   const generations = useGenerations();
+  const negocio = useNegocio();
 
-  const allHydrated = products.hydrated && generations.hydrated;
+  const allHydrated =
+    products.hydrated && generations.hydrated && negocio.hydrated;
   const items = products.state.products;
+  const brandInitials = pickInitials(negocio.state.brandName);
 
   return (
-    <div className="px-5 py-6 sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-5xl">
-        <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight text-green-dark sm:text-3xl">
-              Mi Catálogo
-            </h1>
-            <p className="mt-1 text-sm text-green-text">
-              Tus productos y las fotos que reutilizás en cada generación.
-            </p>
-          </div>
-          {allHydrated && items.length > 0 ? (
-            <div className="hidden sm:block">
-              <PillButton size="md" asChild>
-                <Link href="/productos/nuevo">
-                  <Plus className="h-4 w-4" />
-                  Nuevo Producto
-                </Link>
-              </PillButton>
-            </div>
-          ) : null}
-        </header>
-
-        {!allHydrated ? (
-          <CatalogSkeleton />
-        ) : items.length === 0 ? (
-          <EmptyCatalog />
-        ) : (
+    <>
+      <Topbar
+        title="Mi Catálogo"
+        subtitle="Tus productos y las fotos que reutilizás en cada generación."
+        right={
           <>
+            <PillButton size="md" asChild>
+              <Link href="/productos/nuevo">
+                <Plus className="h-4 w-4" />
+                Nuevo Producto
+              </Link>
+            </PillButton>
+            <AvatarCircle initials={brandInitials} size={40} />
+          </>
+        }
+      />
+
+      <div className="flex-1 px-5 pb-12 pt-2 sm:px-8 lg:px-10">
+        <div className="mx-auto w-full max-w-6xl">
+          {!allHydrated ? (
+            <CatalogSkeleton />
+          ) : items.length === 0 ? (
+            <EmptyCatalog />
+          ) : (
             <CatalogGrid
               products={items}
               generations={generations.state.generations}
+              images={generations.state.images}
             />
-
-            {/* CTA mobile abajo de todo */}
-            <div className="mt-8 sm:hidden">
-              <PillButton size="lg" asChild className="w-full">
-                <Link href="/productos/nuevo">
-                  <Plus className="h-4 w-4" />
-                  Nuevo Producto
-                </Link>
-              </PillButton>
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Grid                                                                       */
+/* -------------------------------------------------------------------------- */
+
+const TONES: ThumbnailTone[] = [
+  "sage",
+  "butter",
+  "paper",
+  "clay",
+  "mineral",
+  "editorial",
+  "champagne",
+];
+
+/**
+ * Tono derivado deterministamente del `id` del producto — así un producto
+ * siempre tiene el mismo tono entre sesiones sin guardarlo aparte.
+ */
+function toneFor(productId: string): ThumbnailTone {
+  let hash = 0;
+  for (let i = 0; i < productId.length; i += 1) {
+    hash = (hash * 31 + productId.charCodeAt(i)) | 0;
+  }
+  return TONES[Math.abs(hash) % TONES.length];
 }
 
 function CatalogGrid({
   products,
   generations,
+  images,
 }: {
   products: Product[];
   generations: Generation[];
+  images: { generation_id: string; image_url: string }[];
 }) {
-  // Indexamos generaciones por product_id para no recorrer la lista N veces.
+  // Indexamos generaciones por product_id para una sola pasada.
   const byProduct = new Map<string, Generation[]>();
   for (const gen of generations) {
     if (!gen.project_id) continue;
@@ -87,9 +123,11 @@ function CatalogGrid({
     list.push(gen);
     byProduct.set(gen.project_id, list);
   }
+  // Set rápido para chequear si una generation tiene imágenes attached.
+  const genIdsWithImages = new Set(images.map((i) => i.generation_id));
 
   return (
-    <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-6">
       {products.map((product) => {
         const productGens = byProduct.get(product.id) ?? [];
         const generationsCount = productGens.length;
@@ -100,20 +138,26 @@ function CatalogGrid({
         const lastActivity = latest
           ? formatRelativeTime(latest.created_at)
           : null;
-        const coverImageUrl =
-          product.cover_image_url ?? product.product_images[0] ?? undefined;
+        // Mostramos el badge "N imágenes" sólo si hay generations completed
+        // que tienen al menos una imagen attached. Si todas son pending/failed
+        // pintamos el placeholder como si no hubiera fotos generadas.
+        const completedWithImages = productGens.filter(
+          (g) => g.status === "completed" && genIdsWithImages.has(g.id),
+        ).length;
+        const hasUploadedPhotos = product.product_images.length > 0;
+        const coverUrl =
+          product.cover_image_url ?? product.product_images[0] ?? null;
 
         return (
           <ProductCard
             key={product.id}
-            id={product.id}
-            name={product.name}
-            description={product.description}
-            coverImageUrl={coverImageUrl}
-            imagesCount={product.product_images.length}
+            product={product}
+            tone={toneFor(product.id)}
+            hasUploadedPhotos={hasUploadedPhotos}
+            coverUrl={coverUrl}
             generationsCount={generationsCount}
+            completedWithImagesCount={completedWithImages}
             lastActivity={lastActivity}
-            href={`/productos/${product.id}`}
           />
         );
       })}
@@ -121,23 +165,164 @@ function CatalogGrid({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Card                                                                       */
+/* -------------------------------------------------------------------------- */
+
+function ProductCard({
+  product,
+  tone,
+  hasUploadedPhotos,
+  coverUrl,
+  generationsCount,
+  completedWithImagesCount,
+  lastActivity,
+}: {
+  product: Product;
+  tone: ThumbnailTone;
+  hasUploadedPhotos: boolean;
+  coverUrl: string | null;
+  generationsCount: number;
+  completedWithImagesCount: number;
+  lastActivity: string | null;
+}) {
+  const showCount =
+    hasUploadedPhotos && generationsCount > 0 && completedWithImagesCount > 0;
+  // Si tiene fotos reales subidas: mostramos la foto real. Si no: thumbnail
+  // tinteado por tono. Si NO tiene nada: placeholder neutro gris.
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-[18px]",
+        // Card sólida cream Cuaderno + border definido + multi-layer shadow.
+        "bg-card border border-border",
+        "shadow-[0_1px_0_rgba(15,31,22,0.06),0_12px_32px_-16px_rgba(15,31,22,0.32),0_40px_80px_-40px_rgba(15,31,22,0.18)]",
+        "hover:shadow-[0_2px_0_rgba(15,31,22,0.08),0_24px_56px_-20px_rgba(15,31,22,0.45),0_48px_96px_-32px_rgba(15,31,22,0.22)]",
+        "transition-shadow duration-300",
+      )}
+    >
+      <Link
+        href={`/productos/${product.id}`}
+        className="flex flex-col rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        {/* Hero cuadrado — más impactante visualmente que 4/3.4 estrecho. */}
+        <div className="relative w-full aspect-square overflow-hidden">
+          {hasUploadedPhotos && coverUrl ? (
+            <Image
+              src={coverUrl}
+              alt={product.name}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
+              className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+            />
+          ) : hasUploadedPhotos ? (
+            <Thumbnail tone={tone} radius={0} />
+          ) : (
+            <PhotoPlaceholder />
+          )}
+
+          {/* Sheen sutil arriba para dar profundidad al thumb */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/8 to-transparent"
+          />
+
+          {showCount && (
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[rgba(15,31,22,0.85)] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.5px] text-[#F0F4E7] backdrop-blur-sm shadow-lg">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-butter" />
+              {completedWithImagesCount}{" "}
+              {completedWithImagesCount === 1 ? "imagen" : "imágenes"}
+            </span>
+          )}
+
+          {/* CTA hover sutil — flecha que indica "entrar" */}
+          <div className="pointer-events-none absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-card text-foreground opacity-0 shadow-lg transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0 translate-x-1">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-4 w-4"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7.21 5.23a.75.75 0 0 1 1.06-.02l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 1 1-1.04-1.08L11.06 10 7.23 6.29a.75.75 0 0 1-.02-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Divider sutil entre hero y body para dar dimensión */}
+        <div aria-hidden className="h-px w-full bg-border" />
+
+        {/* Body — padding generoso, tipografía editorial */}
+        <div className="flex flex-col gap-1.5 px-5 py-5">
+          <h3
+            className="truncate font-display text-[20px] italic leading-[1.15] tracking-[-0.01em] text-foreground"
+            title={product.name}
+          >
+            {product.name}
+          </h3>
+          {generationsCount > 0 ? (
+            <div className="flex items-center gap-2 text-[12.5px] font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-sage-strong" />
+                {generationsCount}{" "}
+                {generationsCount === 1 ? "generación" : "generaciones"}
+              </span>
+              {lastActivity ? (
+                <>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span>{lastActivity}</span>
+                </>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[12.5px] italic text-muted-foreground">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              Sin generaciones
+            </div>
+          )}
+        </div>
+      </Link>
+    </motion.div>
+  );
+}
+
+function PhotoPlaceholder() {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-card-cream/40 text-mute">
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground/5">
+        <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Empty & skeleton                                                           */
+/* -------------------------------------------------------------------------- */
+
 function EmptyCatalog() {
   return (
-    <div className="glass-card mt-6 flex flex-col items-center gap-3 p-8 text-center sm:p-12">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-dark/10">
-        <Package className="h-5 w-5 text-green-dark" />
+    <div className="glass-card mx-auto mt-4 flex max-w-md flex-col items-center gap-3 p-8 text-center sm:p-10">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
+        <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="text-base font-medium text-green-dark">
-        Todavía no tenés productos en tu catálogo
+      <h2 className="font-display text-2xl italic text-foreground">
+        Tu catálogo está vacío
       </h2>
-      <p className="max-w-sm text-sm text-green-text">
-        Creá tu primer producto para empezar a generar imágenes.
+      <p className="max-w-sm text-sm text-mute">
+        Creá tu primer producto para empezar a generar imágenes desde la
+        Fábrica.
       </p>
       <div className="mt-2">
         <PillButton size="md" asChild>
           <Link href="/productos/nuevo">
             <Plus className="h-4 w-4" />
-            Crear primer producto
+            Nuevo Producto
           </Link>
         </PillButton>
       </div>
@@ -147,10 +332,30 @@ function EmptyCatalog() {
 
 function CatalogSkeleton() {
   return (
-    <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="glass-card-compact h-72 animate-pulse" />
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-6">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div
+          key={i}
+          className="overflow-hidden rounded-[18px] border border-border bg-card"
+        >
+          <div className="aspect-square w-full animate-pulse bg-foreground/5" />
+          <div className="h-px w-full bg-border" />
+          <div className="flex flex-col gap-2 px-5 py-5">
+            <div className="h-5 w-2/3 animate-pulse rounded bg-foreground/10" />
+            <div className="h-3.5 w-1/2 animate-pulse rounded bg-foreground/5" />
+          </div>
+        </div>
       ))}
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function pickInitials(brandName: string): string {
+  const clean = brandName.trim();
+  if (!clean) return "N";
+  return clean.slice(0, 2).toUpperCase();
 }

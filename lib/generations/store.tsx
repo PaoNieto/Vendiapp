@@ -70,6 +70,13 @@ export type GeneratedImage = {
   user_rating: 1 | 2 | 3 | 4 | 5 | null;
   is_favorite: boolean;
   is_downloaded: boolean;
+  /**
+   * Prompt editable por usuario asociado a esta variación. Cuando el usuario
+   * regenera la imagen, este texto pisa el estilo + referencias de la versión.
+   * Default: `""` (vacío) — el frontend lo puede poblar con
+   * `buildPromptFromBrief(version)` al crear la imagen.
+   */
+  strict_prompt: string;
   created_at: string;
 };
 
@@ -116,6 +123,11 @@ type GenerationsContextValue = {
   attachImages: (generationId: string, urls: string[]) => void;
   toggleFavorite: (imageId: string) => void;
   rate: (imageId: string, rating: 1 | 2 | 3 | 4 | 5) => void;
+  /**
+   * Actualiza el prompt estricto de una imagen generada. Lo usa la UI de
+   * "Generador" para que cada variación tenga su prompt editable propio.
+   */
+  setImagePrompt: (imageId: string, prompt: string) => void;
   getRecent: (limit?: number) => Generation[];
   /** Devuelve las generaciones de una versión, orden desc por created_at. */
   getByVersionId: (versionId: string) => Generation[];
@@ -174,7 +186,17 @@ export function GenerationsProvider({
                   typeof g.version_id === "string" ? g.version_id : null,
               }))
             : [],
-          images: Array.isArray(parsed.images) ? parsed.images : [],
+          // Backfill `strict_prompt: ""` para imágenes serializadas antes de
+          // la migración 0004. El resto del shape ya era compatible.
+          images: Array.isArray(parsed.images)
+            ? parsed.images.map((img) => ({
+                ...img,
+                strict_prompt:
+                  typeof img.strict_prompt === "string"
+                    ? img.strict_prompt
+                    : "",
+              }))
+            : [],
         });
       }
     } catch {
@@ -274,6 +296,7 @@ export function GenerationsProvider({
         user_rating: null,
         is_favorite: false,
         is_downloaded: false,
+        strict_prompt: "",
         created_at: now,
       }));
       setLocalState((prev) => ({
@@ -298,6 +321,15 @@ export function GenerationsProvider({
       ...prev,
       images: prev.images.map((img) =>
         img.id === imageId ? { ...img, user_rating: rating } : img,
+      ),
+    }));
+  }, []);
+
+  const setImagePrompt = useCallback((imageId: string, prompt: string) => {
+    setLocalState((prev) => ({
+      ...prev,
+      images: prev.images.map((img) =>
+        img.id === imageId ? { ...img, strict_prompt: prompt } : img,
       ),
     }));
   }, []);
@@ -469,6 +501,7 @@ export function GenerationsProvider({
       attachImages,
       toggleFavorite,
       rate,
+      setImagePrompt,
       getRecent,
       getByVersionId,
       getStats,
@@ -484,6 +517,7 @@ export function GenerationsProvider({
       attachImages,
       toggleFavorite,
       rate,
+      setImagePrompt,
       getRecent,
       getByVersionId,
       getStats,

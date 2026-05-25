@@ -1,11 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Instrument_Serif } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+});
+
+// Instrument Serif — display italic para titulares editoriales + citas inline.
+// Sumado a partir del handoff Cuaderno, manteniendo Inter como UI sans-serif.
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -22,13 +32,37 @@ export const viewport: Viewport = {
   themeColor: "#a3c994",
 };
 
+/**
+ * Script anti-flash: corre síncronamente antes del primer render del body,
+ * lee la preferencia guardada (o el `prefers-color-scheme`) y setea el
+ * `data-theme` en `<html>`. Evita el flash blanco → oscuro en navegación
+ * inicial. Tiene que ir como string para que Next no lo difiera.
+ */
+const themeInitScript = `(function () {
+  try {
+    var stored = localStorage.getItem('vendi-theme');
+    var preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    var theme = stored === 'light' || stored === 'dark' ? stored : preferred;
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} h-full`}>
+    <html
+      lang="es"
+      className={`${inter.variable} ${instrumentSerif.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-dvh">
         {children}
         <Toaster richColors position="top-center" />

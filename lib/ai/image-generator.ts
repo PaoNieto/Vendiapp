@@ -1,68 +1,330 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+/**
+ * Image generator — BYOK Gemini (Nano Banana / `gemini-2.5-flash-image`).
+ *
+ * Llama al modelo de imagen N veces en paralelo (`variations_default`) con las
+ * mismas inputs (producto + referencias + prompt) y combina los resultados.
+ * Cada llamada devuelve UNA imagen por candidato; si necesitás 5, hacés 5
+ * fetches en paralelo y consolidás con `Promise.allSettled` para que un único
+ * fallo no tire toda la tanda.
+ *
+ * La key vive en el cliente (`useNegocio()` → localStorage). Este módulo NO
+ * tiene acceso a ENV vars del server — se ejecuta en el browser.
+ *
+ * Limitaciones conocidas:
+ * - La API de Gemini Image actual devuelve **1 imagen por llamada**. Si en el
+ *   futuro acepta `candidateCount > 1`, podríamos hacer 1 call con N candidatos
+ *   y ahorrar latencia.
+ * - El ratio (1:1, 4:5, 9:16, 16:9) NO es un parámetro estructurado de
+ *   `generateContent` — lo pasamos textual dentro del prompt. La doc oficial
+ *   recomienda este enfoque mientras no exista soporte first-class.
+ * - No comprimimos imágenes antes de mandar — pasamos el base64 tal cual el
+ *   uploader nos lo dio. Si el usuario sube fotos >5MB esto puede ser lento.
+ *   TODO: re-encode a JPEG 85% antes de mandar para bajar payload.
+ */
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "");
+import {
+  callGemini,
+  GEMINI_IMAGE_MODEL,
+  type GeminiContent,
+  type GeminiError,
+  type GeminiPart,
+  type GeminiResponse,
+} from "@/lib/ai/gemini-client";
+import { OUTPUT_RATIOS } from "@/lib/constants";
+import { buildPromptFromBrief } from "@/lib/recorrido/build-prompt";
+import type { Product } from "@/lib/products/store";
+import type { Version } from "@/lib/versions/store";
 
-export type GeneratedImageResult = {
-  base64: string;
-  mimeType: string;
-  variationIndex: number;
+export type GenerateImagesInput = {
+  apiKey: string;
+  product: Product;
+  version: Version;
 };
 
 /**
- * Genera N variaciones en paralelo usando Gemini 2.5 Flash Image (Nano Banana).
- * Recibe imágenes de producto + referencias como inputs multimodales y un prompt enriquecido.
+ * Misma forma que `GeminiError`. Lo re-exportamos como `GenerationError` para
+ * que la UI no tenga que importar del cliente de bajo nivel — todo lo que
+ * necesita el caller vive acá.
  */
-export async function generateImageVariations(input: {
-  finalPrompt: string;
-  productImages: string[];
-  referenceImages: string[];
-  ratio: string;
-  variations: number;
-}): Promise<GeneratedImageResult[]> {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-image",
-  });
+export type GenerationError = GeminiError;
 
-  const fetchImageAsPart = async (url: string) => {
-    const res = await fetch(url);
-    const buffer = await res.arrayBuffer();
-    const mimeType = res.headers.get("content-type") ?? "image/jpeg";
+export type GenerateImagesResult =
+  | { ok: true; images: string[] }
+  | { ok: false; error: GenerationError };
+
+/* -------------------------------------------------------------------------- */
+/*  Entry point                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Construye prompt + inputs, dispara N llamadas y devuelve dataURLs base64
+ * listas para guardar en el store (`attachImages`).
+ *
+ * Política de errores:
+ *  - Si TODAS las variaciones fallan → devolvemos el primer error.
+ *  - Si al menos una sale OK → devolvemos `ok: true` con las que llegaron.
+ *    Mejor UX: "te traje 3 de 5" que "fallé todo, volvé a intentar".
+ */
+export async function generateImages(
+  input: GenerateImagesInput,
+): Promise<GenerateImagesResult> {
+  if (!input.apiKey || input.apiKey.trim().length === 0) {
+    return { ok: false, error: { kind: "missing_key" } };
+  }
+
+  const { apiKey, product, version } = input;
+  const variations = Math.max(1, version.variations_default);
+
+  // 1. Normalizamos las imágenes (producto + refs) a `GeminiPart[]` base64.
+  //    Cada URL del store puede ser: dataURI (base64 listo), objectURL
+  //    (blob:), o URL remota. `fetch()` resuelve los tres en navegadores
+  //    modernos, así que no hace falta rama-ear por scheme.
+  let productParts: GeminiPart[];
+  let referenceParts: GeminiPart[];
+  try {
+    [productParts, referenceParts] = await Promise.all([
+      imagesToParts(product.product_images),
+      imagesToParts(version.reference_images),
+    ]);
+  } catch (err) {
+    // Lectura local de imágenes falló — no es error de Gemini, es del browser.
     return {
-      inlineData: {
-        data: Buffer.from(buffer).toString("base64"),
-        mimeType,
+      ok: false,
+      error: {
+        kind: "unknown",
+        message:
+          err instanceof Error
+            ? `No pudimos leer tus imágenes: ${err.message}`
+            : "No pudimos leer tus imágenes.",
       },
     };
-  };
+  }
 
-  const productParts = await Promise.all(input.productImages.map(fetchImageAsPart));
-  const referenceParts = await Promise.all(input.referenceImages.map(fetchImageAsPart));
+  // 2. Prompt final con instrucción de ratio embebida. Gemini Image todavía
+  //    no acepta ratio como parámetro estructurado del request.
+  const basePrompt =
+    version.user_prompt.trim().length > 0
+      ? version.user_prompt
+      : buildPromptFromBrief(version);
+  const ratioInstruction = buildRatioInstruction(version.output_ratio);
+  const finalPrompt = `${basePrompt}
 
-  const promptWithRatio = `${input.finalPrompt}\n\nAspect ratio: ${input.ratio}. High quality, photorealistic, studio-grade output.`;
+${ratioInstruction}
 
-  const generations = Array.from({ length: input.variations }, async (_, idx) => {
-    const result = await model.generateContent([
-      ...productParts,
-      ...referenceParts,
-      { text: promptWithRatio },
-    ]);
+Use the first image(s) as the product to feature — preserve its identity, packaging, label, and proportions. Use the rest as style references for mood, lighting, and composition. Produce one photorealistic, studio-grade commercial image.`;
 
-    const response = result.response;
-    const candidate = response.candidates?.[0];
-    const imagePart = candidate?.content.parts.find(
-      (p) => "inlineData" in p && p.inlineData,
-    );
+  // 3. Armamos el `contents` que vamos a mandar (igual en todas las calls).
+  //    Orden importante: producto PRIMERO (mayor peso), refs DESPUÉS, texto AL
+  //    FINAL. Gemini suele tomar las últimas partes textuales como "lo que
+  //    tiene que hacer", y las imágenes anteriores como referencia.
+  const contents: GeminiContent[] = [
+    {
+      role: "user",
+      parts: [
+        ...productParts,
+        ...referenceParts,
+        { text: finalPrompt },
+      ],
+    },
+  ];
 
-    if (!imagePart || !("inlineData" in imagePart) || !imagePart.inlineData) {
-      throw new Error(`Variación ${idx + 1}: Gemini no devolvió imagen`);
+  // 4. N llamadas en paralelo. `Promise.allSettled` para que una variación
+  //    rota no tire la tanda entera.
+  const calls = Array.from({ length: variations }, async () => {
+    const result = await callGemini({
+      apiKey,
+      model: GEMINI_IMAGE_MODEL,
+      contents,
+      // El modelo de imagen requiere `responseModalities: ["IMAGE"]` para
+      // forzar output de imagen. Si lo omitís, a veces devuelve texto.
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+      },
+    });
+    if (!result.ok) {
+      throw result.error;
     }
-
-    return {
-      base64: imagePart.inlineData.data,
-      mimeType: imagePart.inlineData.mimeType ?? "image/png",
-      variationIndex: idx,
-    };
+    return extractImageDataUrl(result.response);
   });
 
-  return Promise.all(generations);
+  const settled = await Promise.allSettled(calls);
+
+  const images: string[] = [];
+  const errors: GenerationError[] = [];
+  for (const item of settled) {
+    if (item.status === "fulfilled") {
+      images.push(item.value);
+    } else {
+      errors.push(normalizeError(item.reason));
+    }
+  }
+
+  if (images.length === 0) {
+    return {
+      ok: false,
+      error: errors[0] ?? { kind: "unknown", message: "Sin imágenes." },
+    };
+  }
+  return { ok: true, images };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Image normalization                                                         */
+/* -------------------------------------------------------------------------- */
+
+async function imagesToParts(urls: string[]): Promise<GeminiPart[]> {
+  const out: GeminiPart[] = [];
+  for (const url of urls) {
+    const { mime, data } = await urlToBase64(url);
+    out.push({ inlineData: { mimeType: mime, data } });
+  }
+  return out;
+}
+
+/**
+ * Lee una URL (dataURI, blob:, http) y devuelve `{ mime, data }` con `data`
+ * como base64 puro (sin el prefijo `data:...;base64,`). Funciona en el
+ * browser vía `fetch` + `FileReader`.
+ */
+async function urlToBase64(
+  url: string,
+): Promise<{ mime: string; data: string }> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} al leer imagen`);
+  }
+  const blob = await res.blob();
+  const mime = blob.type || "image/png";
+  const data = await blobToBase64(blob);
+  return { mime, data };
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("Formato inesperado al leer la imagen."));
+        return;
+      }
+      // FileReader devuelve `data:<mime>;base64,<payload>` — nos quedamos
+      // sólo con el payload porque la API espera base64 puro en `inlineData.data`.
+      const idx = result.indexOf("base64,");
+      resolve(idx >= 0 ? result.slice(idx + "base64,".length) : result);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Response parsing                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Saca la imagen del response de Gemini y devuelve un dataURL listo para usar.
+ * Lanza un objeto `GeminiError` (no Error) cuando no hay imagen — el caller
+ * (`generateImages`) cachea con `Promise.allSettled` y lo normaliza después.
+ */
+function extractImageDataUrl(response: GeminiResponse): string {
+  const candidate = response.candidates?.[0];
+  if (!candidate) {
+    const err: GeminiError = {
+      kind: "unknown",
+      message: "Gemini no devolvió candidatos.",
+    };
+    throw err;
+  }
+
+  // Safety block a nivel candidato — el más común. Lo tratamos como
+  // `content_blocked` para que la UI muestre copy específico de safety.
+  if (
+    candidate.finishReason === "SAFETY" ||
+    candidate.finishReason === "PROHIBITED_CONTENT" ||
+    candidate.finishReason === "BLOCKLIST" ||
+    candidate.finishReason === "SPII" ||
+    candidate.finishReason === "IMAGE_SAFETY"
+  ) {
+    const err: GeminiError = {
+      kind: "content_blocked",
+      reason: candidate.finishReason,
+    };
+    throw err;
+  }
+
+  const parts = candidate.content?.parts ?? [];
+  for (const part of parts) {
+    if ("inlineData" in part && part.inlineData?.data) {
+      const mime = part.inlineData.mimeType ?? "image/png";
+      return `data:${mime};base64,${part.inlineData.data}`;
+    }
+  }
+
+  const err: GeminiError = {
+    kind: "unknown",
+    message: "Gemini no devolvió imagen en el candidato.",
+  };
+  throw err;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Error normalization                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Acepta cualquier cosa que haya caído al `Promise.allSettled` y lo lleva a
+ * `GenerationError`. Cubre:
+ *  - `GeminiError` ya tipado (lo que tiramos desde `extractImageDataUrl` o lo
+ *    que devuelve `callGemini` cuando `!ok`).
+ *  - `Error` genérico — caemos a `unknown` con su `.message`.
+ *  - `unknown` — lo serializamos a string como último recurso.
+ */
+function normalizeError(err: unknown): GenerationError {
+  if (err && typeof err === "object" && "kind" in err) {
+    return err as GenerationError;
+  }
+  if (err instanceof Error) {
+    return { kind: "unknown", message: err.message };
+  }
+  return { kind: "unknown", message: String(err) };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Helpers                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function buildRatioInstruction(ratio: string): string {
+  const label = OUTPUT_RATIOS.find((r) => r.value === ratio)?.label ?? ratio;
+  return `Aspect ratio: ${ratio} (${label}). Frame the composition to match this aspect ratio exactly.`;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  UI helper compartido                                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Traduce un `GenerationError` a copy friendly en castellano para mostrar en
+ * banners de UI. Se exporta acá para que `image-analyzer.ts` y las pantallas
+ * la compartan sin duplicar strings.
+ */
+export function formatGenerationError(err: GenerationError): string {
+  switch (err.kind) {
+    case "missing_key":
+      return "Falta API key — configurala en Mi Negocio.";
+    case "invalid_key":
+      return "Tu API key no es válida — revisala en Mi Negocio.";
+    case "rate_limit":
+      return err.retryAfterSec
+        ? `Llegaste al límite de Gemini. Probá de nuevo en ~${err.retryAfterSec}s.`
+        : "Llegaste al límite de Gemini. Esperá unos minutos.";
+    case "content_blocked":
+      return err.reason
+        ? `Gemini bloqueó la generación por seguridad: ${err.reason}`
+        : "Gemini bloqueó la generación por seguridad.";
+    case "network":
+      return "Sin conexión o Gemini no responde. Intentá de nuevo.";
+    case "unknown":
+      return err.message || "Error desconocido al generar.";
+  }
 }

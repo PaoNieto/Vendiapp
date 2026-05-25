@@ -14,17 +14,22 @@
  * - Selector nativo en vez de un dropdown custom — accesible por default,
  *   nativo en mobile (pop-up del SO), cero JS extra y el styling con tw
  *   alcanza para la sensación premium.
- * - Mobile-first: en 375px los chips de estado se apilan en grid de 2
- *   columnas (queda más prolijo que scroll horizontal para 4 chips fijos)
- *   y el resto se stackea vertical. A partir de `sm` todo va en una fila.
+ * - Mobile-first: en 375px los chips de estado se apilan en grid de 3
+ *   columnas (3 chips fijos: Todas / Listas / Sin generar) y el resto se
+ *   stackea vertical. A partir de `sm` todo va en una fila.
  */
 
-import { CheckCircle2, Hourglass, Layers, Sparkles } from "lucide-react";
+import { CheckCircle2, Layers, Sparkles } from "lucide-react";
 
 import { SelectableChip } from "@/components/fabrica/selectable-chip";
 import { cn } from "@/lib/utils";
 
-export type FilterStatus = "all" | "processing" | "completed" | "draft";
+/**
+ * El chip "processing" (Generando) se quitó del FilterBar: el flujo va directo
+ * "Sin generar" → "Listas". Mientras una versión procesa, sigue contando como
+ * `draft` en el inbox (con la lógica de bucket de `fabrica/page.tsx`).
+ */
+export type FilterStatus = "all" | "completed" | "draft";
 
 /**
  * `productId` puede ser un id concreto o "all" — usamos string literal en vez
@@ -50,12 +55,10 @@ export type FilterBarProps = {
 };
 
 const STATUS_OPTIONS: Array<{
-  value: FilterStatus;
+  value: Exclude<FilterStatus, "all">;
   label: string;
   icon: typeof Layers;
 }> = [
-  { value: "all", label: "Todas", icon: Layers },
-  { value: "processing", label: "Generando", icon: Hourglass },
   { value: "completed", label: "Listas", icon: CheckCircle2 },
   { value: "draft", label: "Sin generar", icon: Sparkles },
 ];
@@ -79,7 +82,8 @@ export function FilterBar({
         className,
       )}
     >
-      {/* CHIPS DE ESTADO. Mobile: grid 2 cols (4 chips = 2x2). sm+: fila. */}
+      {/* CHIPS DE ESTADO. 2 chips (Listas / Sin generar). Toggleables: clickear
+          el activo lo deselecciona (vuelve a "all" = mostrar todas, implícito). */}
       <div
         role="radiogroup"
         aria-label="Filtrar por estado"
@@ -91,7 +95,9 @@ export function FilterBar({
             label={opt.label}
             icon={opt.icon}
             selected={status === opt.value}
-            onSelect={() => onStatusChange(opt.value)}
+            onSelect={() =>
+              onStatusChange(status === opt.value ? "all" : opt.value)
+            }
             variant="single"
           />
         ))}

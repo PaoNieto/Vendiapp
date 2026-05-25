@@ -2,26 +2,47 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
-import { ImagePlus, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, ArrowRight, ImageIcon, Sparkles, X } from "lucide-react";
+
 import {
-  GenerationCard,
+  AvatarCircle,
+  HeroCTAButton,
   PillButton,
 } from "@/components/dashboard";
-import { formatRelativeTime } from "@/lib/generations/format";
+import { Topbar } from "@/components/app/topbar";
+import {
+  parseCuratedRef,
+  type CuratedStyle,
+} from "@/app/(app)/referencias/page";
 import { useGenerations } from "@/lib/generations/store";
+import { useNegocio } from "@/lib/negocio/store";
 import { useProducts } from "@/lib/products/store";
 import { useRecorrido } from "@/lib/recorrido/store";
 import { useVersions } from "@/lib/versions/store";
+import type { Product } from "@/lib/products/store";
+import type { Version } from "@/lib/versions/store";
+import {
+  formatGenerationError,
+  generateImages,
+} from "@/lib/ai/image-generator";
+import { isVersionReady } from "@/lib/validations/recorrido";
+import { OUTPUT_RATIOS } from "@/lib/constants";
 
 /**
- * Detalle de una versión — muestra referencias, configuración (ratio +
- * variations), prompt actual y todas las generaciones que cuelgan de la
- * versión. Cada sección tiene su botón "editar" que setea el recorrido
- * (productId + versionId) y manda a la estación correspondiente.
+ * Detalle de versión — pantalla de configuración pura.
  *
- * Si el versionId no matchea (o el productId del path no coincide con
- * `version.product_id`) → redirect a `/productos`.
+ * Decisión de producto (2026-05): esta página es SOLO setup. Las imágenes
+ * generadas viven exclusivamente en la Fábrica (drawer). Acá el usuario:
+ *  1. Ve los 3 setup cards (Producto, Estilo, Formato) que componen la versión.
+ *  2. Dispara la generación con "Generar primera tanda" (o "+ Más variaciones"
+ *     si ya hay gens completed).
+ *  3. Al terminar el mock, **redirige a `/fabrica?open=<versionId>`** para
+ *     que vea el resultado en el drawer de la Fábrica.
+ *
+ * Si la versión ya tiene generaciones, mostramos una banda discreta arriba
+ * del callout con el conteo y un link directo a la Fábrica. NO mostramos
+ * grid de imágenes ni strict_prompt acá — eso vive en el drawer.
  */
 export default function VersionDetailPage() {
   const params = useParams<{ id: string; versionId: string }>();
@@ -30,17 +51,19 @@ export default function VersionDetailPage() {
   const versions = useVersions();
   const generations = useGenerations();
   const recorrido = useRecorrido();
+  const negocio = useNegocio();
 
   const productId = params.id;
   const versionId = params.versionId;
   const allHydrated =
-    products.hydrated && versions.hydrated && generations.hydrated;
+    products.hydrated &&
+    versions.hydrated &&
+    generations.hydrated &&
+    negocio.hydrated;
 
   const product = productId ? products.getById(productId) : undefined;
   const version = versionId ? versions.getById(versionId) : undefined;
 
-  // Si después de hidratar falta producto / versión o no se corresponden,
-  // volvemos al catálogo. Mismo criterio que el detalle de producto.
   useEffect(() => {
     if (!allHydrated) return;
     if (!product || !version || version.product_id !== product.id) {
@@ -48,302 +71,547 @@ export default function VersionDetailPage() {
     }
   }, [allHydrated, product, version, router]);
 
-  const versionGenerations = useMemo(() => {
-    if (!version) return [];
-    return generations.getByVersionId(version.id);
-  }, [generations, version]);
+  // Derivaciones — React Compiler las memoiza automáticamente.
+  const versionGenerations = version
+    ? generations.getByVersionId(version.id)
+    : [];
 
-  function activateVersionAnd(path: string) {
+  // Conteo de imágenes generadas (de generations completed) — sólo para
+  // mostrar la banda informativa. NO renderizamos thumbnails acá.
+  const completedImagesCount = (() => {
+    if (!version) return 0;
+    const completedGenIds = new Set(
+      versionGenerations
+        .filter((g) => g.status === "completed")
+        .map((g) => g.id),
+    );
+    if (completedGenIds.size === 0) return 0;
+    return generations.state.images.filter((img) =>
+      completedGenIds.has(img.generation_id),
+    ).length;
+  })();
+
+  // Banner de error inline cuando la generación falla. Mismo patrón que en
+  // `/fabrica`: el sentinel `"missing_key"` activa copy + CTA específicos.
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  // Lock para evitar dobles clicks mientras una tanda está en curso.
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleGenerate() {
+    if (!product || !version) return;
+    if (!isVersionReady(version)) return;
+    if (isSubmitting) return;
+
+    // Guard de API key — preferimos un banner explícito a un fallback mock
+    // confuso. Mismo patrón que en `/fabrica`.
+    if (!negocio.state.apiKey || !negocio.state.apiKeyValidated) {
+      setErrorBanner("missing_key");
+      return;
+    }
+
+    setErrorBanner(null);
+    setIsSubmitting(true);
+
+    const created = generations.createGeneration({
+      project_id: product.id,
+      version_id: version.id,
+      product_images: product.product_images,
+      reference_images: version.reference_images,
+      output_ratio: version.output_ratio,
+      variations_requested: version.variations_default,
+      user_prompt: version.user_prompt,
+    });
+    generations.markProcessing(created.id);
+
+    const targetVersionId = version.id;
+
+    try {
+      const result = await generateImages({
+        apiKey: negocio.state.apiKey,
+        product,
+        version,
+      });
+      if (result.ok) {
+        generations.attachImages(created.id, result.images);
+        generations.markCompleted(created.id);
+        // Redirigimos a la Fábrica con el drawer abierto para que el usuario
+        // vea las imágenes en su contexto natural.
+        router.push(`/fabrica?open=${encodeURIComponent(targetVersionId)}`);
+      } else {
+        const message = formatGenerationError(result.error);
+        generations.markFailed(created.id, message);
+        setErrorBanner(message);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error desconocido al generar.";
+      generations.markFailed(created.id, message);
+      setErrorBanner(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function goEditReferences() {
     if (!product || !version) return;
     recorrido.setState({ productId: product.id, versionId: version.id });
-    router.push(path);
+    router.push("/referencias");
+  }
+
+  function goEditFormato() {
+    if (!product || !version) return;
+    recorrido.setState({ productId: product.id, versionId: version.id });
+    router.push("/formato");
   }
 
   if (!allHydrated || !product || !version) {
     return <VersionSkeleton />;
   }
 
+  const hasCompletedGens = versionGenerations.some(
+    (g) => g.status === "completed",
+  );
+  const brandInitials = pickInitials(negocio.state.brandName);
+  const curated = pickCuratedStyle(version.reference_images);
+
   return (
-    <div className="px-5 py-6 sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-5xl">
-        <VersionHeader
+    <>
+      <Topbar
+        eyebrow={`${product.name.toUpperCase()} · VERSIÓN`}
+        title={version.name}
+        subtitle={
+          version.description ??
+          "Configurá el set de variaciones y mandalas a la Fábrica."
+        }
+        right={
+          <>
+            <div
+              className={
+                isSubmitting ? "pointer-events-none opacity-60" : undefined
+              }
+              aria-disabled={isSubmitting}
+            >
+              {hasCompletedGens ? (
+                <PillButton size="md" onClick={handleGenerate}>
+                  <Sparkles className="h-4 w-4" />
+                  {isSubmitting ? "Generando…" : "Más variaciones"}
+                </PillButton>
+              ) : (
+                <HeroCTAButton icon={Sparkles} onClick={handleGenerate}>
+                  {isSubmitting ? "Generando…" : "Generar primera tanda"}
+                </HeroCTAButton>
+              )}
+            </div>
+            <AvatarCircle initials={brandInitials} size={40} />
+          </>
+        }
+      />
+
+      <div className="flex flex-1 flex-col gap-5 px-5 pb-8 pt-2 sm:px-8 lg:px-10">
+        <Breadcrumb product={product} versionName={version.name} />
+
+        {errorBanner ? (
+          <ErrorBanner
+            message={errorBanner}
+            onDismiss={() => setErrorBanner(null)}
+          />
+        ) : null}
+
+        <SetupRow
           product={product}
           version={version}
-          onMoreVariations={() => activateVersionAnd("/fabrica")}
+          curated={curated}
+          onEditReferences={goEditReferences}
+          onEditFormato={goEditFormato}
         />
 
-        <VersionReferencesSection
+        {hasCompletedGens && completedImagesCount > 0 ? (
+          <GeneratedBanner
+            versionId={version.id}
+            count={completedImagesCount}
+          />
+        ) : null}
+
+        <CalloutGenerate
+          curated={curated}
           version={version}
-          onEdit={() => activateVersionAnd("/referencias")}
+          hasCompletedGens={hasCompletedGens}
+          isSubmitting={isSubmitting}
+          onGenerate={handleGenerate}
         />
+      </div>
+    </>
+  );
+}
 
-        <VersionConfigSection
-          version={version}
-          onEdit={() => activateVersionAnd("/formato")}
-        />
+/* -------------------------------------------------------------------------- */
+/*  Breadcrumb                                                                 */
+/* -------------------------------------------------------------------------- */
 
-        <VersionPromptSection
-          version={version}
-          onEdit={() => activateVersionAnd("/fabrica")}
-        />
+function Breadcrumb({
+  product,
+  versionName,
+}: {
+  product: Product;
+  versionName: string;
+}) {
+  return (
+    <nav
+      aria-label="Breadcrumb"
+      className="flex items-center gap-1.5 text-xs font-semibold text-mute-on-bg"
+    >
+      <Link
+        href={`/productos/${product.id}`}
+        className="hover:text-foreground hover:underline"
+      >
+        {product.name}
+      </Link>
+      <span aria-hidden className="opacity-50">/</span>
+      <span>Versiones</span>
+      <span aria-hidden className="opacity-50">/</span>
+      <span className="font-bold text-foreground">{versionName}</span>
+    </nav>
+  );
+}
 
-        <VersionGenerationsSection
-          versionName={version.name}
-          generations={versionGenerations}
-          generationImages={generations.state.images}
-          onGenerate={() => activateVersionAnd("/fabrica")}
-        />
+/* -------------------------------------------------------------------------- */
+/*  Setup row (3 cards: Producto, Estilo, Formato)                             */
+/* -------------------------------------------------------------------------- */
+
+function SetupRow({
+  product,
+  version,
+  curated,
+  onEditReferences,
+  onEditFormato,
+}: {
+  product: Product;
+  version: Version;
+  curated: CuratedStyle | null;
+  onEditReferences: () => void;
+  onEditFormato: () => void;
+}) {
+  const photosCount = product.product_images.length;
+  const cover = product.cover_image_url ?? product.product_images[0];
+  const ratioInfo = OUTPUT_RATIOS.find((r) => r.value === version.output_ratio);
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Producto */}
+      <div className="glass-card p-4 sm:p-5">
+        <div className="flex items-center justify-between">
+          <span className="eyebrow">PRODUCTO</span>
+          <Link
+            href={`/productos/${product.id}`}
+            className="text-[11.5px] font-bold text-sage-strong hover:underline"
+          >
+            Ver producto
+          </Link>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-lg border border-border bg-card-cream/60">
+            {cover ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={cover}
+                alt={product.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-mute">
+                <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate font-display text-[22px] italic leading-tight text-foreground" title={product.name}>
+              {product.name}
+            </div>
+            <div className="mt-1 text-xs font-medium text-mute">
+              {photosCount} {photosCount === 1 ? "foto" : "fotos"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Estilo */}
+      <div className="glass-card p-4 sm:p-5">
+        <div className="flex items-center justify-between">
+          <span className="eyebrow">ESTILO</span>
+          <button
+            type="button"
+            onClick={onEditReferences}
+            className="text-[11.5px] font-bold text-sage-strong hover:underline"
+          >
+            Editar referencias
+          </button>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <div
+            className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-lg shadow-[0_1px_0_rgba(15,31,22,.06),0_6px_16px_-10px_rgba(15,31,22,.22)]"
+            style={{ backgroundColor: curated?.color ?? "#E8E4D2" }}
+          >
+            <span
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 55%)",
+              }}
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="truncate font-display text-[22px] italic leading-tight text-foreground">
+              {curated?.label ?? "Sin estilo"}
+            </div>
+            <div className="mt-1 text-xs font-medium text-mute">
+              {curated ? "Galería curada" : "Subí o elegí refs"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Formato */}
+      <div className="glass-card p-4 sm:p-5">
+        <div className="flex items-center justify-between">
+          <span className="eyebrow">FORMATO</span>
+          <button
+            type="button"
+            onClick={onEditFormato}
+            className="text-[11.5px] font-bold text-sage-strong hover:underline"
+          >
+            Editar formato
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[1.1px] text-mute">
+              Ratio
+            </div>
+            <div className="mt-1 font-mono text-[22px] font-bold text-foreground">
+              {version.output_ratio}
+            </div>
+            {ratioInfo ? (
+              <div className="mt-0.5 text-[11px] font-medium text-mute">
+                {ratioInfo.label}
+              </div>
+            ) : null}
+          </div>
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[1.1px] text-mute">
+              Por tanda
+            </div>
+            <div className="mt-1 font-mono text-[22px] font-bold text-foreground">
+              {version.variations_default}
+            </div>
+            <div className="mt-0.5 text-[11px] font-medium text-mute">
+              {version.variations_default === 1 ? "imagen" : "imágenes"}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function VersionHeader({
-  product,
-  version,
-  onMoreVariations,
+/* -------------------------------------------------------------------------- */
+/*  Banner discreto: "N imágenes generadas — Ver en Fábrica →"                 */
+/* -------------------------------------------------------------------------- */
+
+function GeneratedBanner({
+  versionId,
+  count,
 }: {
-  product: { id: string; name: string };
-  version: { name: string; description: string | null };
-  onMoreVariations: () => void;
+  versionId: string;
+  count: number;
 }) {
   return (
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <div className="min-w-0">
-        <nav
-          aria-label="Breadcrumb"
-          className="text-xs text-green-text"
-        >
-          <Link
-            href={`/productos/${product.id}`}
-            className="hover:text-green-dark hover:underline"
-          >
-            {product.name}
-          </Link>
-          <span aria-hidden> / </span>
-          <span>Versiones</span>
-          <span aria-hidden> / </span>
-          <span className="text-green-dark">{version.name}</span>
-        </nav>
-        <span className="eyebrow mt-2 inline-block">VERSIÓN</span>
-        <h1 className="mt-1 truncate text-2xl font-medium tracking-tight text-green-dark sm:text-3xl">
-          {version.name}
-        </h1>
-        {version.description ? (
-          <p className="mt-1 text-sm text-green-text">{version.description}</p>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
-        <PillButton size="md" onClick={onMoreVariations}>
-          <Plus className="h-4 w-4" />
-          Más variaciones
-        </PillButton>
-      </div>
-    </header>
+    <Link
+      href={`/fabrica?open=${encodeURIComponent(versionId)}`}
+      className="group inline-flex items-center justify-between gap-3 self-start rounded-full border border-border bg-card-cream/70 px-4 py-2 text-xs font-semibold text-mute-on-bg transition-colors hover:bg-card-cream hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+    >
+      <span>
+        <span className="font-mono text-foreground">{count}</span>{" "}
+        {count === 1 ? "imagen generada" : "imágenes generadas"}
+      </span>
+      <span className="inline-flex items-center gap-1 text-sage-strong">
+        Ver en Fábrica
+        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }
 
-function VersionReferencesSection({
-  version,
-  onEdit,
-}: {
-  version: { reference_images: string[] };
-  onEdit: () => void;
-}) {
-  const refs = version.reference_images;
-  return (
-    <section className="mt-8">
-      <div className="glass-card flex flex-col gap-4 p-6 sm:p-7">
-        <div className="flex items-center justify-between gap-3">
-          <span className="eyebrow">REFERENCIAS</span>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-2 text-xs text-green-text hover:text-green-dark"
-          >
-            Editar referencias
-          </button>
-        </div>
-        {refs.length === 0 ? (
-          <p className="text-sm text-green-text">
-            Esta versión no tiene referencias todavía.
-          </p>
-        ) : (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-            {refs.map((url) => (
-              <div
-                key={url}
-                className="glass relative aspect-square overflow-hidden rounded-2xl border border-white/60"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt="Referencia"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
+/* -------------------------------------------------------------------------- */
+/*  Callout "Listo para generar" — siempre presente                            */
+/* -------------------------------------------------------------------------- */
 
-function VersionConfigSection({
+function CalloutGenerate({
+  curated,
   version,
-  onEdit,
-}: {
-  version: { output_ratio: string; variations_default: number };
-  onEdit: () => void;
-}) {
-  return (
-    <section className="mt-6">
-      <div className="glass-card flex flex-col gap-3 p-6 sm:p-7">
-        <div className="flex items-center justify-between gap-3">
-          <span className="eyebrow">CONFIGURACIÓN</span>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-2 text-xs text-green-text hover:text-green-dark"
-          >
-            Editar configuración
-          </button>
-        </div>
-        <dl className="grid grid-cols-1 gap-2 text-sm text-green-dark sm:grid-cols-2">
-          <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-            <dt className="text-xs text-green-text">Ratio</dt>
-            <dd className="font-mono">{version.output_ratio}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-2 sm:flex-col sm:items-start sm:gap-0.5">
-            <dt className="text-xs text-green-text">Variaciones por tanda</dt>
-            <dd className="font-mono">{version.variations_default}</dd>
-          </div>
-        </dl>
-      </div>
-    </section>
-  );
-}
-
-function VersionPromptSection({
-  version,
-  onEdit,
-}: {
-  version: { user_prompt: string };
-  onEdit: () => void;
-}) {
-  const trimmed = version.user_prompt.trim();
-  return (
-    <section className="mt-6">
-      <div className="glass-card flex flex-col gap-3 p-6 sm:p-7">
-        <div className="flex items-center justify-between gap-3">
-          <span className="eyebrow">PROMPT</span>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-2 text-xs text-green-text hover:text-green-dark"
-          >
-            Editar prompt
-          </button>
-        </div>
-        {trimmed.length === 0 ? (
-          <p className="text-sm italic text-green-text">
-            (prompt generado automáticamente al ir a la Fábrica)
-          </p>
-        ) : (
-          <p className="whitespace-pre-line text-sm text-green-dark">
-            {version.user_prompt}
-          </p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function VersionGenerationsSection({
-  versionName,
-  generations,
-  generationImages,
+  hasCompletedGens,
+  isSubmitting,
   onGenerate,
 }: {
-  versionName: string;
-  generations: ReturnType<typeof useGenerations>["state"]["generations"];
-  generationImages: ReturnType<typeof useGenerations>["state"]["images"];
+  curated: CuratedStyle | null;
+  version: Version;
+  hasCompletedGens: boolean;
+  isSubmitting: boolean;
   onGenerate: () => void;
 }) {
-  return (
-    <section className="mt-10">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-medium text-green-dark">
-          Generaciones ({generations.length})
-        </h2>
-      </div>
+  const count = version.variations_default;
+  const ratio = version.output_ratio;
+  const styleLabel = curated?.label ?? "neutro";
+  const canGenerate = isVersionReady(version) && !isSubmitting;
 
-      {generations.length === 0 ? (
-        <div className="glass-card mt-4 flex flex-col items-center gap-3 p-8 text-center sm:p-10">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-dark/10">
-            <ImagePlus className="h-5 w-5 text-green-dark" />
-          </div>
-          <p className="max-w-sm text-sm text-green-text">
-            Todavía no generaste imágenes para esta versión.
+  const eyebrow = hasCompletedGens ? "GENERAR MÁS" : "LISTO PARA GENERAR";
+  const ctaLabel = isSubmitting
+    ? "Generando…"
+    : hasCompletedGens
+      ? "+ Más variaciones"
+      : "Generar primera tanda";
+
+  return (
+    <div className="glass-card flex flex-col items-stretch gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-7">
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+        <div
+          aria-hidden
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full shadow-[0_1px_0_rgba(15,31,22,.06),0_6px_16px_-10px_rgba(15,31,22,.22)]"
+          style={{
+            backgroundColor: curated?.color ?? "#E8E4D2",
+            color: curated?.textOn === "white" ? "#FFFFFF" : "#1B1B1B",
+          }}
+        >
+          <Sparkles className="h-6 w-6" strokeWidth={1.6} />
+        </div>
+        <div className="min-w-0">
+          <span className="eyebrow">{eyebrow}</span>
+          <h3 className="mt-1 font-display text-[26px] italic leading-snug text-foreground">
+            <span className="tabular-nums">{count}</span> imágenes{" "}
+            <span className="font-mono text-lg not-italic font-bold">{ratio}</span>{" "}
+            en estilo <em className="italic">{styleLabel}</em>
+          </h3>
+          <p className="mt-1.5 max-w-md text-xs font-medium leading-relaxed text-mute-on-bg">
+            {hasCompletedGens
+              ? "Sumá otra tanda. El resultado aparece en la Fábrica."
+              : "Cuando termine, vas directo a la Fábrica para ver el resultado."}{" "}
+            Tarda ~1 minuto.
           </p>
-          <div className="mt-1">
-            <PillButton size="md" onClick={onGenerate}>
-              <Plus className="h-4 w-4" />
-              Generar
-            </PillButton>
-          </div>
         </div>
-      ) : (
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {generations.map((gen) => {
-            // Buscamos la primera imagen generada de esta generación; si no
-            // existe (todavía processing/failed), caemos a product_images.
-            const firstImage = generationImages.find(
-              (img) => img.generation_id === gen.id,
-            )?.image_url;
-            const previewSrc = firstImage ?? gen.product_images[0];
-            return (
-              <GenerationCard
-                key={gen.id}
-                id={gen.id}
-                projectName={versionName}
-                ratio={gen.output_ratio}
-                status={gen.status}
-                variations={gen.variations_requested}
-                relativeTime={formatRelativeTime(gen.created_at)}
-                thumbnailUrl={previewSrc}
-                href={`/proyectos/${gen.id}`}
-              />
-            );
-          })}
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-none">
+        {/* No tenemos `disabled` en `HeroCTAButton` (componente compartido) —
+            envolvemos en un wrapper que apaga el click y baja la opacidad
+            mientras `isSubmitting` o `!isVersionReady`. */}
+        <div
+          className={!canGenerate ? "pointer-events-none opacity-50" : undefined}
+          aria-disabled={!canGenerate}
+        >
+          <HeroCTAButton icon={Sparkles} onClick={onGenerate}>
+            {ctaLabel}
+          </HeroCTAButton>
         </div>
-      )}
-    </section>
+        {isSubmitting ? (
+          <span className="text-center text-[11px] text-mute sm:text-right">
+            Tarda 5-30s según cantidad de variaciones.
+          </span>
+        ) : !isVersionReady(version) ? (
+          <span className="text-center text-[11px] text-mute sm:text-right">
+            Subí al menos 1 referencia para habilitar.
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Skeleton + helpers                                                         */
+/* -------------------------------------------------------------------------- */
 
 function VersionSkeleton() {
   return (
-    <div className="px-5 py-6 sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-2">
-            <div className="h-3 w-40 animate-pulse rounded-full bg-white/30" />
-            <div className="h-3 w-20 animate-pulse rounded-full bg-white/30" />
-            <div className="h-8 w-64 animate-pulse rounded-full bg-white/40" />
-          </div>
-          <div className="h-11 w-40 animate-pulse rounded-full bg-white/40" />
+    <div className="flex flex-1 flex-col gap-5 px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+      <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <div className="h-3 w-32 animate-pulse rounded-full bg-foreground/10" />
+          <div className="h-9 w-64 animate-pulse rounded-full bg-foreground/10" />
         </div>
-        <div className="glass-card mt-8 h-40 animate-pulse" />
-        <div className="glass-card mt-6 h-24 animate-pulse" />
-        <div className="glass-card mt-6 h-32 animate-pulse" />
-        <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="glass-card-compact h-64 animate-pulse" />
-          ))}
-        </div>
+        <div className="h-11 w-44 animate-pulse rounded-full bg-foreground/10" />
       </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 animate-pulse rounded-xl bg-foreground/5" />
+        ))}
+      </div>
+      <div className="h-44 animate-pulse rounded-xl bg-foreground/5" />
+    </div>
+  );
+}
+
+function pickInitials(brandName: string): string {
+  const clean = brandName.trim();
+  if (!clean) return "N";
+  return clean.slice(0, 2).toUpperCase();
+}
+
+function pickCuratedStyle(refs: string[]): CuratedStyle | null {
+  for (const ref of refs) {
+    const parsed = parseCuratedRef(ref);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  ErrorBanner                                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Mismo banner inline que usa `/fabrica`. Centralizamos un helper local en
+ * vez de extraer a `components/` para no inflar la API pública por un caso
+ * que sólo se usa en 2 pantallas.
+ */
+function ErrorBanner({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  const isMissingKey = message === "missing_key";
+  const displayMessage = isMissingKey
+    ? "Para generar imágenes reales, configurá tu API key de Gemini en Mi Negocio."
+    : message;
+
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/[0.06] px-4 py-3 text-sm text-foreground"
+    >
+      <AlertCircle
+        className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+        aria-hidden
+      />
+      <div className="flex-1">
+        <p className="font-medium leading-snug">{displayMessage}</p>
+        {isMissingKey ? (
+          <Link
+            href="/mi-negocio"
+            className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
+          >
+            Ir a Mi Negocio →
+          </Link>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Descartar mensaje"
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
