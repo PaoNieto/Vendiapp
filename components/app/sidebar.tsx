@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Factory,
@@ -9,9 +9,11 @@ import {
   Briefcase,
   ScanSearch,
   Settings,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
+import { useUser } from "@/lib/auth/use-user";
 
 // Sidebar Cuaderno v2 — sage claro SÓLIDO (NO glass).
 // Ancho 220px (handoff: "más restrained que 240+"). Branding "Vendí." en
@@ -20,7 +22,7 @@ import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 // de Productos, Fábrica, Mi Negocio, Ajustes. Item activo: pill forest
 // (--primary) con texto cream (--primary-foreground); inactivos: ink
 // con weight 500 + hover ink-soft. Footer Plan PRO (SIN créditos —
-// Vendí es BYOK) + ThemeToggle al final.
+// Vendí es BYOK) + ThemeToggle + Cerrar sesión al final.
 //
 // Antes el sidebar usaba bg-glass/30 + backdrop-blur-xl. El handoff v2
 // pide sólido sage claro (#C6D6B2 via --vd-sidebar-bg) sin blur. Más
@@ -32,6 +34,23 @@ type SidebarProps = {
 
 export function Sidebar({ plan }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading, signOut } = useUser();
+
+  async function handleSignOut() {
+    await signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
+  // Nombre amistoso: priorizamos display_name (lo seteamos en signup
+  // via raw_user_meta_data), después el email, después placeholder.
+  const displayName =
+    (typeof user?.user_metadata?.display_name === "string"
+      ? user.user_metadata.display_name
+      : null) ??
+    user?.email ??
+    null;
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
@@ -98,12 +117,28 @@ export function Sidebar({ plan }: SidebarProps) {
         consumidos" no aplica. Mantenemos eyebrow + plan + renovación +
         link discreto a Administrar.
 
+        Sumamos arriba el nombre/email del usuario logueado, en pequeño,
+        como ancla "esta es tu cuenta". Si todavía no cargó (loading)
+        renderizamos placeholder para no shiftear layout.
+
         NO usamos .glass-card acá aunque sea sólido por defecto: queremos
         el plan card "fusionado" con el sidebar sage claro, no levantado
         como una card cream. Solo un border-top sutil que separa.
       */}
       <div className="mt-4 flex flex-col gap-1 border-t border-border pt-4">
-        <div className="eyebrow">Plan</div>
+        <div className="eyebrow">Cuenta</div>
+        <div
+          className="truncate text-[12.5px] font-medium text-foreground"
+          title={displayName ?? undefined}
+        >
+          {loading ? (
+            <span className="inline-block h-3 w-24 rounded bg-foreground/10" />
+          ) : (
+            (displayName ?? "Invitado")
+          )}
+        </div>
+
+        <div className="eyebrow mt-3">Plan</div>
         <div className="text-sm font-semibold text-foreground">{plan}</div>
         <div className="text-[11.5px] font-medium text-mute">
           Se renueva el 1 de junio
@@ -116,9 +151,19 @@ export function Sidebar({ plan }: SidebarProps) {
         </Link>
       </div>
 
-      {/* ThemeToggle al fondo del sidebar. */}
-      <div className="mt-3 flex justify-center">
+      {/* ThemeToggle + Cerrar sesión al fondo del sidebar. */}
+      <div className="mt-3 flex items-center justify-between">
         <ThemeToggle />
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={loading || !user}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-mute transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
+          Salir
+        </button>
       </div>
     </aside>
   );

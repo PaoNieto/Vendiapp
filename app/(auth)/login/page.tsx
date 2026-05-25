@@ -1,17 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
-export default function LoginPage() {
+// Convierte errores crudos de Supabase Auth en mensajes en español
+// amigables. Los códigos vienen de gotrue-js — si Supabase cambia los
+// strings en el futuro el fallback siempre devuelve el original.
+function friendlyAuthError(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("invalid login credentials")) {
+    return "Email o contraseña incorrectos.";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "Confirmá tu email antes de entrar. Revisá tu inbox.";
+  }
+  if (lower.includes("too many requests") || lower.includes("rate limit")) {
+    return "Demasiados intentos. Esperá un minuto y probá de nuevo.";
+  }
+  return message;
+}
+
+// useSearchParams() corre en cliente y obliga a Next a hacer CSR bailout
+// si no está dentro de un <Suspense>. Aislamos el form en un componente
+// separado y lo envolvemos en Suspense en el default export.
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,19 +42,34 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    // TODO: reemplazar con Supabase Auth cuando lleguen las keys
-    // const supabase = createClient();
-    // const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
 
-    await new Promise((r) => setTimeout(r, 500));
-    setLoading(false);
-    router.push("/dashboard");
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      setError(friendlyAuthError(authError.message));
+      setLoading(false);
+      return;
+    }
+
+    // ?from=/ruta-original viene del proxy cuando redirige a /login
+    // por falta de sesión. Volvemos a esa ruta tras login exitoso.
+    const from = searchParams.get("from");
+    const destination = from && from.startsWith("/") ? from : "/dashboard";
+    router.push(destination);
+    router.refresh();
   }
 
   return (
     <Card className="glass-strong rounded-3xl border-0 p-7 shadow-xl">
       <div className="space-y-1.5 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-display text-3xl italic tracking-tight text-foreground">
           Bienvenido
         </h1>
         <p className="text-sm text-muted-foreground">Iniciá sesión en Vendí</p>
@@ -70,7 +107,10 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p
+            role="alert"
+            className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
             {error}
           </p>
         )}
@@ -99,5 +139,28 @@ export default function LoginPage() {
         </Link>
       </p>
     </Card>
+  );
+}
+
+// Fallback mínimo durante la hidratación del query string. Mantiene el
+// shell de la card para que no salte el layout.
+function LoginFormFallback() {
+  return (
+    <Card className="glass-strong rounded-3xl border-0 p-7 shadow-xl">
+      <div className="space-y-1.5 text-center">
+        <h1 className="font-display text-3xl italic tracking-tight text-foreground">
+          Bienvenido
+        </h1>
+        <p className="text-sm text-muted-foreground">Cargando…</p>
+      </div>
+    </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFormFallback />}>
+      <LoginForm />
+    </Suspense>
   );
 }
