@@ -9,18 +9,27 @@ import {
   useState,
 } from "react";
 import type { OutputRatio } from "@/lib/constants";
+import { useUser } from "@/lib/auth/use-user";
+import { createClient } from "@/lib/supabase/client";
+
+// LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
+// `vendi:generations` (con generations + images embebidas). Ya no se escribe
+// ni lee — los datos viven en Supabase (tablas `public.generations` y
+// `public.generated_images`, filtradas por `auth.uid()` vía RLS). Si encontrás
+// un `vendi:generations` viejo en tu browser, ignoralo: ya no es la fuente
+// de verdad.
 
 /**
  * Shape espejo de la tabla `public.generations` de Supabase.
  *
  * Diferencias intencionales:
- * - `user_id` se omite hasta que conectemos Supabase Auth (lo inyecta el server).
- * - `product_images` / `reference_images` se tipan como `string[]` (URLs o paths a
- *   Storage). En Postgres son `jsonb`; un array de strings serializa 1:1.
+ * - `user_id` se omite del tipo del cliente (lo inyecta el INSERT + RLS filtra).
+ * - `product_images` / `reference_images` se tipan como `string[]` (URLs o paths
+ *   a Storage). En Postgres son `jsonb`; un array de strings serializa 1:1.
  * - `enriched_prompt` es `Record<string, unknown> | null` — el director de arte
  *   devuelve un objeto con keys (scene, lighting, etc.) que no vale la pena
  *   tipar fino acá porque su contrato lo define el backend, no el cliente.
- * - Timestamps como ISO 8601 (`string`) para serialización limpia a localStorage.
+ * - Timestamps como ISO 8601 (`string`) — Postgres los devuelve así via PostgREST.
  */
 export type GenerationStatus =
   | "pending"
@@ -58,7 +67,7 @@ export type Generation = {
 
 /**
  * Shape espejo de `public.generated_images`. Lo guardamos en el mismo store que
- * `generations` porque siempre se consultan juntos y no escala como tabla aparte.
+ * `generations` porque siempre se consultan juntos.
  */
 export type GeneratedImage = {
   id: string;
@@ -111,11 +120,10 @@ const INITIAL: GenerationsState = {
   images: [],
 };
 
-const STORAGE_KEY = "vendi:generations";
-
 type GenerationsContextValue = {
   state: GenerationsState;
   hydrated: boolean;
+  error: string | null;
   createGeneration: (input: GenerationCreateInput) => Generation;
   markProcessing: (id: string) => void;
   markCompleted: (id: string) => void;
@@ -137,29 +145,92 @@ type GenerationsContextValue = {
 
 const GenerationsContext = createContext<GenerationsContextValue | null>(null);
 
-const VERSIONS_STORAGE_KEY = "vendi:versions";
+const ALLOWED_RATIOS: ReadonlyArray<OutputRatio> = [
+  "1:1",
+  "4:5",
+  "9:16",
+  "16:9",
+];
 
-/**
- * Lee ids de versiones directamente desde localStorage para que
- * `seedDevData` pueda asignar `version_id` a algunas generaciones de ejemplo
- * sin acoplarse al `VersionsProvider` (evita dep circular y orden de mount).
- * Devuelve [] si no hay versiones cargadas o el shape es inesperado.
- */
-function readSampleVersionIds(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(VERSIONS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { versions?: Array<{ id?: unknown }> };
-    if (!Array.isArray(parsed.versions)) return [];
-    const out: string[] = [];
-    for (const v of parsed.versions) {
-      if (v && typeof v.id === "string") out.push(v.id);
-    }
-    return out;
-  } catch {
-    return [];
+function isOutputRatio(v: unknown): v is OutputRatio {
+  return typeof v === "string" && (ALLOWED_RATIOS as readonly string[]).includes(v);
+}
+
+function isGenerationStatus(v: unknown): v is GenerationStatus {
+  return v === "pending" || v === "processing" || v === "completed" || v === "failed";
+}
+
+function isRating(v: unknown): v is 1 | 2 | 3 | 4 | 5 | null {
+  if (v === null) return true;
+  return typeof v === "number" && v >= 1 && v <= 5 && Number.isInteger(v);
+}
+
+function parseGenerationRow(row: unknown): Generation | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  if (typeof r.id !== "string") return null;
+  const status = isGenerationStatus(r.status) ? r.status : "pending";
+  const ratio = isOutputRatio(r.output_ratio) ? r.output_ratio : "1:1";
+  // `enriched_prompt` puede venir como objeto (jsonb) o `null`.
+  let enriched: Record<string, unknown> | null = null;
+  if (r.enriched_prompt && typeof r.enriched_prompt === "object" && !Array.isArray(r.enriched_prompt)) {
+    enriched = r.enriched_prompt as Record<string, unknown>;
   }
+  return {
+    id: r.id,
+    project_id: typeof r.project_id === "string" ? r.project_id : null,
+    version_id: typeof r.version_id === "string" ? r.version_id : null,
+    status,
+    product_images: Array.isArray(r.product_images)
+      ? r.product_images.filter((u): u is string => typeof u === "string")
+      : [],
+    reference_images: Array.isArray(r.reference_images)
+      ? r.reference_images.filter((u): u is string => typeof u === "string")
+      : [],
+    user_prompt: typeof r.user_prompt === "string" ? r.user_prompt : null,
+    enriched_prompt: enriched,
+    output_ratio: ratio,
+    variations_requested:
+      typeof r.variations_requested === "number" ? r.variations_requested : 5,
+    cost_credits: typeof r.cost_credits === "number" ? r.cost_credits : 1,
+    error_message: typeof r.error_message === "string" ? r.error_message : null,
+    created_at:
+      typeof r.created_at === "string"
+        ? r.created_at
+        : new Date().toISOString(),
+    completed_at: typeof r.completed_at === "string" ? r.completed_at : null,
+  };
+}
+
+function parseGeneratedImageRow(row: unknown): GeneratedImage | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  if (typeof r.id !== "string") return null;
+  if (typeof r.generation_id !== "string") return null;
+  if (typeof r.image_url !== "string") return null;
+  const rating = isRating(r.user_rating) ? r.user_rating : null;
+  let metadata: Record<string, unknown> | null = null;
+  if (r.metadata && typeof r.metadata === "object" && !Array.isArray(r.metadata)) {
+    metadata = r.metadata as Record<string, unknown>;
+  }
+  return {
+    id: r.id,
+    generation_id: r.generation_id,
+    image_url: r.image_url,
+    thumbnail_url: typeof r.thumbnail_url === "string" ? r.thumbnail_url : null,
+    variation_index:
+      typeof r.variation_index === "number" ? r.variation_index : 0,
+    metadata,
+    user_rating: rating,
+    is_favorite: typeof r.is_favorite === "boolean" ? r.is_favorite : false,
+    is_downloaded:
+      typeof r.is_downloaded === "boolean" ? r.is_downloaded : false,
+    strict_prompt: typeof r.strict_prompt === "string" ? r.strict_prompt : "",
+    created_at:
+      typeof r.created_at === "string"
+        ? r.created_at
+        : new Date().toISOString(),
+  };
 }
 
 export function GenerationsProvider({
@@ -167,57 +238,74 @@ export function GenerationsProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = useMemo(() => createClient(), []);
+  const { user } = useUser();
   const [state, setLocalState] = useState<GenerationsState>(INITIAL);
   const [hydrated, setHydrated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch en paralelo de ambas tablas para no esperar 2 round-trips serial.
+  // Mismo patrón que ProductsProvider: sync con external auth state.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<GenerationsState>;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage post-mount; el SSR no tiene acceso.
-        setLocalState({
-          // Backfill `version_id: null` para generaciones serializadas antes
-          // de la migración 0003. El resto del shape ya era compatible.
-          generations: Array.isArray(parsed.generations)
-            ? parsed.generations.map((g) => ({
-                ...g,
-                version_id:
-                  typeof g.version_id === "string" ? g.version_id : null,
-              }))
-            : [],
-          // Backfill `strict_prompt: ""` para imágenes serializadas antes de
-          // la migración 0004. El resto del shape ya era compatible.
-          images: Array.isArray(parsed.images)
-            ? parsed.images.map((img) => ({
-                ...img,
-                strict_prompt:
-                  typeof img.strict_prompt === "string"
-                    ? img.strict_prompt
-                    : "",
-              }))
-            : [],
-        });
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync con external auth state (Supabase Context).
+      setLocalState(INITIAL);
+      setHydrated(false);
+      return;
+    }
+    let cancelled = false;
+    setHydrated(false);
+
+    Promise.all([
+      supabase
+        .from("generations")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("generated_images")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    ]).then(([gensResult, imagesResult]) => {
+      if (cancelled) return;
+      if (gensResult.error) {
+        console.error("Failed to fetch generations:", gensResult.error);
+        setError(gensResult.error.message);
+        setHydrated(true);
+        return;
       }
-    } catch {
-      // ignore
-    }
-    setHydrated(true);
-  }, []);
+      if (imagesResult.error) {
+        console.error("Failed to fetch generated_images:", imagesResult.error);
+        setError(imagesResult.error.message);
+        setHydrated(true);
+        return;
+      }
+      const genRows = Array.isArray(gensResult.data) ? gensResult.data : [];
+      const imgRows = Array.isArray(imagesResult.data) ? imagesResult.data : [];
+      const parsedGens: Generation[] = [];
+      for (const row of genRows) {
+        const g = parseGenerationRow(row);
+        if (g) parsedGens.push(g);
+      }
+      const parsedImages: GeneratedImage[] = [];
+      for (const row of imgRows) {
+        const img = parseGeneratedImageRow(row);
+        if (img) parsedImages.push(img);
+      }
+      setLocalState({ generations: parsedGens, images: parsedImages });
+      setError(null);
+      setHydrated(true);
+    });
 
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore (quota, etc.)
-    }
-  }, [state, hydrated]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, supabase]);
 
   const createGeneration = useCallback(
     (input: GenerationCreateInput): Generation => {
+      const currentUser = user;
       const now = new Date().toISOString();
-      const generation: Generation = {
+      const optimistic: Generation = {
         id: crypto.randomUUID(),
         project_id: input.project_id ?? null,
         version_id: input.version_id ?? null,
@@ -235,56 +323,144 @@ export function GenerationsProvider({
       };
       setLocalState((prev) => ({
         ...prev,
-        generations: [generation, ...prev.generations],
+        generations: [optimistic, ...prev.generations],
       }));
-      return generation;
+
+      if (!currentUser) {
+        console.error("createGeneration called without a logged-in user");
+        setError("No hay sesión activa.");
+        setLocalState((prev) => ({
+          ...prev,
+          generations: prev.generations.filter((g) => g.id !== optimistic.id),
+        }));
+        return optimistic;
+      }
+
+      void supabase
+        .from("generations")
+        .insert({
+          id: optimistic.id,
+          user_id: currentUser.id,
+          project_id: optimistic.project_id,
+          version_id: optimistic.version_id,
+          status: optimistic.status,
+          product_images: optimistic.product_images,
+          reference_images: optimistic.reference_images,
+          user_prompt: optimistic.user_prompt,
+          output_ratio: optimistic.output_ratio,
+          variations_requested: optimistic.variations_requested,
+          cost_credits: optimistic.cost_credits,
+        })
+        .select()
+        .single()
+        .then(({ data, error: insertError }) => {
+          if (insertError) {
+            console.error("Failed to insert generation:", insertError);
+            setError(insertError.message);
+            setLocalState((prev) => ({
+              ...prev,
+              generations: prev.generations.filter(
+                (g) => g.id !== optimistic.id,
+              ),
+            }));
+            return;
+          }
+          const parsed = parseGenerationRow(data);
+          if (!parsed) return;
+          setLocalState((prev) => ({
+            ...prev,
+            generations: prev.generations.map((g) =>
+              g.id === parsed.id ? parsed : g,
+            ),
+          }));
+          setError(null);
+        });
+
+      return optimistic;
     },
-    [],
+    [supabase, user],
   );
 
-  const markProcessing = useCallback((id: string) => {
-    setLocalState((prev) => ({
-      ...prev,
-      generations: prev.generations.map((g) =>
-        g.id === id ? { ...g, status: "processing" } : g,
-      ),
-    }));
-  }, []);
+  // Helper privado para updates parciales de una generation (status, etc).
+  // Hace optimistic update + persist + rollback si falla.
+  const patchGeneration = useCallback(
+    (id: string, patch: Partial<Generation>) => {
+      let snapshot: Generation | undefined;
+      setLocalState((prev) => {
+        snapshot = prev.generations.find((g) => g.id === id);
+        return {
+          ...prev,
+          generations: prev.generations.map((g) =>
+            g.id === id ? { ...g, ...patch, id: g.id } : g,
+          ),
+        };
+      });
+      if (!user || !snapshot) return;
+      const captured = snapshot;
 
-  const markCompleted = useCallback((id: string) => {
-    setLocalState((prev) => ({
-      ...prev,
-      generations: prev.generations.map((g) =>
-        g.id === id
-          ? {
-              ...g,
-              status: "completed",
-              completed_at: new Date().toISOString(),
-              error_message: null,
-            }
-          : g,
-      ),
-    }));
-  }, []);
+      const dbPatch: Record<string, unknown> = {};
+      if ("status" in patch) dbPatch.status = patch.status;
+      if ("completed_at" in patch) dbPatch.completed_at = patch.completed_at;
+      if ("error_message" in patch) dbPatch.error_message = patch.error_message;
+      if ("enriched_prompt" in patch)
+        dbPatch.enriched_prompt = patch.enriched_prompt;
 
-  const markFailed = useCallback((id: string, error_message: string) => {
-    setLocalState((prev) => ({
-      ...prev,
-      generations: prev.generations.map((g) =>
-        g.id === id
-          ? {
-              ...g,
-              status: "failed",
-              error_message,
-              completed_at: new Date().toISOString(),
-            }
-          : g,
-      ),
-    }));
-  }, []);
+      if (Object.keys(dbPatch).length === 0) return;
+
+      void supabase
+        .from("generations")
+        .update(dbPatch)
+        .eq("id", id)
+        .then(({ error: updateError }) => {
+          if (updateError) {
+            console.error("Failed to patch generation:", updateError);
+            setError(updateError.message);
+            setLocalState((prev) => ({
+              ...prev,
+              generations: prev.generations.map((g) =>
+                g.id === id ? captured : g,
+              ),
+            }));
+            return;
+          }
+          setError(null);
+        });
+    },
+    [supabase, user],
+  );
+
+  const markProcessing = useCallback(
+    (id: string) => {
+      patchGeneration(id, { status: "processing" });
+    },
+    [patchGeneration],
+  );
+
+  const markCompleted = useCallback(
+    (id: string) => {
+      patchGeneration(id, {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        error_message: null,
+      });
+    },
+    [patchGeneration],
+  );
+
+  const markFailed = useCallback(
+    (id: string, error_message: string) => {
+      patchGeneration(id, {
+        status: "failed",
+        error_message,
+        completed_at: new Date().toISOString(),
+      });
+    },
+    [patchGeneration],
+  );
 
   const attachImages = useCallback(
     (generationId: string, urls: string[]) => {
+      const currentUser = user;
       const now = new Date().toISOString();
       const newImages: GeneratedImage[] = urls.map((url, index) => ({
         id: crypto.randomUUID(),
@@ -303,36 +479,135 @@ export function GenerationsProvider({
         ...prev,
         images: [...newImages, ...prev.images],
       }));
+
+      if (!currentUser) {
+        console.error("attachImages called without a logged-in user");
+        setError("No hay sesión activa.");
+        // Rollback de las imágenes optimistas.
+        const newIds = new Set(newImages.map((img) => img.id));
+        setLocalState((prev) => ({
+          ...prev,
+          images: prev.images.filter((img) => !newIds.has(img.id)),
+        }));
+        return;
+      }
+
+      // Bulk insert — N rows en una sola request. Si falla, rollback de
+      // todas las imágenes optimistas (no parcial).
+      const payload = newImages.map((img) => ({
+        id: img.id,
+        generation_id: img.generation_id,
+        user_id: currentUser.id,
+        image_url: img.image_url,
+        thumbnail_url: img.thumbnail_url,
+        variation_index: img.variation_index,
+        metadata: img.metadata,
+        is_favorite: img.is_favorite,
+        is_downloaded: img.is_downloaded,
+        strict_prompt: img.strict_prompt,
+      }));
+
+      void supabase
+        .from("generated_images")
+        .insert(payload)
+        .select()
+        .then(({ data, error: insertError }) => {
+          if (insertError) {
+            console.error("Failed to insert generated_images:", insertError);
+            setError(insertError.message);
+            const newIds = new Set(newImages.map((img) => img.id));
+            setLocalState((prev) => ({
+              ...prev,
+              images: prev.images.filter((img) => !newIds.has(img.id)),
+            }));
+            return;
+          }
+          // Reemplazamos los optimistas por las rows reales del server.
+          const returned = Array.isArray(data) ? data : [];
+          const parsedById = new Map<string, GeneratedImage>();
+          for (const row of returned) {
+            const parsed = parseGeneratedImageRow(row);
+            if (parsed) parsedById.set(parsed.id, parsed);
+          }
+          setLocalState((prev) => ({
+            ...prev,
+            images: prev.images.map((img) => parsedById.get(img.id) ?? img),
+          }));
+          setError(null);
+        });
     },
-    [],
+    [supabase, user],
   );
 
-  const toggleFavorite = useCallback((imageId: string) => {
-    setLocalState((prev) => ({
-      ...prev,
-      images: prev.images.map((img) =>
-        img.id === imageId ? { ...img, is_favorite: !img.is_favorite } : img,
-      ),
-    }));
-  }, []);
+  // Helper privado para patches a generated_images.
+  const patchImage = useCallback(
+    (imageId: string, patch: Partial<GeneratedImage>) => {
+      let snapshot: GeneratedImage | undefined;
+      setLocalState((prev) => {
+        snapshot = prev.images.find((img) => img.id === imageId);
+        return {
+          ...prev,
+          images: prev.images.map((img) =>
+            img.id === imageId ? { ...img, ...patch, id: img.id } : img,
+          ),
+        };
+      });
+      if (!user || !snapshot) return;
+      const captured = snapshot;
 
-  const rate = useCallback((imageId: string, rating: 1 | 2 | 3 | 4 | 5) => {
-    setLocalState((prev) => ({
-      ...prev,
-      images: prev.images.map((img) =>
-        img.id === imageId ? { ...img, user_rating: rating } : img,
-      ),
-    }));
-  }, []);
+      const dbPatch: Record<string, unknown> = {};
+      if ("is_favorite" in patch) dbPatch.is_favorite = patch.is_favorite;
+      if ("is_downloaded" in patch) dbPatch.is_downloaded = patch.is_downloaded;
+      if ("user_rating" in patch) dbPatch.user_rating = patch.user_rating;
+      if ("strict_prompt" in patch) dbPatch.strict_prompt = patch.strict_prompt;
+      if ("thumbnail_url" in patch) dbPatch.thumbnail_url = patch.thumbnail_url;
 
-  const setImagePrompt = useCallback((imageId: string, prompt: string) => {
-    setLocalState((prev) => ({
-      ...prev,
-      images: prev.images.map((img) =>
-        img.id === imageId ? { ...img, strict_prompt: prompt } : img,
-      ),
-    }));
-  }, []);
+      if (Object.keys(dbPatch).length === 0) return;
+
+      void supabase
+        .from("generated_images")
+        .update(dbPatch)
+        .eq("id", imageId)
+        .then(({ error: updateError }) => {
+          if (updateError) {
+            console.error("Failed to patch generated_image:", updateError);
+            setError(updateError.message);
+            setLocalState((prev) => ({
+              ...prev,
+              images: prev.images.map((img) =>
+                img.id === imageId ? captured : img,
+              ),
+            }));
+            return;
+          }
+          setError(null);
+        });
+    },
+    [supabase, user],
+  );
+
+  const toggleFavorite = useCallback(
+    (imageId: string) => {
+      const current = state.images.find((img) => img.id === imageId);
+      if (!current) return;
+      patchImage(imageId, { is_favorite: !current.is_favorite });
+    },
+    [state.images, patchImage],
+  );
+
+  const rate = useCallback(
+    (imageId: string, rating: 1 | 2 | 3 | 4 | 5) => {
+      patchImage(imageId, { user_rating: rating });
+    },
+    [patchImage],
+  );
+
+  const setImagePrompt = useCallback(
+    (imageId: string, prompt: string) => {
+      patchImage(imageId, { strict_prompt: prompt });
+    },
+    [patchImage],
+  );
 
   const getRecent = useCallback(
     (limit = 6): Generation[] => {
@@ -357,7 +632,7 @@ export function GenerationsProvider({
     let thisWeek = 0;
     // `activeProjects` (nombre legacy) ahora cuenta **versiones distintas**
     // con al menos una generación pending/processing. Si la generación no
-    // tiene version_id (compat con datos viejos), cae al product_id como
+    // tiene version_id (compat con datos viejos), cae al project_id como
     // bucket — así el contador no queda subestimado durante la migración.
     const activeBuckets = new Set<string>();
     let lastCompletedMs = -Infinity;
@@ -388,112 +663,128 @@ export function GenerationsProvider({
     };
   }, [state.generations]);
 
+  /**
+   * Siembra 5 generaciones de ejemplo en Supabase para el usuario actual.
+   * Antes leíamos versiones del localStorage; ahora consultamos Supabase
+   * directamente. Si no hay versiones cargadas, las generations quedan con
+   * `version_id: null` (compat con flujo legacy). NO duplicamos si el usuario
+   * ya tiene >= 1 generation.
+   */
   const seedDevData = useCallback(() => {
-    const now = Date.now();
-    const iso = (offsetMs: number) => new Date(now - offsetMs).toISOString();
-    const minute = 60_000;
-    const hour = 60 * minute;
-    const day = 24 * hour;
+    if (!user) return;
+    if (state.generations.length > 0) return;
 
-    // Tomamos versiones del localStorage para asignarles algunas generaciones.
-    // Evita acoplarse al `VersionsProvider`; si no hay versiones cargadas, las
-    // generaciones quedan con `version_id: null` (compat con flujo legacy).
-    const sampleVersionIds = readSampleVersionIds();
-    const pick = (idx: number): string | null =>
-      sampleVersionIds.length > 0
-        ? sampleVersionIds[idx % sampleVersionIds.length]
-        : null;
+    void supabase
+      .from("versions")
+      .select("id")
+      .then(({ data, error: queryError }) => {
+        if (queryError) {
+          console.error("Failed to read versions for gen seed:", queryError);
+          setError(queryError.message);
+          return;
+        }
+        const versionIds = Array.isArray(data)
+          ? data
+              .map((row) => {
+                if (!row || typeof row !== "object") return null;
+                const r = row as Record<string, unknown>;
+                return typeof r.id === "string" ? r.id : null;
+              })
+              .filter((id): id is string => id !== null)
+          : [];
 
-    const generations: Generation[] = [
-      {
-        id: crypto.randomUUID(),
-        project_id: null,
-        version_id: pick(0),
-        status: "processing",
-        product_images: [],
-        reference_images: [],
-        user_prompt: "Botella de perfume sobre mármol",
-        enriched_prompt: null,
-        output_ratio: "1:1",
-        variations_requested: 5,
-        cost_credits: 1,
-        error_message: null,
-        created_at: iso(5 * minute),
-        completed_at: null,
-      },
-      {
-        id: crypto.randomUUID(),
-        project_id: null,
-        version_id: pick(1),
-        status: "completed",
-        product_images: [],
-        reference_images: [],
-        user_prompt: "Café en taza minimalista",
-        enriched_prompt: null,
-        output_ratio: "4:5",
-        variations_requested: 5,
-        cost_credits: 1,
-        error_message: null,
-        created_at: iso(2 * hour + 10 * minute),
-        completed_at: iso(2 * hour),
-      },
-      {
-        id: crypto.randomUUID(),
-        project_id: null,
-        version_id: pick(2),
-        status: "completed",
-        product_images: [],
-        reference_images: [],
-        user_prompt: "Sérum facial fondo pastel",
-        enriched_prompt: null,
-        output_ratio: "9:16",
-        variations_requested: 5,
-        cost_credits: 1,
-        error_message: null,
-        created_at: iso(1 * day + 1 * hour),
-        completed_at: iso(1 * day),
-      },
-      {
-        id: crypto.randomUUID(),
-        project_id: null,
-        version_id: null,
-        status: "failed",
-        product_images: [],
-        reference_images: [],
-        user_prompt: "Zapatillas escena urbana",
-        enriched_prompt: null,
-        output_ratio: "16:9",
-        variations_requested: 5,
-        cost_credits: 1,
-        error_message: "El director de arte no pudo procesar las referencias.",
-        created_at: iso(3 * day),
-        completed_at: iso(3 * day - 2 * minute),
-      },
-      {
-        id: crypto.randomUUID(),
-        project_id: null,
-        version_id: null,
-        status: "completed",
-        product_images: [],
-        reference_images: [],
-        user_prompt: "Vela aromática banner web",
-        enriched_prompt: null,
-        output_ratio: "16:9",
-        variations_requested: 5,
-        cost_credits: 1,
-        error_message: null,
-        created_at: iso(5 * day),
-        completed_at: iso(5 * day - 3 * minute),
-      },
-    ];
+        const pick = (idx: number): string | undefined =>
+          versionIds.length > 0
+            ? versionIds[idx % versionIds.length]
+            : undefined;
 
-    setLocalState({ generations, images: [] });
-  }, []);
+        const blueprints: Array<{
+          input: GenerationCreateInput;
+          finalStatus: "completed" | "failed" | "processing";
+          errorMessage?: string;
+        }> = [
+          {
+            input: {
+              version_id: pick(0),
+              product_images: [],
+              reference_images: [],
+              user_prompt: "Botella de perfume sobre mármol",
+              output_ratio: "1:1",
+              variations_requested: 5,
+            },
+            finalStatus: "processing",
+          },
+          {
+            input: {
+              version_id: pick(1),
+              product_images: [],
+              reference_images: [],
+              user_prompt: "Café en taza minimalista",
+              output_ratio: "4:5",
+              variations_requested: 5,
+            },
+            finalStatus: "completed",
+          },
+          {
+            input: {
+              version_id: pick(2),
+              product_images: [],
+              reference_images: [],
+              user_prompt: "Sérum facial fondo pastel",
+              output_ratio: "9:16",
+              variations_requested: 5,
+            },
+            finalStatus: "completed",
+          },
+          {
+            input: {
+              product_images: [],
+              reference_images: [],
+              user_prompt: "Zapatillas escena urbana",
+              output_ratio: "16:9",
+              variations_requested: 5,
+            },
+            finalStatus: "failed",
+            errorMessage: "El director de arte no pudo procesar las referencias.",
+          },
+          {
+            input: {
+              product_images: [],
+              reference_images: [],
+              user_prompt: "Vela aromática banner web",
+              output_ratio: "16:9",
+              variations_requested: 5,
+            },
+            finalStatus: "completed",
+          },
+        ];
+
+        for (const bp of blueprints) {
+          const created = createGeneration(bp.input);
+          if (bp.finalStatus === "completed") {
+            markCompleted(created.id);
+          } else if (bp.finalStatus === "failed" && bp.errorMessage) {
+            markFailed(created.id, bp.errorMessage);
+          } else if (bp.finalStatus === "processing") {
+            markProcessing(created.id);
+          }
+        }
+      });
+  }, [
+    supabase,
+    user,
+    state.generations.length,
+    createGeneration,
+    markCompleted,
+    markFailed,
+    markProcessing,
+  ]);
 
   const value = useMemo<GenerationsContextValue>(
     () => ({
       state,
       hydrated,
+      error,
       createGeneration,
       markProcessing,
       markCompleted,
@@ -510,6 +801,7 @@ export function GenerationsProvider({
     [
       state,
       hydrated,
+      error,
       createGeneration,
       markProcessing,
       markCompleted,

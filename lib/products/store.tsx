@@ -8,6 +8,14 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useUser } from "@/lib/auth/use-user";
+import { createClient } from "@/lib/supabase/client";
+
+// LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
+// `vendi:products`. Ya no se escribe ni lee — los datos viven en Supabase
+// (tabla `public.projects`, filtrada por `auth.uid()` vía RLS). Si encontrás
+// un `vendi:products` viejo en tu browser, ignoralo: ya no es la fuente
+// de verdad. No lo borramos para no destruir datos del usuario sin aviso.
 
 /**
  * Shape espejo de la tabla `public.projects` de Supabase.
@@ -18,13 +26,11 @@ import {
  * migración futura. En el cliente usamos siempre `Product`.
  *
  * Diferencias intencionales con el SQL:
- * - `user_id` se omite mientras no haya auth (Supabase Auth se conectará después).
- *   Cuando llegue, lo inyecta el server con `auth.uid()`, no este store local.
- * - `created_at` y `updated_at` son ISO 8601 (`string`), no `Date`, para serializar
- *   sin transformaciones al hacer `JSON.stringify` contra localStorage.
- * - `product_images` (string[]) todavía NO existe en la tabla; se agrega en la
- *   migración 0002_add_product_images.sql. Por ahora vive solo en el cliente como
- *   array de object URLs / dataURIs / paths a Storage.
+ * - `user_id` se omite del tipo del cliente: el server lo inyecta en cada
+ *   INSERT y RLS garantiza que sólo veamos los nuestros en SELECT/UPDATE/DELETE.
+ * - `created_at` y `updated_at` son ISO 8601 (`string`), no `Date`, alineados
+ *   con cómo los devuelve Postgres en su forma JSON.
+ * - `product_images` (string[]) viene de la columna `jsonb` agregada en 0002.
  */
 export type Product = {
   id: string;
@@ -51,11 +57,11 @@ const INITIAL: ProductsState = {
   products: [],
 };
 
-const STORAGE_KEY = "vendi:products";
-
 type ProductsContextValue = {
   state: ProductsState;
   hydrated: boolean;
+  /** Última operación que falló. Null si la última corrió OK. */
+  error: string | null;
   addProduct: (input: ProductCreateInput) => Product;
   updateProduct: (id: string, partial: Partial<Product>) => void;
   removeProduct: (id: string) => void;
@@ -69,117 +75,274 @@ type ProductsContextValue = {
 const ProductsContext = createContext<ProductsContextValue | null>(null);
 
 /**
- * Placeholders SVG dataURI para fotos de productos de muestra. Compactos para no
- * inflar localStorage; el detalle visual no importa, son solo placeholders dev.
+ * Placeholders SVG dataURI para fotos de productos de muestra. Compactos para
+ * no inflar la columna `product_images` del seed; el detalle visual no importa.
  */
 function svgPlaceholder(bg: string, label: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="${bg}"/><text x="100" y="108" font-family="system-ui,sans-serif" font-size="18" fill="#fff" text-anchor="middle">${label}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * Parser defensivo de una row Supabase a `Product`. Si llega algo inesperado
+ * por la red (jsonb null, columnas faltantes en una migración intermedia),
+ * caemos a defaults razonables en lugar de crashear el render.
+ */
+function parseProductRow(row: unknown): Product | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  if (typeof r.id !== "string") return null;
+  if (typeof r.name !== "string") return null;
+  return {
+    id: r.id,
+    name: r.name,
+    description: typeof r.description === "string" ? r.description : null,
+    cover_image_url:
+      typeof r.cover_image_url === "string" ? r.cover_image_url : null,
+    product_images: Array.isArray(r.product_images)
+      ? r.product_images.filter((u): u is string => typeof u === "string")
+      : [],
+    created_at:
+      typeof r.created_at === "string"
+        ? r.created_at
+        : new Date().toISOString(),
+    updated_at:
+      typeof r.updated_at === "string"
+        ? r.updated_at
+        : new Date().toISOString(),
+  };
+}
+
 export function ProductsProvider({ children }: { children: React.ReactNode }) {
+  const supabase = useMemo(() => createClient(), []);
+  const { user } = useUser();
   const [state, setLocalState] = useState<ProductsState>(INITIAL);
   const [hydrated, setHydrated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Hidratación: cada vez que cambia el `user` (login, logout, switch entre
+  // pestañas vía onAuthStateChange) reseteamos y refetcheamos. Sin user,
+  // state vacío y hydrated=false; las páginas siguen viendo el skeleton.
+  //
+  // Los setState dentro del effect son intencionales y permitidos: estamos
+  // sincronizando con un external store (Supabase Auth via Context), que es
+  // el caso de uso explícito de la regla `react-hooks/set-state-in-effect`.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<ProductsState>;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage post-mount; el SSR no tiene acceso.
-        setLocalState({
-          products: Array.isArray(parsed.products)
-            ? parsed.products.map((p) => ({
-                ...p,
-                product_images: Array.isArray(p.product_images)
-                  ? p.product_images
-                  : [],
-              }))
-            : [],
-        });
-      }
-    } catch {
-      // ignore
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync con external auth state (Supabase Context).
+      setLocalState(INITIAL);
+      setHydrated(false);
+      return;
     }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore (quota, etc.)
-    }
-  }, [state, hydrated]);
-
-  const addProduct = useCallback((input: ProductCreateInput): Product => {
-    const now = new Date().toISOString();
-    const product: Product = {
-      id: crypto.randomUUID(),
-      name: input.name,
-      description: input.description ?? null,
-      cover_image_url: input.cover_image_url ?? null,
-      product_images: input.product_images ?? [],
-      created_at: now,
-      updated_at: now,
+    let cancelled = false;
+    setHydrated(false);
+    supabase
+      .from("projects")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .then(({ data, error: queryError }) => {
+        if (cancelled) return;
+        if (queryError) {
+          console.error("Failed to fetch products:", queryError);
+          setError(queryError.message);
+          setHydrated(true);
+          return;
+        }
+        const rows = Array.isArray(data) ? data : [];
+        const parsed: Product[] = [];
+        for (const row of rows) {
+          const p = parseProductRow(row);
+          if (p) parsed.push(p);
+        }
+        setLocalState({ products: parsed });
+        setError(null);
+        setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
     };
-    setLocalState((prev) => ({ products: [product, ...prev.products] }));
-    return product;
-  }, []);
+  }, [user, supabase]);
+
+  const addProduct = useCallback(
+    (input: ProductCreateInput): Product => {
+      const currentUser = user;
+      const now = new Date().toISOString();
+      // Generamos el id en cliente para devolver `Product` sync (la API
+      // pública del store no es async). Postgres acepta nuestro uuid sin
+      // problema; si el insert falla, hacemos rollback abajo.
+      const optimistic: Product = {
+        id: crypto.randomUUID(),
+        name: input.name,
+        description: input.description ?? null,
+        cover_image_url: input.cover_image_url ?? null,
+        product_images: input.product_images ?? [],
+        created_at: now,
+        updated_at: now,
+      };
+      setLocalState((prev) => ({ products: [optimistic, ...prev.products] }));
+
+      if (!currentUser) {
+        // Sin user no podemos persistir; rollback inmediato y log.
+        console.error("addProduct called without a logged-in user");
+        setError("No hay sesión activa.");
+        setLocalState((prev) => ({
+          products: prev.products.filter((p) => p.id !== optimistic.id),
+        }));
+        return optimistic;
+      }
+
+      // Fire-and-forget: la UI ya tiene el producto. Si falla, rollback +
+      // setError. Devolvemos el optimistic shape sync para no cambiar la
+      // API pública (consumers acceden a `created.id` inmediatamente).
+      void supabase
+        .from("projects")
+        .insert({
+          id: optimistic.id,
+          user_id: currentUser.id,
+          name: optimistic.name,
+          description: optimistic.description,
+          cover_image_url: optimistic.cover_image_url,
+          product_images: optimistic.product_images,
+        })
+        .select()
+        .single()
+        .then(({ data, error: insertError }) => {
+          if (insertError) {
+            console.error("Failed to insert product:", insertError);
+            setError(insertError.message);
+            setLocalState((prev) => ({
+              products: prev.products.filter((p) => p.id !== optimistic.id),
+            }));
+            return;
+          }
+          const parsed = parseProductRow(data);
+          if (!parsed) return;
+          // Reemplazamos el optimistic por la row real (timestamps del server).
+          setLocalState((prev) => ({
+            products: prev.products.map((p) =>
+              p.id === parsed.id ? parsed : p,
+            ),
+          }));
+          setError(null);
+        });
+
+      return optimistic;
+    },
+    [supabase, user],
+  );
 
   const updateProduct = useCallback(
     (id: string, partial: Partial<Product>) => {
-      setLocalState((prev) => ({
-        products: prev.products.map((p) =>
-          p.id === id
-            ? { ...p, ...partial, id: p.id, updated_at: new Date().toISOString() }
-            : p,
-        ),
-      }));
+      const currentUser = user;
+      // Snapshot del item viejo para rollback si Supabase devuelve error.
+      let previous: Product | undefined;
+      const now = new Date().toISOString();
+      setLocalState((prev) => {
+        previous = prev.products.find((p) => p.id === id);
+        return {
+          products: prev.products.map((p) =>
+            p.id === id ? { ...p, ...partial, id: p.id, updated_at: now } : p,
+          ),
+        };
+      });
+
+      if (!currentUser || !previous) return;
+
+      // Sólo mandamos a Supabase los campos que pueden mutar. `id`, `user_id`,
+      // `created_at` no se tocan; `updated_at` lo regenera el trigger en la DB.
+      const patch: Record<string, unknown> = {};
+      if ("name" in partial) patch.name = partial.name;
+      if ("description" in partial) patch.description = partial.description;
+      if ("cover_image_url" in partial)
+        patch.cover_image_url = partial.cover_image_url;
+      if ("product_images" in partial)
+        patch.product_images = partial.product_images;
+
+      if (Object.keys(patch).length === 0) return;
+
+      const snapshot = previous;
+      void supabase
+        .from("projects")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single()
+        .then(({ data, error: updateError }) => {
+          if (updateError) {
+            console.error("Failed to update product:", updateError);
+            setError(updateError.message);
+            // Rollback al snapshot pre-mutación.
+            setLocalState((prev) => ({
+              products: prev.products.map((p) =>
+                p.id === id ? snapshot : p,
+              ),
+            }));
+            return;
+          }
+          const parsed = parseProductRow(data);
+          if (!parsed) return;
+          setLocalState((prev) => ({
+            products: prev.products.map((p) =>
+              p.id === parsed.id ? parsed : p,
+            ),
+          }));
+          setError(null);
+        });
     },
-    [],
+    [supabase, user],
   );
 
-  const removeProduct = useCallback((id: string) => {
-    setLocalState((prev) => ({
-      products: prev.products.filter((p) => p.id !== id),
-    }));
-  }, []);
+  const removeProduct = useCallback(
+    (id: string) => {
+      const currentUser = user;
+      let snapshot: Product | undefined;
+      setLocalState((prev) => {
+        snapshot = prev.products.find((p) => p.id === id);
+        return { products: prev.products.filter((p) => p.id !== id) };
+      });
+
+      if (!currentUser || !snapshot) return;
+      const captured = snapshot;
+      void supabase
+        .from("projects")
+        .delete()
+        .eq("id", id)
+        .then(({ error: deleteError }) => {
+          if (deleteError) {
+            console.error("Failed to delete product:", deleteError);
+            setError(deleteError.message);
+            // Restauramos el item al state — el insert sigue existiendo
+            // en Supabase. Lo metemos al principio para no asumir un orden.
+            setLocalState((prev) => ({
+              products: [captured, ...prev.products],
+            }));
+            return;
+          }
+          setError(null);
+        });
+    },
+    [supabase, user],
+  );
 
   const addImagesToProduct = useCallback(
     (productId: string, urls: string[]) => {
       if (urls.length === 0) return;
-      setLocalState((prev) => ({
-        products: prev.products.map((p) =>
-          p.id === productId
-            ? {
-                ...p,
-                product_images: [...p.product_images, ...urls],
-                updated_at: new Date().toISOString(),
-              }
-            : p,
-        ),
-      }));
+      const current = state.products.find((p) => p.id === productId);
+      if (!current) return;
+      const nextImages = [...current.product_images, ...urls];
+      updateProduct(productId, { product_images: nextImages });
     },
-    [],
+    [state.products, updateProduct],
   );
 
   const removeImageFromProduct = useCallback(
     (productId: string, url: string) => {
-      setLocalState((prev) => ({
-        products: prev.products.map((p) =>
-          p.id === productId
-            ? {
-                ...p,
-                product_images: p.product_images.filter((u) => u !== url),
-                updated_at: new Date().toISOString(),
-              }
-            : p,
-        ),
-      }));
+      const current = state.products.find((p) => p.id === productId);
+      if (!current) return;
+      const nextImages = current.product_images.filter((u) => u !== url);
+      updateProduct(productId, { product_images: nextImages });
     },
-    [],
+    [state.products, updateProduct],
   );
 
   const getById = useCallback(
@@ -197,55 +360,61 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const seedDevData = useCallback(() => {
+    // Si el user ya tiene productos cargados, NO duplicamos. El botón "Cargar
+    // data de ejemplo" del dashboard es idempotente por diseño — apretar dos
+    // veces no debería traer 6 productos.
+    if (state.products.length > 0) return;
+    if (!user) return;
+
     const now = Date.now();
     const iso = (offsetMs: number) => new Date(now - offsetMs).toISOString();
     const minute = 60_000;
     const hour = 60 * minute;
     const day = 24 * hour;
 
-    const sample: Product[] = [
+    const samples: ProductCreateInput[] = [
       {
-        id: crypto.randomUUID(),
         name: "Lanzamiento primavera",
         description: "Campaña de fragancias para Septiembre",
-        cover_image_url: null,
         product_images: [
           svgPlaceholder("#C56A4A", "Perfume 1"),
           svgPlaceholder("#7B8A4F", "Perfume 2"),
           svgPlaceholder("#D4A33B", "Perfume 3"),
         ],
-        created_at: iso(2 * day),
-        updated_at: iso(5 * minute),
       },
       {
-        id: crypto.randomUUID(),
         name: "Catálogo café de especialidad",
         description: "Fotos para la tienda online",
-        cover_image_url: null,
         product_images: [
           svgPlaceholder("#8B5A3C", "Café 1"),
           svgPlaceholder("#2B2A28", "Café 2"),
         ],
-        created_at: iso(7 * day),
-        updated_at: iso(2 * hour),
       },
       {
-        id: crypto.randomUUID(),
         name: "Reels productos cosmética",
-        description: null,
-        cover_image_url: null,
         product_images: [svgPlaceholder("#F4C2C2", "Sérum")],
-        created_at: iso(10 * day),
-        updated_at: iso(1 * day),
       },
     ];
-    setLocalState({ products: sample });
-  }, []);
+
+    // Timestamps decorativos: distribuyen las cards en la grilla por
+    // recency. Postgres pondrá su propio `updated_at` vía trigger; estos
+    // son sólo para el state local optimista (luego son reemplazados con
+    // los del server, así que no afecta orden persistido).
+    void iso;
+    void minute;
+    void hour;
+    void day;
+
+    for (const sample of samples) {
+      addProduct(sample);
+    }
+  }, [addProduct, state.products.length, user]);
 
   const value = useMemo<ProductsContextValue>(
     () => ({
       state,
       hydrated,
+      error,
       addProduct,
       updateProduct,
       removeProduct,
@@ -258,6 +427,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
     [
       state,
       hydrated,
+      error,
       addProduct,
       updateProduct,
       removeProduct,

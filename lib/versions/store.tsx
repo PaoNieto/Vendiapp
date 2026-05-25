@@ -13,6 +13,14 @@ import {
   MAX_VARIATIONS,
   type OutputRatio,
 } from "@/lib/constants";
+import { useUser } from "@/lib/auth/use-user";
+import { createClient } from "@/lib/supabase/client";
+
+// LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
+// `vendi:versions`. Ya no se escribe ni lee — los datos viven en Supabase
+// (tabla `public.versions`, filtrada por `auth.uid()` vía RLS). Si encontrás
+// un `vendi:versions` viejo en tu browser, ignoralo: ya no es la fuente
+// de verdad.
 
 /**
  * Shape espejo de la tabla `public.versions` (migración 0003).
@@ -22,12 +30,12 @@ import {
  * generaciones cuelgan de la versión, no del producto directamente.
  *
  * Diferencias intencionales con el SQL:
- * - `user_id` se omite mientras no haya auth — lo inyecta el server con
- *   `auth.uid()` cuando conectemos Supabase.
- * - Timestamps como ISO 8601 (`string`) para serializar limpio a localStorage.
- * - `reference_images` es `string[]` (URLs/paths/dataURIs) para reflejar el
- *   `jsonb` de Postgres tal cual; cuando subamos a Storage seguirán siendo
- *   strings (ahora paths de bucket).
+ * - `user_id` se omite del tipo del cliente (el server lo inyecta + RLS
+ *   filtra). Sólo lo usamos al hacer INSERT.
+ * - Timestamps como ISO 8601 (`string`) — Postgres devuelve `timestamptz`
+ *   serializado como ISO 8601 via PostgREST.
+ * - `reference_images` es `string[]` (URLs/paths/dataURIs) — corresponde 1:1
+ *   con el `jsonb` de Postgres.
  */
 export type Version = {
   id: string;
@@ -60,12 +68,10 @@ const INITIAL: VersionsState = {
   versions: [],
 };
 
-const STORAGE_KEY = "vendi:versions";
-const PRODUCTS_STORAGE_KEY = "vendi:products";
-
 type VersionsContextValue = {
   state: VersionsState;
   hydrated: boolean;
+  error: string | null;
   createVersion: (input: VersionCreateInput) => Version;
   updateVersion: (id: string, partial: Partial<Version>) => void;
   removeVersion: (id: string) => void;
@@ -83,124 +89,266 @@ type VersionsContextValue = {
 
 const VersionsContext = createContext<VersionsContextValue | null>(null);
 
-/**
- * Lee ids de productos directamente desde localStorage para evitar
- * dependencia circular entre `VersionsProvider` y `ProductsProvider`.
- * Si no hay nada en storage o el shape es inesperado, devuelve [].
- */
-function readProductIdsFromStorage(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(PRODUCTS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { products?: Array<{ id?: unknown }> };
-    if (!Array.isArray(parsed.products)) return [];
-    const out: string[] = [];
-    for (const p of parsed.products) {
-      if (p && typeof p.id === "string") out.push(p.id);
-    }
-    return out;
-  } catch {
-    return [];
-  }
+const ALLOWED_RATIOS: ReadonlyArray<OutputRatio> = ["1:1", "4:5", "9:16", "16:9"];
+
+function isOutputRatio(v: unknown): v is OutputRatio {
+  return typeof v === "string" && (ALLOWED_RATIOS as readonly string[]).includes(v);
+}
+
+function parseVersionRow(row: unknown): Version | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  if (typeof r.id !== "string") return null;
+  if (typeof r.product_id !== "string") return null;
+  if (typeof r.name !== "string") return null;
+  const ratio = isOutputRatio(r.output_ratio) ? r.output_ratio : "1:1";
+  return {
+    id: r.id,
+    product_id: r.product_id,
+    name: r.name,
+    description: typeof r.description === "string" ? r.description : null,
+    reference_images: Array.isArray(r.reference_images)
+      ? r.reference_images.filter((u): u is string => typeof u === "string")
+      : [],
+    output_ratio: ratio,
+    variations_default:
+      typeof r.variations_default === "number"
+        ? r.variations_default
+        : DEFAULT_VARIATIONS,
+    user_prompt: typeof r.user_prompt === "string" ? r.user_prompt : "",
+    created_at:
+      typeof r.created_at === "string"
+        ? r.created_at
+        : new Date().toISOString(),
+    updated_at:
+      typeof r.updated_at === "string"
+        ? r.updated_at
+        : new Date().toISOString(),
+  };
 }
 
 export function VersionsProvider({ children }: { children: React.ReactNode }) {
+  const supabase = useMemo(() => createClient(), []);
+  const { user } = useUser();
   const [state, setLocalState] = useState<VersionsState>(INITIAL);
   const [hydrated, setHydrated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Mismo patrón que ProductsProvider: sync con external auth state.
+  // Ver comentario detallado allá.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<VersionsState>;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratación desde localStorage post-mount; el SSR no tiene acceso.
-        setLocalState({
-          versions: Array.isArray(parsed.versions)
-            ? parsed.versions.map((v) => ({
-                ...v,
-                reference_images: Array.isArray(v.reference_images)
-                  ? v.reference_images
-                  : [],
-              }))
-            : [],
-        });
-      }
-    } catch {
-      // ignore
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync con external auth state (Supabase Context).
+      setLocalState(INITIAL);
+      setHydrated(false);
+      return;
     }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // ignore (quota, etc.)
-    }
-  }, [state, hydrated]);
-
-  const createVersion = useCallback((input: VersionCreateInput): Version => {
-    const now = new Date().toISOString();
-    const variations =
-      typeof input.variations_default === "number"
-        ? Math.min(Math.max(input.variations_default, 1), MAX_VARIATIONS)
-        : DEFAULT_VARIATIONS;
-    const version: Version = {
-      id: crypto.randomUUID(),
-      product_id: input.product_id,
-      name: input.name,
-      description: input.description ?? null,
-      reference_images: input.reference_images ?? [],
-      output_ratio: input.output_ratio ?? "1:1",
-      variations_default: variations,
-      user_prompt: input.user_prompt ?? "",
-      created_at: now,
-      updated_at: now,
+    let cancelled = false;
+    setHydrated(false);
+    supabase
+      .from("versions")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .then(({ data, error: queryError }) => {
+        if (cancelled) return;
+        if (queryError) {
+          console.error("Failed to fetch versions:", queryError);
+          setError(queryError.message);
+          setHydrated(true);
+          return;
+        }
+        const rows = Array.isArray(data) ? data : [];
+        const parsed: Version[] = [];
+        for (const row of rows) {
+          const v = parseVersionRow(row);
+          if (v) parsed.push(v);
+        }
+        setLocalState({ versions: parsed });
+        setError(null);
+        setHydrated(true);
+      });
+    return () => {
+      cancelled = true;
     };
-    setLocalState((prev) => ({ versions: [version, ...prev.versions] }));
-    return version;
-  }, []);
+  }, [user, supabase]);
+
+  const createVersion = useCallback(
+    (input: VersionCreateInput): Version => {
+      const currentUser = user;
+      const now = new Date().toISOString();
+      const variations =
+        typeof input.variations_default === "number"
+          ? Math.min(Math.max(input.variations_default, 1), MAX_VARIATIONS)
+          : DEFAULT_VARIATIONS;
+      const optimistic: Version = {
+        id: crypto.randomUUID(),
+        product_id: input.product_id,
+        name: input.name,
+        description: input.description ?? null,
+        reference_images: input.reference_images ?? [],
+        output_ratio: input.output_ratio ?? "1:1",
+        variations_default: variations,
+        user_prompt: input.user_prompt ?? "",
+        created_at: now,
+        updated_at: now,
+      };
+      setLocalState((prev) => ({ versions: [optimistic, ...prev.versions] }));
+
+      if (!currentUser) {
+        console.error("createVersion called without a logged-in user");
+        setError("No hay sesión activa.");
+        setLocalState((prev) => ({
+          versions: prev.versions.filter((v) => v.id !== optimistic.id),
+        }));
+        return optimistic;
+      }
+
+      void supabase
+        .from("versions")
+        .insert({
+          id: optimistic.id,
+          user_id: currentUser.id,
+          product_id: optimistic.product_id,
+          name: optimistic.name,
+          description: optimistic.description,
+          reference_images: optimistic.reference_images,
+          output_ratio: optimistic.output_ratio,
+          variations_default: optimistic.variations_default,
+          user_prompt: optimistic.user_prompt,
+        })
+        .select()
+        .single()
+        .then(({ data, error: insertError }) => {
+          if (insertError) {
+            console.error("Failed to insert version:", insertError);
+            setError(insertError.message);
+            setLocalState((prev) => ({
+              versions: prev.versions.filter((v) => v.id !== optimistic.id),
+            }));
+            return;
+          }
+          const parsed = parseVersionRow(data);
+          if (!parsed) return;
+          setLocalState((prev) => ({
+            versions: prev.versions.map((v) =>
+              v.id === parsed.id ? parsed : v,
+            ),
+          }));
+          setError(null);
+        });
+
+      return optimistic;
+    },
+    [supabase, user],
+  );
 
   const updateVersion = useCallback(
     (id: string, partial: Partial<Version>) => {
-      setLocalState((prev) => ({
-        versions: prev.versions.map((v) =>
-          v.id === id
-            ? { ...v, ...partial, id: v.id, updated_at: new Date().toISOString() }
-            : v,
-        ),
-      }));
+      const currentUser = user;
+      let snapshot: Version | undefined;
+      const now = new Date().toISOString();
+      setLocalState((prev) => {
+        snapshot = prev.versions.find((v) => v.id === id);
+        return {
+          versions: prev.versions.map((v) =>
+            v.id === id ? { ...v, ...partial, id: v.id, updated_at: now } : v,
+          ),
+        };
+      });
+
+      if (!currentUser || !snapshot) return;
+
+      const patch: Record<string, unknown> = {};
+      if ("name" in partial) patch.name = partial.name;
+      if ("description" in partial) patch.description = partial.description;
+      if ("reference_images" in partial)
+        patch.reference_images = partial.reference_images;
+      if ("output_ratio" in partial) patch.output_ratio = partial.output_ratio;
+      if ("variations_default" in partial)
+        patch.variations_default = partial.variations_default;
+      if ("user_prompt" in partial) patch.user_prompt = partial.user_prompt;
+      // product_id NO se patcha — una versión no migra entre productos.
+
+      if (Object.keys(patch).length === 0) return;
+
+      const captured = snapshot;
+      void supabase
+        .from("versions")
+        .update(patch)
+        .eq("id", id)
+        .select()
+        .single()
+        .then(({ data, error: updateError }) => {
+          if (updateError) {
+            console.error("Failed to update version:", updateError);
+            setError(updateError.message);
+            setLocalState((prev) => ({
+              versions: prev.versions.map((v) =>
+                v.id === id ? captured : v,
+              ),
+            }));
+            return;
+          }
+          const parsed = parseVersionRow(data);
+          if (!parsed) return;
+          setLocalState((prev) => ({
+            versions: prev.versions.map((v) =>
+              v.id === parsed.id ? parsed : v,
+            ),
+          }));
+          setError(null);
+        });
     },
-    [],
+    [supabase, user],
   );
 
-  const removeVersion = useCallback((id: string) => {
-    setLocalState((prev) => ({
-      versions: prev.versions.filter((v) => v.id !== id),
-    }));
-  }, []);
+  const removeVersion = useCallback(
+    (id: string) => {
+      const currentUser = user;
+      let snapshot: Version | undefined;
+      setLocalState((prev) => {
+        snapshot = prev.versions.find((v) => v.id === id);
+        return { versions: prev.versions.filter((v) => v.id !== id) };
+      });
+
+      if (!currentUser || !snapshot) return;
+      const captured = snapshot;
+      void supabase
+        .from("versions")
+        .delete()
+        .eq("id", id)
+        .then(({ error: deleteError }) => {
+          if (deleteError) {
+            console.error("Failed to delete version:", deleteError);
+            setError(deleteError.message);
+            setLocalState((prev) => ({
+              versions: [captured, ...prev.versions],
+            }));
+            return;
+          }
+          setError(null);
+        });
+    },
+    [supabase, user],
+  );
 
   const duplicateVersion = useCallback(
     (id: string): Version | undefined => {
       const source = state.versions.find((v) => v.id === id);
       if (!source) return undefined;
-      const now = new Date().toISOString();
-      const copy: Version = {
-        ...source,
-        id: crypto.randomUUID(),
+      // Reusamos `createVersion` (que ya hace optimistic + persist) en lugar
+      // de duplicar la lógica de insert. La copia arranca sin gens ni images.
+      return createVersion({
+        product_id: source.product_id,
         name: `${source.name} (copia)`,
-        // Refs se copian — son parte de la receta. Imágenes generadas NO,
-        // viven en `generations` ligadas al version_id viejo.
+        description: source.description ?? undefined,
         reference_images: [...source.reference_images],
-        created_at: now,
-        updated_at: now,
-      };
-      setLocalState((prev) => ({ versions: [copy, ...prev.versions] }));
-      return copy;
+        output_ratio: source.output_ratio,
+        variations_default: source.variations_default,
+        user_prompt: source.user_prompt,
+      });
     },
-    [state.versions],
+    [state.versions, createVersion],
   );
 
   const getById = useCallback(
@@ -218,70 +366,79 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
   );
 
   /**
-   * Siembra 2-3 versiones distribuidas en los productos existentes. Lee los
-   * productos del localStorage para evitar acoplarse al `ProductsProvider`.
-   * Si no hay productos cargados, no hace nada (no tiene sentido versionar
-   * en el vacío).
+   * Siembra 3 versiones distribuidas en los productos existentes. Antes leíamos
+   * los productos del localStorage; ahora consultamos Supabase directamente para
+   * tomar los del usuario actual. Si el user no tiene productos, no hace nada
+   * (no tiene sentido versionar en el vacío — el flujo de "Cargar data" del
+   * dashboard primero llama `products.seedDevData()`).
    */
   const seedDevData = useCallback(() => {
-    const productIds = readProductIdsFromStorage();
-    if (productIds.length === 0) return;
+    if (!user) return;
+    if (state.versions.length > 0) return;
 
-    const now = Date.now();
-    const iso = (offsetMs: number) => new Date(now - offsetMs).toISOString();
-    const minute = 60_000;
-    const hour = 60 * minute;
-    const day = 24 * hour;
+    void supabase
+      .from("projects")
+      .select("id")
+      .then(({ data, error: queryError }) => {
+        if (queryError) {
+          console.error("Failed to read products for version seed:", queryError);
+          setError(queryError.message);
+          return;
+        }
+        const productIds = Array.isArray(data)
+          ? data
+              .map((row) => {
+                if (!row || typeof row !== "object") return null;
+                const r = row as Record<string, unknown>;
+                return typeof r.id === "string" ? r.id : null;
+              })
+              .filter((id): id is string => id !== null)
+          : [];
+        if (productIds.length === 0) return;
 
-    const blueprints: Array<Omit<Version, "id" | "product_id">> = [
-      {
-        name: "Día de la Madre",
-        description: "Campaña sentimental para mayo",
-        reference_images: [],
-        output_ratio: "4:5",
-        variations_default: 5,
-        user_prompt:
-          "Generá fotos del producto con un mood cálido, paleta rosa pastel, ocasión especial.",
-        created_at: iso(3 * day),
-        updated_at: iso(10 * minute),
-      },
-      {
-        name: "Black Friday",
-        description: "Versión vibrante para promos",
-        reference_images: [],
-        output_ratio: "1:1",
-        variations_default: 6,
-        user_prompt:
-          "Estilo vibrante, alto contraste, paleta negro y mostaza, formato cuadrado.",
-        created_at: iso(2 * day),
-        updated_at: iso(2 * hour),
-      },
-      {
-        name: "Stories de lanzamiento",
-        description: null,
-        reference_images: [],
-        output_ratio: "9:16",
-        variations_default: 4,
-        user_prompt:
-          "Formato historia, mood editorial, paleta neutra, foco en producto.",
-        created_at: iso(1 * day),
-        updated_at: iso(1 * day),
-      },
-    ];
+        const blueprints: Array<Omit<VersionCreateInput, "product_id">> = [
+          {
+            name: "Día de la Madre",
+            description: "Campaña sentimental para mayo",
+            reference_images: [],
+            output_ratio: "4:5",
+            variations_default: 5,
+            user_prompt:
+              "Generá fotos del producto con un mood cálido, paleta rosa pastel, ocasión especial.",
+          },
+          {
+            name: "Black Friday",
+            description: "Versión vibrante para promos",
+            reference_images: [],
+            output_ratio: "1:1",
+            variations_default: 6,
+            user_prompt:
+              "Estilo vibrante, alto contraste, paleta negro y mostaza, formato cuadrado.",
+          },
+          {
+            name: "Stories de lanzamiento",
+            reference_images: [],
+            output_ratio: "9:16",
+            variations_default: 4,
+            user_prompt:
+              "Formato historia, mood editorial, paleta neutra, foco en producto.",
+          },
+        ];
 
-    const sample: Version[] = blueprints.map((b, idx) => ({
-      ...b,
-      id: crypto.randomUUID(),
-      product_id: productIds[idx % productIds.length],
-    }));
-
-    setLocalState({ versions: sample });
-  }, []);
+        blueprints.forEach((bp, idx) => {
+          createVersion({
+            ...bp,
+            product_id: productIds[idx % productIds.length],
+          });
+        });
+      });
+  }, [supabase, user, state.versions.length, createVersion]);
 
   const value = useMemo<VersionsContextValue>(
     () => ({
       state,
       hydrated,
+      error,
       createVersion,
       updateVersion,
       removeVersion,
@@ -293,6 +450,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
     [
       state,
       hydrated,
+      error,
       createVersion,
       updateVersion,
       removeVersion,
