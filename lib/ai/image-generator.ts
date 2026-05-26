@@ -39,6 +39,12 @@ export type GenerateImagesInput = {
   apiKey: string;
   product: Product;
   version: Version;
+  /**
+   * Fragmento de estilo (en ingles) inyectado al prompt. Viene del catalogo
+   * `lib/styles.ts` segun lo que el usuario eligio en la estacion Estilo.
+   * Opcional: si no hay estilo elegido, no se inyecta nada.
+   */
+  styleFragment?: string;
 };
 
 /**
@@ -49,7 +55,16 @@ export type GenerateImagesInput = {
 export type GenerationError = GeminiError;
 
 export type GenerateImagesResult =
-  | { ok: true; images: string[] }
+  | {
+      ok: true;
+      images: string[];
+      /**
+       * Errores parciales: variaciones que fallaron mientras OTRAS exitosas
+       * llegaron a `images`. La UI puede mostrar "te traje 3 de 5, fallaron 2"
+       * con el detalle. Vacio cuando todas las variaciones salieron OK.
+       */
+      failures: GenerationError[];
+    }
   | { ok: false; error: GenerationError };
 
 /* -------------------------------------------------------------------------- */
@@ -72,7 +87,7 @@ export async function generateImages(
     return { ok: false, error: { kind: "missing_key" } };
   }
 
-  const { apiKey, product, version } = input;
+  const { apiKey, product, version, styleFragment } = input;
   const variations = Math.max(1, version.variations_default);
 
   // 1. Normalizamos las imágenes (producto + refs) a `GeminiPart[]` base64.
@@ -107,11 +122,33 @@ export async function generateImages(
       ? version.user_prompt
       : buildPromptFromBrief(version);
   const ratioInstruction = buildRatioInstruction(version.output_ratio);
-  const finalPrompt = `${basePrompt}
+
+  // Fragmento de estilo opcional. Se inyecta DESPUES del basePrompt y ANTES
+  // del identity guard para que el modelo lea: "quiero esto (brief) en este
+  // estilo (style fragment), respetando estas reglas (identity + role split)".
+  const stylePart =
+    styleFragment && styleFragment.trim().length > 0
+      ? `\n\nStyle direction: ${styleFragment.trim()}`
+      : "";
+
+  // Role split EXPLICITO al principio: cual imagen es PRODUCTO (preservar)
+  // y cuales son SOLO referencia de estetica (no copiar contenido).
+  // Patron tomado de purrtraits — sin esto, Nano Banana mezcla contenidos.
+  const productCount = product.product_images?.length ?? 0;
+  const refCount = version.reference_images?.length ?? 0;
+  const rolePrefix = `The first ${productCount} image(s) show the PRODUCT — preserve EXACTLY: same shape, same color, same label, same proportions. The remaining ${refCount} image(s) are STYLE references only — extract aesthetic (lighting, mood, palette, composition) but DO NOT copy their content or their products.`;
+
+  // Identity guard al FINAL en mayusculas para maxima prioridad al modelo.
+  // Las reglas que aparecen ultimas tienden a pesar mas en Nano Banana.
+  const identityGuard = `\n\nPRESERVE EXACTLY THE PRODUCT SHOWN IN THE FIRST REFERENCE IMAGE: same shape, same colors, same packaging, same label text, same proportions. THE STYLE REFERENCES CONTRIBUTE AESTHETIC ONLY — THEY MUST NEVER REPLACE OR ALTER THE PRODUCT ITSELF.`;
+
+  const finalPrompt = `${rolePrefix}
+
+${basePrompt}${stylePart}
 
 ${ratioInstruction}
 
-Use the first image(s) as the product to feature — preserve its identity, packaging, label, and proportions. Use the rest as style references for mood, lighting, and composition. Produce one photorealistic, studio-grade commercial image.`;
+Produce one photorealistic, studio-grade commercial image.${identityGuard}`;
 
   // 3. Armamos el `contents` que vamos a mandar (igual en todas las calls).
   //    Orden importante: producto PRIMERO (mayor peso), refs DESPUÉS, texto AL
@@ -165,7 +202,7 @@ Use the first image(s) as the product to feature — preserve its identity, pack
       error: errors[0] ?? { kind: "unknown", message: "Sin imágenes." },
     };
   }
-  return { ok: true, images };
+  return { ok: true, images, failures: errors };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard";
 import { Topbar } from "@/components/app/topbar";
 import { formatRelativeTime } from "@/lib/generations/format";
+import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useUserInitials } from "@/lib/auth/use-user";
@@ -30,6 +31,7 @@ import {
   formatGenerationError,
   generateImages,
 } from "@/lib/ai/image-generator";
+import { getStyleFragment } from "@/lib/styles";
 import type { Version } from "@/lib/versions/store";
 import type { Generation } from "@/lib/generations/store";
 import type { Product } from "@/lib/products/store";
@@ -64,6 +66,7 @@ function FabricaContent() {
   const versions = useVersions();
   const generations = useGenerations();
   const negocio = useNegocio();
+  const generacion = useGeneracion();
   const brandInitials = useUserInitials();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -241,6 +244,7 @@ function FabricaContent() {
         apiKey: negocio.state.apiKey,
         product,
         version: openVersion,
+        styleFragment: getStyleFragment(generacion.state.selectedStyleId),
       });
       if (result.ok) {
         generations.attachImages(created.id, result.images);

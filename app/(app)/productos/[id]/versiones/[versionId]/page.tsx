@@ -15,6 +15,7 @@ import {
   parseCuratedRef,
   type CuratedStyle,
 } from "@/app/(app)/referencias/page";
+import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useUserInitials } from "@/lib/auth/use-user";
@@ -27,6 +28,7 @@ import {
   formatGenerationError,
   generateImages,
 } from "@/lib/ai/image-generator";
+import { getStyleFragment } from "@/lib/styles";
 import { isVersionReady } from "@/lib/validations/recorrido";
 import { OUTPUT_RATIOS } from "@/lib/constants";
 
@@ -53,6 +55,7 @@ export default function VersionDetailPage() {
   const generations = useGenerations();
   const recorrido = useRecorrido();
   const negocio = useNegocio();
+  const generacion = useGeneracion();
   const brandInitials = useUserInitials();
 
   const productId = params.id;
@@ -132,6 +135,7 @@ export default function VersionDetailPage() {
         apiKey: negocio.state.apiKey,
         product,
         version,
+        styleFragment: getStyleFragment(generacion.state.selectedStyleId),
       });
       if (result.ok) {
         generations.attachImages(created.id, result.images);
