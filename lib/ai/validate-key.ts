@@ -1,4 +1,4 @@
-import { callGemini, GEMINI_TEXT_MODEL } from "@/lib/ai/gemini-client";
+import { callGemini, GEMINI_PING_MODEL } from "@/lib/ai/gemini-client";
 
 export type ValidationResult =
   | { ok: true }
@@ -22,7 +22,7 @@ export async function validateGoogleApiKey(
 
   const result = await callGemini({
     apiKey,
-    model: GEMINI_TEXT_MODEL,
+    model: GEMINI_PING_MODEL,
     contents: [{ role: "user", parts: [{ text: "ping" }] }],
     // 10s es suficiente para un ping; si no responde, hay algo raro.
     timeoutMs: 10_000,

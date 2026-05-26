@@ -30,6 +30,7 @@ import {
   type GeminiPart,
   type GeminiResponse,
 } from "@/lib/ai/gemini-client";
+import { generateEnrichedPrompt } from "@/lib/ai/art-director";
 import { OUTPUT_RATIOS, type OutputRatio } from "@/lib/constants";
 import { buildPromptFromBrief } from "@/lib/recorrido/build-prompt";
 import type { Product } from "@/lib/products/store";
@@ -124,10 +125,32 @@ export async function generateImages(
 
   // 2. Prompt final con instrucción de ratio embebida. Gemini Image todavía
   //    no acepta ratio como parámetro estructurado del request.
-  const basePrompt =
-    version.user_prompt.trim().length > 0
-      ? version.user_prompt
-      : buildPromptFromBrief(version);
+  // El Director sintetiza un prompt enriquecido mirando las imagenes + el brief
+  // del usuario. Es best-effort: si Gemini Pro falla (rate limit, network, lo
+  // que sea), caemos al fallback local (`buildPromptFromBrief` o user_prompt)
+  // para no bloquear la generacion. El Director cobra valor sobre los basicos
+  // — si no esta, el prompt sigue siendo decente.
+  let basePrompt: string;
+  try {
+    const enriched = await generateEnrichedPrompt({
+      apiKey,
+      productImages: product.product_images,
+      referenceImages: version.reference_images,
+      ratio: version.output_ratio,
+      userPrompt:
+        version.user_prompt.trim().length > 0 ? version.user_prompt : undefined,
+    });
+    basePrompt = enriched.final_prompt;
+  } catch (err) {
+    console.warn(
+      "[Director] sintesis fallo, usando fallback local:",
+      err instanceof Error ? err.message : err,
+    );
+    basePrompt =
+      version.user_prompt.trim().length > 0
+        ? version.user_prompt
+        : buildPromptFromBrief(version);
+  }
   const ratioInstruction = buildRatioInstruction(version.output_ratio);
 
   // Fragmento de estilo opcional. Se inyecta DESPUES del basePrompt y ANTES

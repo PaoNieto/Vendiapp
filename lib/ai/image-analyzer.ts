@@ -22,7 +22,7 @@ import { z } from "zod";
 
 import {
   callGemini,
-  GEMINI_TEXT_MODEL,
+  GEMINI_REASONING_MODEL,
   type GeminiContent,
   type GeminiResponse,
 } from "@/lib/ai/gemini-client";
@@ -154,7 +154,7 @@ export async function analyzeImage(
   //    respeta y devuelve un string JSON puro en el primer `text` part.
   const result = await callGemini({
     apiKey: input.apiKey,
-    model: GEMINI_TEXT_MODEL,
+    model: GEMINI_REASONING_MODEL,
     contents,
     generationConfig: {
       responseMimeType: "application/json",

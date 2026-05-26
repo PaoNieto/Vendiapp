@@ -26,25 +26,38 @@
 /* -------------------------------------------------------------------------- */
 
 /**
- * Modelo de TEXTO. Lo usa `validate-key.ts` (ping mínimo) y `image-analyzer.ts`
- * (Vision multimodal con responseMimeType JSON). Gemini 2.5 Flash acepta input
- * de imagen como `inlineData` aunque sea "modelo de texto".
+ * Modelo de RAZONAMIENTO. Lo usa Oraculo (`image-analyzer.ts`) y El Director
+ * (`art-director.ts`) — tareas que requieren analisis profundo y sintesis
+ * multimodal con responseMimeType JSON. Gemini 3 Pro razona mejor que 2.5 Flash
+ * para estos casos (vale la pena el costo extra de ~$0.012 vs ~$0.001 por call).
  *
- * Si Google libera un sucesor, cambiá este string y el resto del código sigue.
+ * Si Google libera un sucesor (3.5 Pro, etc.), cambia este string y listo.
  * Doc: https://ai.google.dev/gemini-api/docs/models/gemini
  */
-export const GEMINI_TEXT_MODEL = "gemini-2.5-flash";
+export const GEMINI_REASONING_MODEL = "gemini-3-pro";
 
 /**
- * Modelo de IMAGEN — Nano Banana. Genera imágenes a partir de prompts +
+ * Modelo de PING. Lo usa Portero (`validate-key.ts`) solo para verificar que
+ * la API key del usuario es valida. No necesita razonamiento — un Flash basta
+ * y sale 10x mas barato y mas rapido.
+ */
+export const GEMINI_PING_MODEL = "gemini-3-flash";
+
+/**
+ * @deprecated Usa `GEMINI_REASONING_MODEL` para tareas pesadas o
+ * `GEMINI_PING_MODEL` para validacion. Se conserva por backwards compat.
+ */
+export const GEMINI_TEXT_MODEL = GEMINI_REASONING_MODEL;
+
+/**
+ * Modelo de IMAGEN — Nano Banana 2. Genera imagenes a partir de prompts +
  * referencias multimodales. Devuelve UNA imagen por llamada como `inlineData`
  * base64 dentro del primer candidato.
  *
- * Si Google libera un sucesor (`gemini-3.x-flash-image` o similar) cambiá este
- * string y dejá el resto del archivo igual. La doc oficial vive en
- * https://ai.google.dev/gemini-api/docs/image-generation
+ * Si el string exacto de Nano Banana 2 en tu cuenta de AI Studio difiere,
+ * cambialo aca. Doc: https://ai.google.dev/gemini-api/docs/image-generation
  */
-export const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image";
+export const GEMINI_IMAGE_MODEL = "gemini-3-flash-image";
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
