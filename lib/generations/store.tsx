@@ -137,7 +137,17 @@ type GenerationsContextValue = {
   markProcessing: (id: string) => void;
   markCompleted: (id: string) => void;
   markFailed: (id: string, error_message: string) => void;
-  attachImages: (generationId: string, urls: string[]) => void;
+  /**
+   * Adjunta imagenes generadas a una generation. `finalPrompt` (opcional)
+   * es el prompt que efectivamente uso Nano Banana — se persiste como
+   * `strict_prompt` de cada imagen para que el modo estricto post-gen
+   * tenga base editable. Si no se pasa, queda en "".
+   */
+  attachImages: (
+    generationId: string,
+    urls: string[],
+    finalPrompt?: string,
+  ) => void;
   toggleFavorite: (imageId: string) => void;
   rate: (imageId: string, rating: 1 | 2 | 3 | 4 | 5) => void;
   /**
@@ -468,12 +478,16 @@ export function GenerationsProvider({
   );
 
   const attachImages = useCallback(
-    (generationId: string, urls: string[]) => {
+    (generationId: string, urls: string[], finalPrompt?: string) => {
       const currentUser = user;
       const now = new Date().toISOString();
       // Optimistic: insertamos las imágenes con los dataURLs originales para
       // que la UI las pinte de inmediato. Luego de subir a Storage, pisamos
       // `image_url` con la URL persistida.
+      // `strict_prompt` arranca con el prompt que produjo la imagen (si el
+      // caller lo paso). Sin esto, el modo "Prompt estricto" post-gen no
+      // tendria base editable — el usuario veria un textarea vacio.
+      const initialStrictPrompt = finalPrompt ?? "";
       const newImages: GeneratedImage[] = urls.map((url, index) => ({
         id: crypto.randomUUID(),
         generation_id: generationId,
@@ -484,7 +498,7 @@ export function GenerationsProvider({
         user_rating: null,
         is_favorite: false,
         is_downloaded: false,
-        strict_prompt: "",
+        strict_prompt: initialStrictPrompt,
         created_at: now,
       }));
       setLocalState((prev) => ({

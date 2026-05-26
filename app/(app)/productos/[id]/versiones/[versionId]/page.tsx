@@ -138,7 +138,7 @@ export default function VersionDetailPage() {
         styleFragment: getStyleFragment(generacion.state.selectedStyleId),
       });
       if (result.ok) {
-        generations.attachImages(created.id, result.images);
+        generations.attachImages(created.id, result.images, result.finalPrompt);
         generations.markCompleted(created.id);
         // Redirigimos a la Fábrica con el drawer abierto para que el usuario
         // vea las imágenes en su contexto natural.

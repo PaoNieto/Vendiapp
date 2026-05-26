@@ -247,7 +247,7 @@ function FabricaContent() {
         styleFragment: getStyleFragment(generacion.state.selectedStyleId),
       });
       if (result.ok) {
-        generations.attachImages(created.id, result.images);
+        generations.attachImages(created.id, result.images, result.finalPrompt);
         generations.markCompleted(created.id);
       } else {
         const message = formatGenerationError(result.error);

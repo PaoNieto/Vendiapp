@@ -30,7 +30,7 @@ import {
   type GeminiPart,
   type GeminiResponse,
 } from "@/lib/ai/gemini-client";
-import { OUTPUT_RATIOS } from "@/lib/constants";
+import { OUTPUT_RATIOS, type OutputRatio } from "@/lib/constants";
 import { buildPromptFromBrief } from "@/lib/recorrido/build-prompt";
 import type { Product } from "@/lib/products/store";
 import type { Version } from "@/lib/versions/store";
@@ -64,6 +64,13 @@ export type GenerateImagesResult =
        * con el detalle. Vacio cuando todas las variaciones salieron OK.
        */
       failures: GenerationError[];
+      /**
+       * Prompt final que se le mando a Nano Banana (en ingles, con role split
+       * + style fragment + identity guard ya consolidados). El caller lo
+       * persiste como `strict_prompt` de cada imagen para que el modo estricto
+       * post-gen tenga base editable. Tambien sirve para trazabilidad.
+       */
+      finalPrompt: string;
     }
   | { ok: false; error: GenerationError };
 
@@ -202,7 +209,18 @@ Produce one photorealistic, studio-grade commercial image.${identityGuard}`;
       error: errors[0] ?? { kind: "unknown", message: "Sin imágenes." },
     };
   }
-  return { ok: true, images, failures: errors };
+
+  // Post-proceso: enforce de aspect ratio exacto con canvas. Nano Banana
+  // usualmente respeta el ratio del prompt pero a veces se desvia 1-2 pixeles
+  // y Meta Ads rechaza creatividades con ratio no exacto. Si el enforce falla
+  // por cualquier motivo, conservamos el dataURL original (degradacion graceful).
+  const enforced = await Promise.all(
+    images.map((dataUrl) =>
+      enforceAspectRatio(dataUrl, version.output_ratio).catch(() => dataUrl),
+    ),
+  );
+
+  return { ok: true, images: enforced, failures: errors, finalPrompt };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -334,6 +352,94 @@ function normalizeError(err: unknown): GenerationError {
 function buildRatioInstruction(ratio: string): string {
   const label = OUTPUT_RATIOS.find((r) => r.value === ratio)?.label ?? ratio;
   return `Aspect ratio: ${ratio} (${label}). Frame the composition to match this aspect ratio exactly.`;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Aspect ratio enforcement (post-process via Canvas, browser-side)            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Dimensiones target por ratio. Pensado para ser un punto medio razonable
+ * entre "calidad print/ad-ready" y "peso de archivo manejable en Storage".
+ * Nano Banana suele devolver ~1024px en el lado largo, asi que usamos eso
+ * como base y ajustamos el corto para que el ratio sea exacto.
+ */
+const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
+  "1:1": { w: 1024, h: 1024 },
+  "4:5": { w: 1024, h: 1280 },
+  "9:16": { w: 1080, h: 1920 },
+  "16:9": { w: 1920, h: 1080 },
+};
+
+/**
+ * Toma un dataURL devuelto por Nano Banana y lo lleva a las dimensiones
+ * exactas del ratio elegido usando un canvas con "cover crop" (escala para
+ * fill, recorta el exceso desde el centro). Si la imagen ya esta dentro
+ * de tolerancia (<1% de diferencia), devuelve el original sin tocar.
+ *
+ * Implementacion explicita en browser — `image-generator.ts` corre en cliente
+ * (la API key vive en `useNegocio()`), asi que `sharp` (Node) no aplica.
+ *
+ * Devuelve JPEG 92% (suficiente para feed/ads, mucho mas liviano que el PNG
+ * que devuelve Gemini). Si la operacion falla, el caller tiene un .catch que
+ * conserva el dataURL original.
+ */
+async function enforceAspectRatio(
+  dataUrl: string,
+  ratio: OutputRatio,
+): Promise<string> {
+  const target = RATIO_TARGETS[ratio];
+  if (!target) return dataUrl;
+
+  // Cargamos el dataURL en un HTMLImageElement para poder dibujarlo.
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("No se pudo cargar la imagen para enforce ratio."));
+    i.src = dataUrl;
+  });
+
+  const srcW = img.naturalWidth;
+  const srcH = img.naturalHeight;
+  if (srcW === 0 || srcH === 0) return dataUrl;
+
+  const srcRatio = srcW / srcH;
+  const targetRatio = target.w / target.h;
+
+  // Si ya esta cerca del target (<1%), no hacemos nada — evita recompresion.
+  if (Math.abs(srcRatio - targetRatio) < 0.01) {
+    return dataUrl;
+  }
+
+  // Cover crop: calculamos rect de source que coincida con target ratio,
+  // centrado. Si la imagen es mas ancha de lo necesario, croppeamos los lados.
+  // Si es mas alta, croppeamos arriba/abajo.
+  let sx = 0;
+  let sy = 0;
+  let sw = srcW;
+  let sh = srcH;
+  if (srcRatio > targetRatio) {
+    sw = srcH * targetRatio;
+    sx = (srcW - sw) / 2;
+  } else {
+    sh = srcW / targetRatio;
+    sy = (srcH - sh) / 2;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = target.w;
+  canvas.height = target.h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+
+  // Calidad de scaling. `imageSmoothingQuality: "high"` mejora notoriamente
+  // el resultado cuando hay downscale fuerte (ej. 4096 -> 1024).
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, target.w, target.h);
+
+  // JPEG 92% — calidad casi indistinguible para fotos, ~4-6x mas chico que PNG.
+  return canvas.toDataURL("image/jpeg", 0.92);
 }
 
 /* -------------------------------------------------------------------------- */
