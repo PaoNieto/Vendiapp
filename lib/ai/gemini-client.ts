@@ -34,14 +34,14 @@
  * Si Google libera un sucesor (3.5 Pro, etc.), cambia este string y listo.
  * Doc: https://ai.google.dev/gemini-api/docs/models/gemini
  */
-export const GEMINI_REASONING_MODEL = "gemini-3-pro";
+export const GEMINI_REASONING_MODEL = "gemini-3.1-pro-preview";
 
 /**
  * Modelo de PING. Lo usa Portero (`validate-key.ts`) solo para verificar que
  * la API key del usuario es valida. No necesita razonamiento — un Flash basta
  * y sale 10x mas barato y mas rapido.
  */
-export const GEMINI_PING_MODEL = "gemini-3-flash";
+export const GEMINI_PING_MODEL = "gemini-3-flash-preview";
 
 /**
  * @deprecated Usa `GEMINI_REASONING_MODEL` para tareas pesadas o
@@ -57,7 +57,7 @@ export const GEMINI_TEXT_MODEL = GEMINI_REASONING_MODEL;
  * Si el string exacto de Nano Banana 2 en tu cuenta de AI Studio difiere,
  * cambialo aca. Doc: https://ai.google.dev/gemini-api/docs/image-generation
  */
-export const GEMINI_IMAGE_MODEL = "gemini-3-flash-image";
+export const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
