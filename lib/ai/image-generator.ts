@@ -483,7 +483,7 @@ export function formatGenerationError(err: GenerationError): string {
     case "rate_limit":
       return err.retryAfterSec
         ? `Llegaste al límite de Gemini. Probá de nuevo en ~${err.retryAfterSec}s.`
-        : "Llegaste al límite de Gemini. Esperá unos minutos.";
+        : "Gemini rechazó la solicitud. Puede ser un límite temporal (esperá unos minutos) o que tu cuenta no tenga saldo — revisá tu billing en aistudio.google.com.";
     case "content_blocked":
       return err.reason
         ? `Gemini bloqueó la generación por seguridad: ${err.reason}`
