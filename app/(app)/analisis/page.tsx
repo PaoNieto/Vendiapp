@@ -29,10 +29,7 @@ import {
 } from "@/app/(app)/referencias/page";
 import { useAnalyses, type Analysis } from "@/lib/analyses/store";
 import { formatRelativeTime } from "@/lib/generations/format";
-import { useNegocio } from "@/lib/negocio/store";
 import { useUserInitials } from "@/lib/auth/use-user";
-import { analyzeImage } from "@/lib/ai/image-analyzer";
-import { formatGenerationError } from "@/lib/ai/image-generator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -154,7 +151,6 @@ type CreatingState =
 /* -------------------------------------------------------------------------- */
 
 export default function AnalisisPage() {
-  const negocio = useNegocio();
   const analyses = useAnalyses();
   const brandInitials = useUserInitials();
 
@@ -195,28 +191,37 @@ export default function AnalisisPage() {
         const dataUrl = await blobUrlToDataUrl(creating.image.previewUrl);
         if (cancelled) return;
 
-        // 2. Pegamos a Gemini Vision (`gemini-2.5-flash`) con JSON estructurado.
-        const result = await analyzeImage({
-          apiKey: negocio.state.apiKey,
-          imageDataUrl: dataUrl,
-          ratio: creating.ratio,
+        // 2. Análisis SERVER-SIDE (Oráculo) con la key propia de Vendí.
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageDataUrl: dataUrl, ratio: creating.ratio }),
         });
         if (cancelled) return;
 
-        if (!result.ok) {
-          setErrorBanner(formatGenerationError(result.error));
+        if (!res.ok) {
+          setErrorBanner(
+            "No se pudo analizar la imagen. Intentá de nuevo en un momento.",
+          );
           setCreating({ kind: "idle" });
           return;
         }
+        const analysis = (await res.json()) as {
+          composition: string;
+          lighting: string;
+          why_it_sells: string;
+          identified_styles: { id: CuratedStyleId; reason: string }[];
+        };
+        if (cancelled) return;
 
         // 3. Persistimos en el store y navegamos a la vista de detalle.
         const saved = analyses.createAnalysis({
           image_url: dataUrl,
           output_ratio: creating.ratio,
-          composition: result.analysis.composition,
-          lighting: result.analysis.lighting,
-          why_it_sells: result.analysis.why_it_sells,
-          identified_styles: [...result.analysis.identified_styles],
+          composition: analysis.composition,
+          lighting: analysis.lighting,
+          why_it_sells: analysis.why_it_sells,
+          identified_styles: [...analysis.identified_styles],
         });
         setCreating({ kind: "idle" });
         setScreen({ kind: "viewing", id: saved.id });
@@ -234,7 +239,7 @@ export default function AnalisisPage() {
     return () => {
       cancelled = true;
     };
-  }, [creating, analyses, negocio.state.apiKey]);
+  }, [creating, analyses]);
 
   function handleImageChange(next: UploadedImage[]) {
     const image = next[0] ?? null;
@@ -256,13 +261,6 @@ export default function AnalisisPage() {
   function handleAnalyze() {
     if (creating.kind !== "uploading") return;
     if (!creating.ratio) return;
-
-    // Guard de API key — mismo patrón que /fabrica: sentinel `missing_key`
-    // que el banner inline traduce a copy + CTA específicos.
-    if (!negocio.state.apiKey || !negocio.state.apiKeyValidated) {
-      setErrorBanner("missing_key");
-      return;
-    }
 
     setErrorBanner(null);
     setCreating({

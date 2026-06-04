@@ -35,7 +35,17 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Si veniamos del callback de email y fallo, el handler nos manda con
+  // ?error=... Lo precargamos en el banner para que el user vea por que
+  // su link no funciono (en vez de un /login limpio sin explicacion).
+  const callbackError = searchParams.get("error");
+  const [error, setError] = useState<string | null>(
+    callbackError === "missing_code"
+      ? "El link que clickeaste no es válido. Pedí uno nuevo."
+      : callbackError
+        ? "El link expiró o ya fue usado. Pedí uno nuevo."
+        : null,
+  );
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

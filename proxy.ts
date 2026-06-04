@@ -26,6 +26,8 @@ const PUBLIC_PATHS = [
   "/privacidad",
   "/terminos",
   "/onboarding",
+  "/recuperar",
+  "/auth/callback",
 ];
 
 const AUTH_REDIRECT_PATHS = ["/login", "/signup"];

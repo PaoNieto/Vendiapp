@@ -24,9 +24,9 @@ import {
   callGemini,
   GEMINI_REASONING_MODEL,
   type GeminiContent,
+  type GeminiError,
   type GeminiResponse,
 } from "@/lib/ai/gemini-client";
-import type { GenerationError } from "@/lib/ai/image-generator";
 import type { OutputRatio } from "@/lib/constants";
 import type { CuratedStyleId } from "@/app/(app)/referencias/page";
 
@@ -51,7 +51,7 @@ export type AnalyzeImageResult =
         identified_styles: { id: CuratedStyleId; reason: string }[];
       };
     }
-  | { ok: false; error: GenerationError };
+  | { ok: false; error: GeminiError };
 
 /* -------------------------------------------------------------------------- */
 /*  Schema Zod del JSON que esperamos de Gemini                                  */

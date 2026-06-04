@@ -18,16 +18,13 @@ import {
 import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
+import { CreditBadge } from "@/components/app/credit-badge";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useRecorrido } from "@/lib/recorrido/store";
 import { useVersions } from "@/lib/versions/store";
 import type { Product } from "@/lib/products/store";
 import type { Version } from "@/lib/versions/store";
-import {
-  formatGenerationError,
-  generateImages,
-} from "@/lib/ai/image-generator";
 import { getStyleFragment } from "@/lib/styles";
 import { isVersionReady } from "@/lib/validations/recorrido";
 import { OUTPUT_RATIOS } from "@/lib/constants";
@@ -107,52 +104,41 @@ export default function VersionDetailPage() {
     if (!isVersionReady(version)) return;
     if (isSubmitting) return;
 
-    // Guard de API key — preferimos un banner explícito a un fallback mock
-    // confuso. Mismo patrón que en `/fabrica`.
-    if (!negocio.state.apiKey || !negocio.state.apiKeyValidated) {
-      setErrorBanner("missing_key");
-      return;
-    }
-
     setErrorBanner(null);
     setIsSubmitting(true);
-
-    const created = generations.createGeneration({
-      project_id: product.id,
-      version_id: version.id,
-      product_images: product.product_images,
-      reference_images: version.reference_images,
-      output_ratio: version.output_ratio,
-      variations_requested: version.variations_default,
-      user_prompt: version.user_prompt,
-    });
-    generations.markProcessing(created.id);
-
     const targetVersionId = version.id;
 
     try {
-      const result = await generateImages({
-        apiKey: negocio.state.apiKey,
-        product,
-        version,
-        styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+      // Modelo de créditos: generación SERVER-SIDE con la key propia de Vendí.
+      const res = await fetch("/api/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: version.id,
+          styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+        }),
       });
-      if (result.ok) {
-        generations.attachImages(created.id, result.images, result.finalPrompt);
-        generations.markCompleted(created.id);
-        // Redirigimos a la Fábrica con el drawer abierto para que el usuario
-        // vea las imágenes en su contexto natural.
-        router.push(`/fabrica?open=${encodeURIComponent(targetVersionId)}`);
-      } else {
-        const message = formatGenerationError(result.error);
-        generations.markFailed(created.id, message);
-        setErrorBanner(message);
+
+      if (res.status === 402) {
+        setErrorBanner("insufficient_credits");
+        return;
       }
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Error desconocido al generar.";
-      generations.markFailed(created.id, message);
-      setErrorBanner(message);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { message?: string; error?: string }
+          | null;
+        setErrorBanner(
+          data?.message ?? data?.error ?? "No se pudo generar. Intentá de nuevo.",
+        );
+        return;
+      }
+
+      // OK: la Fábrica re-hidrata desde la DB al montar y muestra la tanda.
+      router.push(`/fabrica?open=${encodeURIComponent(targetVersionId)}`);
+    } catch {
+      setErrorBanner(
+        "No se pudo conectar. Revisá tu internet e intentá de nuevo.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -207,6 +193,7 @@ export default function VersionDetailPage() {
                 </HeroCTAButton>
               )}
             </div>
+            <CreditBadge showBuy={false} />
             <AvatarCircle initials={brandInitials} size={40} />
           </>
         }
@@ -580,9 +567,12 @@ function ErrorBanner({
   onDismiss: () => void;
 }) {
   const isMissingKey = message === "missing_key";
+  const isNoCredits = message === "insufficient_credits";
   const displayMessage = isMissingKey
     ? "Para generar imágenes reales, configurá tu API key de Gemini en Mi Negocio."
-    : message;
+    : isNoCredits
+      ? "Te quedaste sin créditos. Comprá más para seguir generando."
+      : message;
 
   return (
     <div
@@ -601,6 +591,14 @@ function ErrorBanner({
             className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
           >
             Ir a Mi Negocio →
+          </Link>
+        ) : null}
+        {isNoCredits ? (
+          <Link
+            href="/upgrade"
+            className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
+          >
+            Comprar créditos →
           </Link>
         ) : null}
       </div>

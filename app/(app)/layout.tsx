@@ -8,8 +8,6 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const plan = "Pro";
-
   return (
     <AppProviders>
       {/*
@@ -20,7 +18,7 @@ export default async function AppLayout({
       */}
       <AppBackground>
         <div className="flex min-h-dvh flex-1">
-          <Sidebar plan={plan} />
+          <Sidebar />
           <main className="flex flex-1 flex-col pb-24 lg:pb-0">{children}</main>
         </div>
         <BottomNav />

@@ -1,27 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Mail } from "lucide-react";
+import { ArrowUpRight, Coins, Mail, TrendingDown, Wallet } from "lucide-react";
 import { useUser } from "@/lib/auth/use-user";
+import { useCreditos, type LedgerEntry } from "@/lib/creditos/use-creditos";
 import { cn } from "@/lib/utils";
 
 /**
- * Ajustes — pagina minima.
+ * Ajustes — Cuenta + Uso de créditos + Plan.
  *
- * Decision de producto: solo Correo (lectura) + estado de Plan + CTA de upgrade.
- * El upgrade lleva a /upgrade (landing externa que se va a construir aparte).
- *
- * El sistema de suscripciones todavia no existe (no hay Stripe, no hay tabla
- * `subscriptions`). El plan se hardcodea como "free" hasta que Integral
- * (integraciones) cablee el plumbing real. Cuando ese momento llegue, leer
- * `currentPlan` del store que corresponda.
+ * La sección "Uso" es el dashboard de créditos: saldo, consumo del mes,
+ * histórico y movimientos recientes (del credit_ledger).
  */
 export default function AjustesPage() {
   const { user } = useUser();
   const email = user?.email ?? "—";
-  // TODO(integral): cuando exista el sistema de suscripciones, leer el plan
-  // real del store en vez de hardcodear "free".
-  const currentPlan: "free" | "pro" = "free";
 
   return (
     <div className="px-5 py-6 sm:px-8 sm:py-8">
@@ -30,12 +23,13 @@ export default function AjustesPage() {
           Ajustes
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tu cuenta y tu plan.
+          Tu cuenta, tu uso y tus créditos.
         </p>
 
         <div className="mt-8 flex flex-col gap-5">
           <AccountSection email={email} />
-          <PlanSection currentPlan={currentPlan} />
+          <UsageSection />
+          <PlanSection />
         </div>
       </div>
     </div>
@@ -51,10 +45,7 @@ function AccountSection({ email }: { email: string }) {
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-muted-foreground">Correo</span>
         <div className="flex items-center gap-2">
-          <Mail
-            className="h-4 w-4 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
+          <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
           <span className="break-all text-sm font-medium text-foreground">
             {email}
           </span>
@@ -65,54 +56,151 @@ function AccountSection({ email }: { email: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Uso — dashboard de créditos                                                */
+/* -------------------------------------------------------------------------- */
 
-function PlanSection({ currentPlan }: { currentPlan: "free" | "pro" }) {
-  const isFree = currentPlan === "free";
+function UsageSection() {
+  const { stats, ledger, loading } = useCreditos();
 
   return (
     <section className="glass-card flex flex-col gap-5 p-6 sm:p-7">
       <div className="flex items-center justify-between gap-3">
-        <span className="eyebrow">Tu plan</span>
-        <PlanBadge plan={currentPlan} />
+        <span className="eyebrow">Uso</span>
+        <Link
+          href="/upgrade"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-sage-strong hover:underline"
+        >
+          Comprar créditos
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
-      <p className="text-sm text-foreground">
-        {isFree
-          ? "Estás usando Vendí en su plan gratuito."
-          : "Tenés Vendí Pro activo."}
-      </p>
+      {/* Métricas */}
+      <div className="grid grid-cols-3 gap-3">
+        <MetricCard
+          icon={<Coins className="h-4 w-4" />}
+          label="Disponibles"
+          value={loading ? "…" : stats.balance}
+          tone="primary"
+        />
+        <MetricCard
+          icon={<TrendingDown className="h-4 w-4" />}
+          label="Usados este mes"
+          value={loading ? "…" : stats.consumedThisMonth}
+          tone="default"
+        />
+        <MetricCard
+          icon={<Wallet className="h-4 w-4" />}
+          label="Usados en total"
+          value={loading ? "…" : stats.consumedAllTime}
+          tone="default"
+        />
+      </div>
 
-      <Link
-        href="/upgrade"
+      {/* Historial reciente */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-semibold text-muted-foreground">
+          Movimientos recientes
+        </span>
+        {ledger.length === 0 ? (
+          <p className="rounded-lg bg-muted px-3 py-4 text-center text-sm text-muted-foreground">
+            Todavía no tenés movimientos de créditos.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border">
+            {ledger.slice(0, 8).map((entry) => (
+              <LedgerRow key={entry.id} entry={entry} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  tone: "primary" | "default";
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1.5 rounded-xl border p-3.5",
+        tone === "primary"
+          ? "border-pill-bg/30 bg-pill-bg/[0.06]"
+          : "border-border bg-card",
+      )}
+    >
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        {icon}
+      </span>
+      <span className="text-2xl font-bold text-foreground">{value}</span>
+      <span className="text-[11px] leading-tight text-muted-foreground">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+const REASON_LABELS: Record<string, string> = {
+  subscription_grant: "Recarga del plan",
+  purchase: "Compra de créditos",
+  generation: "Generación",
+  refund: "Reembolso",
+  manual_adjustment: "Ajuste",
+  signup_bonus: "Bono de bienvenida",
+};
+
+function LedgerRow({ entry }: { entry: LedgerEntry }) {
+  const isPositive = entry.delta > 0;
+  const label = REASON_LABELS[entry.reason] ?? entry.reason;
+  const date = new Date(entry.created_at).toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "short",
+  });
+  return (
+    <li className="flex items-center justify-between gap-3 py-2.5">
+      <div className="flex flex-col">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <span className="text-[11px] text-muted-foreground">{date}</span>
+      </div>
+      <span
         className={cn(
-          "inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3",
-          "text-sm font-semibold",
-          isFree
-            ? "bg-pill-bg text-pill-fg hover:opacity-90"
-            : "border border-border bg-card text-foreground hover:bg-foreground/5",
-          "transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pill-bg/40",
+          "text-sm font-bold",
+          isPositive ? "text-sage-strong" : "text-foreground",
         )}
       >
-        {isFree ? "Subir a Pro" : "Gestionar plan"}
-        <ArrowUpRight className="h-4 w-4" aria-hidden />
-      </Link>
-    </section>
+        {isPositive ? "+" : ""}
+        {entry.delta}
+      </span>
+    </li>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function PlanBadge({ plan }: { plan: "free" | "pro" }) {
-  if (plan === "pro") {
-    return (
-      <span className="rounded-full bg-pill-bg px-3 py-1 text-xs font-semibold uppercase tracking-wide text-pill-fg">
-        Pro
-      </span>
-    );
-  }
+function PlanSection() {
   return (
-    <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      Free
-    </span>
+    <section className="glass-card flex flex-col gap-5 p-6 sm:p-7">
+      <span className="eyebrow">Tu plan</span>
+      <p className="text-sm text-foreground">
+        Pagás por créditos: 1 crédito = 1 imagen. Sin suscripción que se
+        renueve sola — comprás cuando necesitás.
+      </p>
+      <Link
+        href="/upgrade"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-pill-bg px-5 py-3 text-sm font-semibold text-pill-fg transition-opacity hover:opacity-90"
+      >
+        Comprar créditos
+        <ArrowUpRight className="h-4 w-4" aria-hidden />
+      </Link>
+    </section>
   );
 }

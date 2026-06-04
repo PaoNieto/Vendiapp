@@ -59,6 +59,9 @@ export default function SignupPage() {
         // El trigger handle_new_user (migración 0001) lee display_name
         // de raw_user_meta_data y crea el row en public.profiles.
         data: { display_name: displayName || null },
+        // Sin esto Supabase usa su URL default y el link del email rompe.
+        // Apunta al handler en app/auth/callback que intercambia el code.
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
       },
     });
 
@@ -116,7 +119,7 @@ export default function SignupPage() {
           Empezá gratis
         </h1>
         <p className="text-sm text-muted-foreground">
-          10 generaciones gratis. Sin tarjeta.
+          Generá fotos de tus productos con tu propia API key de Google.
         </p>
       </div>
 

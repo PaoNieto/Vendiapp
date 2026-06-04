@@ -12,16 +12,12 @@ export type NegocioState = {
   brandName: string;
   industry: string;
   description: string;
-  apiKey: string;
-  apiKeyValidated: boolean;
 };
 
 const INITIAL: NegocioState = {
   brandName: "",
   industry: "",
   description: "",
-  apiKey: "",
-  apiKeyValidated: false,
 };
 
 const STORAGE_KEY = "vendi:negocio";
@@ -61,10 +57,7 @@ export function NegocioProvider({ children }: { children: React.ReactNode }) {
     setLocalState((prev) => ({ ...prev, ...partial }));
   }, []);
 
-  const isConfigured =
-    state.apiKey.length > 0 &&
-    state.apiKeyValidated &&
-    state.brandName.length > 0;
+  const isConfigured = state.brandName.length > 0;
 
   return (
     <NegocioContext.Provider value={{ state, setState, hydrated, isConfigured }}>

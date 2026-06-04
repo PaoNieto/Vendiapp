@@ -11,9 +11,11 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { useUser } from "@/lib/auth/use-user";
+import { useCreditos } from "@/lib/creditos/use-creditos";
 
 // Sidebar Cuaderno v2 — sage claro SÓLIDO (NO glass).
 // Ancho 220px (handoff: "más restrained que 240+"). Branding "Vendí." en
@@ -28,14 +30,11 @@ import { useUser } from "@/lib/auth/use-user";
 // pide sólido sage claro (#C6D6B2 via --vd-sidebar-bg) sin blur. Más
 // liviano en GPU y coherente con la sensación "cuaderno" cálida.
 
-type SidebarProps = {
-  plan: string;
-};
-
-export function Sidebar({ plan }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, signOut } = useUser();
+  const { stats, loading: creditosLoading } = useCreditos();
 
   async function handleSignOut() {
     await signOut();
@@ -138,16 +137,16 @@ export function Sidebar({ plan }: SidebarProps) {
           )}
         </div>
 
-        <div className="eyebrow mt-3">Plan</div>
-        <div className="text-sm font-semibold text-foreground">{plan}</div>
-        <div className="text-[11.5px] font-medium text-mute">
-          Se renueva el 1 de junio
+        <div className="eyebrow mt-3">Créditos</div>
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <Coins className="h-4 w-4 text-sage-strong" aria-hidden />
+          {creditosLoading ? "…" : `${stats.balance} disponibles`}
         </div>
         <Link
-          href="/ajustes"
+          href="/upgrade"
           className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong transition-colors hover:text-foreground"
         >
-          Administrar <span aria-hidden>→</span>
+          Comprar más <span aria-hidden>→</span>
         </Link>
       </div>
 

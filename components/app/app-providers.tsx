@@ -2,6 +2,7 @@
 
 import { UserProvider } from "@/lib/auth/use-user";
 import { AnalysesProvider } from "@/lib/analyses/store";
+import { CreditosProvider } from "@/lib/creditos/use-creditos";
 import { GeneracionProvider } from "@/lib/generacion/store";
 import { GenerationsProvider } from "@/lib/generations/store";
 import { NegocioProvider } from "@/lib/negocio/store";
@@ -20,9 +21,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           <GenerationsProvider>
             <NegocioProvider>
               <AnalysesProvider>
-                <GeneracionProvider>
-                  <RecorridoProvider>{children}</RecorridoProvider>
-                </GeneracionProvider>
+                <CreditosProvider>
+                  <GeneracionProvider>
+                    <RecorridoProvider>{children}</RecorridoProvider>
+                  </GeneracionProvider>
+                </CreditosProvider>
               </AnalysesProvider>
             </NegocioProvider>
           </GenerationsProvider>

@@ -23,14 +23,12 @@ import { formatRelativeTime } from "@/lib/generations/format";
 import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
+import { useCreditos } from "@/lib/creditos/use-creditos";
+import { CreditBadge } from "@/components/app/credit-badge";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useVersions } from "@/lib/versions/store";
 import { isVersionReady } from "@/lib/validations/recorrido";
-import {
-  formatGenerationError,
-  generateImages,
-} from "@/lib/ai/image-generator";
 import { getStyleFragment } from "@/lib/styles";
 import type { Version } from "@/lib/versions/store";
 import type { Generation } from "@/lib/generations/store";
@@ -67,6 +65,7 @@ function FabricaContent() {
   const generations = useGenerations();
   const negocio = useNegocio();
   const generacion = useGeneracion();
+  const creditos = useCreditos();
   const brandInitials = useUserInitials();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -214,53 +213,45 @@ function FabricaContent() {
     if (!openVersion) return;
     if (!isVersionReady(openVersion)) return;
     if (isSubmitting) return;
-    const product = products.getById(openVersion.product_id);
-    if (!product) return;
-
-    // Guard de API key: sin key validada NO seguimos al store. Preferimos
-    // banner explícito a un fallback mock confuso. El componente
-    // `<ApiKeyBanner>` agrega un CTA a /mi-negocio.
-    if (!negocio.state.apiKey || !negocio.state.apiKeyValidated) {
-      setErrorBanner("missing_key");
-      return;
-    }
 
     setErrorBanner(null);
     setIsSubmitting(true);
 
-    const created = generations.createGeneration({
-      project_id: product.id,
-      version_id: openVersion.id,
-      product_images: product.product_images,
-      reference_images: openVersion.reference_images,
-      output_ratio: openVersion.output_ratio,
-      variations_requested: openVersion.variations_default,
-      user_prompt: openVersion.user_prompt,
-    });
-    generations.markProcessing(created.id);
-
     try {
-      const result = await generateImages({
-        apiKey: negocio.state.apiKey,
-        product,
-        version: openVersion,
-        styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+      // Modelo de créditos: la generación corre SERVER-SIDE con la key propia
+      // de Vendí. El server verifica créditos, genera, guarda y descuenta.
+      const res = await fetch("/api/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: openVersion.id,
+          styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+        }),
       });
-      if (result.ok) {
-        generations.attachImages(created.id, result.images, result.finalPrompt);
-        generations.markCompleted(created.id);
-      } else {
-        const message = formatGenerationError(result.error);
-        generations.markFailed(created.id, message);
-        setErrorBanner(message);
+
+      if (res.status === 402) {
+        // Sin créditos suficientes.
+        setErrorBanner("insufficient_credits");
+        return;
       }
-    } catch (err) {
-      // Catch-all defensivo: `generateImages` no debería throw, pero si algo
-      // explota en `imagesToParts` lo cubrimos.
-      const message =
-        err instanceof Error ? err.message : "Error desconocido al generar.";
-      generations.markFailed(created.id, message);
-      setErrorBanner(message);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { message?: string; error?: string }
+          | null;
+        setErrorBanner(
+          data?.message ?? data?.error ?? "No se pudo generar. Intentá de nuevo.",
+        );
+        return;
+      }
+
+      // OK: refrescamos el saldo de créditos y recargamos para que el store de
+      // generaciones re-hidrate desde la DB y muestre la tanda recién creada.
+      await creditos.refetch();
+      window.location.reload();
+    } catch {
+      setErrorBanner(
+        "No se pudo conectar. Revisá tu internet e intentá de nuevo.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -279,7 +270,12 @@ function FabricaContent() {
       <Topbar
         title="Fábrica"
         subtitle="Tus versiones en marcha y entregadas."
-        right={<AvatarCircle initials={brandInitials} size={40} />}
+        right={
+          <>
+            <CreditBadge />
+            <AvatarCircle initials={brandInitials} size={40} />
+          </>
+        }
       />
 
       <div className="flex flex-1 flex-col gap-5 px-5 pb-8 pt-2 sm:px-8 lg:px-10">
@@ -634,9 +630,12 @@ function ErrorBanner({
   onDismiss: () => void;
 }) {
   const isMissingKey = message === "missing_key";
+  const isNoCredits = message === "insufficient_credits";
   const displayMessage = isMissingKey
     ? "Para generar imágenes reales, configurá tu API key de Gemini en Mi Negocio."
-    : message;
+    : isNoCredits
+      ? "Te quedaste sin créditos. Comprá más para seguir generando."
+      : message;
 
   return (
     <div
@@ -655,6 +654,14 @@ function ErrorBanner({
             className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
           >
             Ir a Mi Negocio →
+          </Link>
+        ) : null}
+        {isNoCredits ? (
+          <Link
+            href="/upgrade"
+            className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
+          >
+            Comprar créditos →
           </Link>
         ) : null}
       </div>
