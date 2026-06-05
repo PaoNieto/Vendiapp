@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { AlertCircle, Factory, Plus, X } from "lucide-react";
+import { Factory, Plus } from "lucide-react";
 
 import {
   AvatarCircle,
@@ -12,7 +12,6 @@ import {
   PillButton,
   StatusBadge,
   Thumbnail,
-  VersionDrawer,
   type FilterProduct,
   type FilterStatus,
   type StatusBadgeStatus,
@@ -20,16 +19,11 @@ import {
 } from "@/components/dashboard";
 import { Topbar } from "@/components/app/topbar";
 import { formatRelativeTime } from "@/lib/generations/format";
-import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
-import { useNegocio } from "@/lib/negocio/store";
-import { useCreditos } from "@/lib/creditos/use-creditos";
 import { CreditBadge } from "@/components/app/credit-badge";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useVersions } from "@/lib/versions/store";
-import { isVersionReady } from "@/lib/validations/recorrido";
-import { getStyleFragment } from "@/lib/styles";
 import type { Version } from "@/lib/versions/store";
 import type { Generation } from "@/lib/generations/store";
 import type { Product } from "@/lib/products/store";
@@ -63,53 +57,14 @@ function FabricaContent() {
   const products = useProducts();
   const versions = useVersions();
   const generations = useGenerations();
-  const negocio = useNegocio();
-  const generacion = useGeneracion();
-  const creditos = useCreditos();
   const brandInitials = useUserInitials();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const allHydrated =
-    products.hydrated &&
-    versions.hydrated &&
-    generations.hydrated &&
-    negocio.hydrated;
+    products.hydrated && versions.hydrated && generations.hydrated;
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterProductId, setFilterProductId] = useState<FilterProduct>("all");
-  const [openVersionId, setOpenVersionId] = useState<string | null>(null);
-  // Banner de error a tope de la página cuando el handler de generación falla
-  // (sin API key, key inválida, rate-limit, etc). Lo limpiamos al cerrar el
-  // drawer o al reintentar exitosamente.
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
-  // Lock para evitar dobles clicks mientras una generación está en curso.
-  // El status `processing` del store ya filtra a nivel store, pero deshabilitar
-  // el botón visualmente es responsabilidad nuestra.
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Deep-link: la vista de versión redirige acá con `?open=<versionId>` después
-  // de generar la primera tanda. Abrimos el drawer y limpiamos el query param
-  // para que no quede pegado al historial.
-  //
-  // Esperamos `allHydrated` antes de validar el id para no abrir un drawer con
-  // una versión que todavía no se cargó del localStorage. Si el id no matchea
-  // nada (caso edge), simplemente limpiamos el query y no abrimos nada.
-  useEffect(() => {
-    if (!allHydrated) return;
-    const openParam = searchParams.get("open");
-    if (!openParam) return;
-    const exists = versions.getById(openParam);
-    if (exists) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link desde `/fabrica?open=…`: sincronizamos un query param con state local. Es un caso legítimo de "subscribe external -> setState".
-      setOpenVersionId(openParam);
-    }
-    router.replace("/fabrica");
-    // `versions` no va al array de deps: queremos correr esto SOLO cuando
-    // cambia el query param o se completa la hidratación inicial. El store
-    // ya está hidratado cuando entramos a este efecto.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allHydrated, searchParams, router]);
 
   // Estado efectivo de cada versión a partir de sus generations.
   //
@@ -177,86 +132,6 @@ function FabricaContent() {
     [products.state.products],
   );
 
-  // Drawer state derivado.
-  const openVersion = openVersionId
-    ? (versions.getById(openVersionId) ?? null)
-    : null;
-  const openProduct = openVersion
-    ? (products.getById(openVersion.product_id) ?? null)
-    : null;
-  const openGenerations = useMemo(
-    () => (openVersionId ? generations.getByVersionId(openVersionId) : []),
-    [openVersionId, generations],
-  );
-  const openImages = useMemo(() => {
-    if (openGenerations.length === 0) return [];
-    const genIds = new Set(openGenerations.map((g) => g.id));
-    return generations.state.images.filter((img) =>
-      genIds.has(img.generation_id),
-    );
-  }, [openGenerations, generations.state.images]);
-
-  function handleDrawerOpenChange(open: boolean) {
-    if (!open) setOpenVersionId(null);
-  }
-
-  function handleDuplicate() {
-    if (!openVersion) return;
-    const copy = versions.duplicateVersion(openVersion.id);
-    if (copy) {
-      // Cerrar el modal actual y abrir el de la copia recién creada.
-      setOpenVersionId(copy.id);
-    }
-  }
-
-  async function handleGenerateMore() {
-    if (!openVersion) return;
-    if (!isVersionReady(openVersion)) return;
-    if (isSubmitting) return;
-
-    setErrorBanner(null);
-    setIsSubmitting(true);
-
-    try {
-      // Modelo de créditos: la generación corre SERVER-SIDE con la key propia
-      // de Vendí. El server verifica créditos, genera, guarda y descuenta.
-      const res = await fetch("/api/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          versionId: openVersion.id,
-          styleFragment: getStyleFragment(generacion.state.selectedStyleId),
-        }),
-      });
-
-      if (res.status === 402) {
-        // Sin créditos suficientes.
-        setErrorBanner("insufficient_credits");
-        return;
-      }
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { message?: string; error?: string }
-          | null;
-        setErrorBanner(
-          data?.message ?? data?.error ?? "No se pudo generar. Intentá de nuevo.",
-        );
-        return;
-      }
-
-      // OK: refrescamos el saldo de créditos y recargamos para que el store de
-      // generaciones re-hidrate desde la DB y muestre la tanda recién creada.
-      await creditos.refetch();
-      window.location.reload();
-    } catch {
-      setErrorBanner(
-        "No se pudo conectar. Revisá tu internet e intentá de nuevo.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   if (!allHydrated) {
     return <FabricaSkeleton />;
   }
@@ -279,12 +154,6 @@ function FabricaContent() {
       />
 
       <div className="flex flex-1 flex-col gap-5 px-5 pb-8 pt-2 sm:px-8 lg:px-10">
-        {errorBanner ? (
-          <ErrorBanner
-            message={errorBanner}
-            onDismiss={() => setErrorBanner(null)}
-          />
-        ) : null}
         {hasAnyVersions ? (
           <>
             <FilterBar
@@ -308,7 +177,7 @@ function FabricaContent() {
                     )}
                     status={statusFor(effectiveStatus.get(v.id) ?? "draft")}
                     images={generations.state.images}
-                    onOpen={() => setOpenVersionId(v.id)}
+                    onOpen={() => router.push(`/fabrica/${v.id}`)}
                   />
                 ))}
               </section>
@@ -326,16 +195,6 @@ function FabricaContent() {
         )}
       </div>
 
-      <VersionDrawer
-        open={openVersion !== null}
-        onOpenChange={handleDrawerOpenChange}
-        version={openVersion}
-        product={openProduct}
-        generations={openGenerations}
-        images={openImages}
-        onGenerateMore={handleGenerateMore}
-        onDuplicate={handleDuplicate}
-      />
     </>
   );
 }
@@ -613,66 +472,3 @@ function toneFromVersion(versionId: string): ThumbnailTone {
   return TONES[Math.abs(hash) % TONES.length];
 }
 
-/* -------------------------------------------------------------------------- */
-/*  ErrorBanner                                                                 */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Banner inline rojo para errores de generación. Si el mensaje es el sentinel
- * `"missing_key"` mostramos copy específico + CTA a Mi Negocio; cualquier otra
- * cadena se renderiza tal cual (ya viene formateada por `formatGenerationError`).
- */
-function ErrorBanner({
-  message,
-  onDismiss,
-}: {
-  message: string;
-  onDismiss: () => void;
-}) {
-  const isMissingKey = message === "missing_key";
-  const isNoCredits = message === "insufficient_credits";
-  const displayMessage = isMissingKey
-    ? "Para generar imágenes reales, configurá tu API key de Gemini en Mi Negocio."
-    : isNoCredits
-      ? "Te quedaste sin créditos. Comprá más para seguir generando."
-      : message;
-
-  return (
-    <div
-      role="alert"
-      className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/[0.06] px-4 py-3 text-sm text-foreground"
-    >
-      <AlertCircle
-        className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
-        aria-hidden
-      />
-      <div className="flex-1">
-        <p className="font-medium leading-snug">{displayMessage}</p>
-        {isMissingKey ? (
-          <Link
-            href="/mi-negocio"
-            className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
-          >
-            Ir a Mi Negocio →
-          </Link>
-        ) : null}
-        {isNoCredits ? (
-          <Link
-            href="/upgrade"
-            className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
-          >
-            Comprar créditos →
-          </Link>
-        ) : null}
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="Descartar mensaje"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}

@@ -524,17 +524,35 @@ function DashboardContent({
       {/* 3. Nueva generación + Actividad */}
       <section className="mt-6 grid gap-4 sm:mt-8 lg:grid-cols-[1.4fr_1fr]">
         {/* Card izquierda — Nueva generación */}
-        <div className="glass-card flex flex-col gap-5 p-6 sm:p-7">
-          <span className="eyebrow">NUEVA GENERACIÓN</span>
-          <h2 className="display-serif text-2xl leading-tight text-ink sm:text-[28px]">
+        <div className="glass-card relative flex flex-col gap-5 overflow-hidden p-6 sm:p-7">
+          {/* Acento decorativo cálido (mismo lenguaje que el shell) */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-12 -top-12 z-0 h-48 w-48 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(201,166,64,0.28), transparent 68%)",
+            }}
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-16 -left-10 z-0 h-44 w-44 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(126,154,117,0.22), transparent 70%)",
+            }}
+          />
+
+          <span className="eyebrow relative z-[1]">NUEVA GENERACIÓN</span>
+          <h2 className="relative z-[1] display-serif text-2xl leading-tight text-ink sm:text-[30px]">
             Empezá desde cero{" "}
-            <span className="display-serif-italic">
+            <span className="display-serif-italic text-sage-strong">
               o seguí donde quedaste
             </span>
             .
           </h2>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="relative z-[1] flex flex-wrap items-center gap-2">
             <WorkflowChip label="Producto" state={workflow.producto} />
             <span className="text-mute" aria-hidden>
               →
@@ -550,7 +568,7 @@ function DashboardContent({
             <WorkflowChip label="Versión" state={workflow.version} />
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-4">
+          <div className="relative z-[1] mt-1 flex flex-wrap items-center gap-4">
             <PillButton size="md" asChild>
               <Link href={ctaHref}>
                 <Plus className="h-4 w-4" />

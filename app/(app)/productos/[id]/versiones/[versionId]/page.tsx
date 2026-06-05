@@ -19,6 +19,7 @@ import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { CreditBadge } from "@/components/app/credit-badge";
+import { GeneratingOverlay } from "@/components/app/generating-overlay";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { useProducts } from "@/lib/products/store";
 import { useRecorrido } from "@/lib/recorrido/store";
@@ -133,8 +134,8 @@ export default function VersionDetailPage() {
         return;
       }
 
-      // OK: la Fábrica re-hidrata desde la DB al montar y muestra la tanda.
-      router.push(`/fabrica?open=${encodeURIComponent(targetVersionId)}`);
+      // OK: vamos a la página completa de la versión a ver las imágenes.
+      router.push(`/fabrica/${targetVersionId}`);
     } catch {
       setErrorBanner(
         "No se pudo conectar. Revisá tu internet e intentá de nuevo.",
@@ -232,6 +233,8 @@ export default function VersionDetailPage() {
           onGenerate={handleGenerate}
         />
       </div>
+
+      {isSubmitting ? <GeneratingOverlay /> : null}
     </>
   );
 }

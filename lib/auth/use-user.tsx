@@ -36,7 +36,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (!mounted) return;
-        setUser(session?.user ?? null);
+        const nextUser = session?.user ?? null;
+        // Evitamos re-render/re-hidratación en CADA vuelta a la pestaña: al
+        // recuperar el foco, Supabase dispara TOKEN_REFRESHED con el mismo
+        // usuario. Si seteáramos un objeto nuevo, todos los stores que
+        // dependen de `user` re-fetchean de Supabase (la app "se recarga
+        // sola"). Sólo actualizamos cuando el usuario REALMENTE cambia.
+        setUser((prev) => (prev?.id === nextUser?.id ? prev : nextUser));
       },
     );
 
