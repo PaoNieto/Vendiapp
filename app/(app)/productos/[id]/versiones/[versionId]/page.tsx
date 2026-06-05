@@ -134,8 +134,10 @@ export default function VersionDetailPage() {
         return;
       }
 
-      // OK: vamos a la página completa de la versión a ver las imágenes.
-      router.push(`/fabrica/${targetVersionId}`);
+      // OK: vamos a la página completa de la versión. Usamos navegación con
+      // recarga (no router.push) para que el store re-hidrate desde la DB y
+      // muestre las imágenes recién generadas por el server.
+      window.location.assign(`/fabrica/${targetVersionId}`);
     } catch {
       setErrorBanner(
         "No se pudo conectar. Revisá tu internet e intentá de nuevo.",

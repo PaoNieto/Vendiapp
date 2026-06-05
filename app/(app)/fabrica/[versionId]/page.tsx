@@ -60,10 +60,6 @@ export default function FabricaVersionPage() {
     if (!version) router.replace("/fabrica");
   }, [allHydrated, version, router]);
 
-  const latestGen = versionGens[0] ?? null;
-  const isGenerating =
-    latestGen?.status === "processing" || latestGen?.status === "pending";
-
   async function handleGenerateMore() {
     if (!version) return;
     if (!isVersionReady(version)) return;
@@ -173,8 +169,6 @@ export default function FabricaVersionPage() {
 
         <VersionGallery
           images={versionImages}
-          isGenerating={isGenerating}
-          latestGen={latestGen}
           onGenerateMore={handleGenerateMore}
         />
       </div>

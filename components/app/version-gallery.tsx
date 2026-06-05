@@ -17,45 +17,35 @@ import { Download, Heart, Info, Plus, RefreshCw, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 
 import { PillButton } from "@/components/dashboard/pill-button";
-import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Textarea } from "@/components/ui/textarea";
-import { formatRelativeTime } from "@/lib/generations/format";
 import {
   useGenerations,
   type GeneratedImage,
-  type Generation,
 } from "@/lib/generations/store";
 import { cn } from "@/lib/utils";
 
+/**
+ * El indicador de carga durante la generación lo maneja el `GeneratingOverlay`
+ * full-screen de la página (el círculo con "30-60 segundos"). Acá NO repetimos
+ * un "procesando" — cuando la generación termina, mostramos las imágenes
+ * directo. Sin doble indicador.
+ */
 export function VersionGallery({
   images,
-  isGenerating,
-  latestGen,
   onGenerateMore,
 }: {
   images: GeneratedImage[];
-  isGenerating: boolean;
-  latestGen: Generation | null;
   onGenerateMore: () => void;
 }) {
-  if (images.length === 0 && !isGenerating) {
+  if (images.length === 0) {
     return <EmptyImagesState onGenerateMore={onGenerateMore} />;
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {isGenerating && latestGen ? (
-        <GeneratingPlaceholder
-          variations={latestGen.variations_requested}
-          startedAt={latestGen.created_at}
-        />
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4">
-        {images.map((img, idx) => (
-          <ImageTile key={img.id} image={img} index={idx + 1} />
-        ))}
-      </div>
+    <div className="grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4">
+      {images.map((img, idx) => (
+        <ImageTile key={img.id} image={img} index={idx + 1} />
+      ))}
     </div>
   );
 }
@@ -190,28 +180,6 @@ function PromptSwitch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
         )}
       />
     </button>
-  );
-}
-
-function GeneratingPlaceholder({
-  variations,
-  startedAt,
-}: {
-  variations: number;
-  startedAt: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-foreground/[0.04] px-4 py-3">
-      <div className="flex items-center gap-3">
-        <StatusBadge status="processing" size="sm" />
-        <span className="text-sm text-foreground">
-          Generando {variations} {variations === 1 ? "variación" : "variaciones"}…
-        </span>
-      </div>
-      <span className="text-xs text-muted-foreground">
-        {formatRelativeTime(startedAt)}
-      </span>
-    </div>
   );
 }
 
