@@ -28,6 +28,7 @@ import {
   type CuratedStyleId,
 } from "@/app/(app)/referencias/page";
 import { useAnalyses, type Analysis } from "@/lib/analyses/store";
+import { useCreditos } from "@/lib/creditos/use-creditos";
 import { formatRelativeTime } from "@/lib/generations/format";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { cn } from "@/lib/utils";
@@ -153,6 +154,8 @@ type CreatingState =
 export default function AnalisisPage() {
   const analyses = useAnalyses();
   const brandInitials = useUserInitials();
+  const { stats, refetch: refetchCredits } = useCreditos();
+  const analysisBalance = stats.analysisBalance;
 
   // El estado de pantalla arranca en "gallery" porque preferimos pintar la
   // galería ni bien hidrate. La transición a "creating" cuando hay 0
@@ -201,9 +204,13 @@ export default function AnalisisPage() {
 
         if (!res.ok) {
           setErrorBanner(
-            "No se pudo analizar la imagen. Intentá de nuevo en un momento.",
+            res.status === 402
+              ? "Te quedaste sin créditos de análisis. Conseguí más para seguir analizando."
+              : "No se pudo analizar la imagen. Intentá de nuevo en un momento.",
           );
           setCreating({ kind: "idle" });
+          // Revalidamos el saldo: si el 402 vino del server, el contador baja.
+          void refetchCredits();
           return;
         }
         const analysis = (await res.json()) as {
@@ -225,6 +232,8 @@ export default function AnalisisPage() {
         });
         setCreating({ kind: "idle" });
         setScreen({ kind: "viewing", id: saved.id });
+        // El análisis consumió 1 crédito en el server: refrescamos el contador.
+        void refetchCredits();
       } catch (err) {
         if (cancelled) return;
         const message =
@@ -239,7 +248,7 @@ export default function AnalisisPage() {
     return () => {
       cancelled = true;
     };
-  }, [creating, analyses]);
+  }, [creating, analyses, refetchCredits]);
 
   function handleImageChange(next: UploadedImage[]) {
     const image = next[0] ?? null;
@@ -344,6 +353,7 @@ export default function AnalisisPage() {
           <CreatingFlow
             state={creating}
             hasAnalyses={hasAnalyses}
+            analysisBalance={analysisBalance}
             onImageChange={handleImageChange}
             onRatioChange={handleRatioChange}
             onAnalyze={handleAnalyze}
@@ -518,6 +528,7 @@ function GallerySkeleton() {
 function CreatingFlow({
   state,
   hasAnalyses,
+  analysisBalance,
   onImageChange,
   onRatioChange,
   onAnalyze,
@@ -525,6 +536,7 @@ function CreatingFlow({
 }: {
   state: CreatingState;
   hasAnalyses: boolean;
+  analysisBalance: number;
   onImageChange: (next: UploadedImage[]) => void;
   onRatioChange: (ratio: RatioValue) => void;
   onAnalyze: () => void;
@@ -555,6 +567,8 @@ function CreatingFlow({
 
       {state.kind === "analyzing" ? (
         <AnalyzingCard image={state.image} />
+      ) : analysisBalance <= 0 ? (
+        <NoAnalysisCredits />
       ) : (
         <div className="glass-card flex flex-col gap-7 p-6 sm:p-9">
           <header className="flex flex-col gap-2">
@@ -565,6 +579,11 @@ function CreatingFlow({
             <p className="max-w-xl text-sm text-mute">
               Funciona con fotos propias o de competencia. La IA identifica
               composición, mood, estilos y por qué la imagen vende.
+            </p>
+            <p className="text-xs text-mute">
+              Te quedan{" "}
+              <strong className="text-foreground">{analysisBalance}</strong>{" "}
+              análisis con IA.
             </p>
           </header>
 
@@ -621,6 +640,33 @@ function AnalyzingCard({ image }: { image: UploadedImage }) {
         <p className="text-sm text-mute">
           Analizando composición, mood y estilos…
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Estado sin créditos de análisis. El usuario gastó sus 10 análisis de
+ * cortesía — lo mandamos a conseguir más (la bolsa de análisis es separada
+ * de los créditos de generación).
+ */
+function NoAnalysisCredits() {
+  return (
+    <div className="glass-card mx-auto flex max-w-md flex-col items-center gap-3 p-8 text-center sm:p-10">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
+        <ScanSearch className="h-5 w-5" strokeWidth={1.6} />
+      </div>
+      <h2 className="font-display text-2xl italic text-foreground">
+        Te quedaste sin análisis
+      </h2>
+      <p className="max-w-sm text-sm text-mute">
+        Usaste tus análisis con IA de cortesía. Conseguí más créditos para
+        seguir descubriendo por qué venden las imágenes.
+      </p>
+      <div className="mt-2">
+        <Link href="/upgrade">
+          <PillButton size="md">Conseguir más créditos</PillButton>
+        </Link>
       </div>
     </div>
   );

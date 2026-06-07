@@ -29,8 +29,10 @@ export type LedgerEntry = {
 };
 
 export type CreditStats = {
-  /** Saldo actual de créditos. */
+  /** Saldo actual de créditos de GENERACIÓN. */
   balance: number;
+  /** Saldo actual de créditos de ANÁLISIS con IA (bolsa separada). */
+  analysisBalance: number;
   /** Créditos consumidos en el mes calendario actual (suma de generations). */
   consumedThisMonth: number;
   /** Total histórico consumido (todas las generations). */
@@ -48,6 +50,7 @@ type CreditosContextValue = {
 
 const EMPTY_STATS: CreditStats = {
   balance: 0,
+  analysisBalance: 0,
   consumedThisMonth: 0,
   consumedAllTime: 0,
   grantedAllTime: 0,
@@ -59,12 +62,14 @@ export function CreditosProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const { user } = useUser();
   const [balance, setBalance] = useState(0);
+  const [analysisBalance, setAnalysisBalance] = useState(0);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
     if (!user) {
       setBalance(0);
+      setAnalysisBalance(0);
       setLedger([]);
       setLoading(false);
       return;
@@ -75,7 +80,7 @@ export function CreditosProvider({ children }: { children: React.ReactNode }) {
     const [profileRes, ledgerRes] = await Promise.all([
       supabase
         .from("profiles")
-        .select("credits_remaining")
+        .select("credits_remaining, analysis_credits_remaining")
         .eq("id", user.id)
         .single(),
       supabase
@@ -87,17 +92,24 @@ export function CreditosProvider({ children }: { children: React.ReactNode }) {
     ]);
 
     setBalance(profileRes.data?.credits_remaining ?? 0);
+    setAnalysisBalance(profileRes.data?.analysis_credits_remaining ?? 0);
     setLedger((ledgerRes.data as LedgerEntry[] | null) ?? []);
     setLoading(false);
   }, [supabase, user]);
 
+  // Fetch inicial + re-fetch cuando cambia el usuario (login/logout). Es una
+  // sincronización legítima con un sistema externo (Supabase), que es
+  // justamente el caso de uso para el que existe useEffect. El setState que
+  // dispara refetch ocurre dentro de un callback async (tras el await), no en
+  // un loop de render — por eso desactivamos la regla acá puntualmente.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refetch();
   }, [refetch]);
 
   const stats = useMemo<CreditStats>(() => {
     if (ledger.length === 0) {
-      return { ...EMPTY_STATS, balance };
+      return { ...EMPTY_STATS, balance, analysisBalance };
     }
     const now = new Date();
     const y = now.getFullYear();
@@ -116,8 +128,14 @@ export function CreditosProvider({ children }: { children: React.ReactNode }) {
         grantedAllTime += e.delta;
       }
     }
-    return { balance, consumedThisMonth, consumedAllTime, grantedAllTime };
-  }, [ledger, balance]);
+    return {
+      balance,
+      analysisBalance,
+      consumedThisMonth,
+      consumedAllTime,
+      grantedAllTime,
+    };
+  }, [ledger, balance, analysisBalance]);
 
   const value = useMemo<CreditosContextValue>(
     () => ({ stats, ledger, loading, refetch }),

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Coins, Mail, TrendingDown, Wallet } from "lucide-react";
+import {
+  ArrowUpRight,
+  Coins,
+  Mail,
+  ScanSearch,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
 import { useUser } from "@/lib/auth/use-user";
 import { useCreditos, type LedgerEntry } from "@/lib/creditos/use-creditos";
 import { cn } from "@/lib/utils";
@@ -95,6 +102,17 @@ function UsageSection() {
           value={loading ? "…" : stats.consumedAllTime}
           tone="default"
         />
+      </div>
+
+      {/* Créditos de análisis con IA — bolsa separada de los de generación. */}
+      <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-3">
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <ScanSearch className="h-4 w-4 shrink-0" aria-hidden />
+          Análisis con IA disponibles
+        </span>
+        <span className="text-base font-bold text-foreground">
+          {loading ? "…" : stats.analysisBalance}
+        </span>
       </div>
 
       {/* Historial reciente */}

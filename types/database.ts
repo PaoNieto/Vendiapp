@@ -8,6 +8,7 @@ export type Profile = {
   avatar_url: string | null;
   plan: Plan;
   credits_remaining: number;
+  analysis_credits_remaining: number;
   created_at: string;
   updated_at: string;
 };

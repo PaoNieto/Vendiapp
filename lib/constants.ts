@@ -1,7 +1,12 @@
 export const APP_NAME = "Vendí";
 export const APP_TAGLINE = "Tu producto, en cualquier escenario, sin sesión de fotos.";
 
-export const FREE_PLAN_CREDITS = 10;
+/** Créditos de GENERACIÓN de regalo al registrarse (1 crédito = 1 imagen). */
+export const FREE_PLAN_CREDITS = 60;
+
+/** Créditos de ANÁLISIS con IA de regalo al registrarse — bolsa SEPARADA de
+ * los de generación. 1 crédito = 1 análisis. */
+export const FREE_ANALYSIS_CREDITS = 10;
 
 export const OUTPUT_RATIOS = [
   { value: "1:1", label: "Cuadrado", description: "Ideal para Instagram, Shopify, Temu" },
@@ -18,7 +23,7 @@ export const DEFAULT_VARIATIONS = 5;
 export const MAX_VARIATIONS = 10;
 
 export const PLANS = {
-  free: { name: "Free", monthlyCredits: 10, price: 0 },
+  free: { name: "Free", monthlyCredits: 60, price: 0 },
   pro: { name: "Pro", monthlyCredits: 200, price: 19 },
   business: { name: "Business", monthlyCredits: 1000, price: 79 },
 } as const;

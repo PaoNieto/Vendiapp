@@ -1,21 +1,20 @@
 /**
- * Cliente Gemini compartido — BYOK (Bring Your Own Key).
+ * Cliente Gemini compartido — modelo de CRÉDITOS (server-side).
  *
- * Llama a la REST API oficial de Google Generative Language sin SDK. La key del
- * usuario vive en `useNegocio().state.apiKey` (localStorage) y se pasa como
- * query param a cada request: `?key=<apiKey>`. NUNCA pasa por el server de Next.
+ * Llama a la REST API oficial de Google Generative Language sin SDK. La key es
+ * la PROPIA de Vendí (`process.env.GOOGLE_API_KEY`), se pasa como query param a
+ * cada request (`?key=...`) y NUNCA llega al browser: los callers
+ * (`generate-server.ts`, `image-analyzer.ts`) corren server-side.
  *
  * Endpoint base:
  *   https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}
  *
- * Por qué REST y no `@google/generative-ai`:
- *   - Versión control total sobre el body y los headers — necesario para
+ * Por qué REST y no un SDK:
+ *   - Control total sobre body y headers — necesario para
  *     `responseMimeType: "application/json"` en el analyzer y para mandar
  *     `inlineData` base64 sin sorpresas de serialización.
  *   - Cero acoplamiento a una versión del SDK: si Google cambia algo,
  *     pinchamos UNA función.
- *   - El SDK sigue como dep del package.json (lo deja el agente anterior),
- *     pero no lo importamos: si crece el bundle podemos quitarlo después.
  *
  * Los errores se devuelven tipados (no se lanzan) para que el caller pueda
  * desestructurar `result.ok` vs `result.error` sin try/catch.
@@ -26,28 +25,15 @@
 /* -------------------------------------------------------------------------- */
 
 /**
- * Modelo de RAZONAMIENTO. Lo usa Oraculo (`image-analyzer.ts`) y El Director
- * (`art-director.ts`) — tareas que requieren analisis profundo y sintesis
- * multimodal con responseMimeType JSON. Gemini 3 Pro razona mejor que 2.5 Flash
- * para estos casos (vale la pena el costo extra de ~$0.012 vs ~$0.001 por call).
+ * Modelo de RAZONAMIENTO. Lo usa El Director (`generate-server.ts`) para
+ * sintetizar el prompt enriquecido en JSON — tarea que requiere análisis
+ * profundo y síntesis multimodal con responseMimeType JSON. (El analyzer/
+ * Oráculo usa su propio `gemini-2.5-flash`.)
  *
  * Si Google libera un sucesor (3.5 Pro, etc.), cambia este string y listo.
  * Doc: https://ai.google.dev/gemini-api/docs/models/gemini
  */
 export const GEMINI_REASONING_MODEL = "gemini-3.1-pro-preview";
-
-/**
- * Modelo de PING. Lo usa Portero (`validate-key.ts`) solo para verificar que
- * la API key del usuario es valida. No necesita razonamiento — un Flash basta
- * y sale 10x mas barato y mas rapido.
- */
-export const GEMINI_PING_MODEL = "gemini-3-flash-preview";
-
-/**
- * @deprecated Usa `GEMINI_REASONING_MODEL` para tareas pesadas o
- * `GEMINI_PING_MODEL` para validacion. Se conserva por backwards compat.
- */
-export const GEMINI_TEXT_MODEL = GEMINI_REASONING_MODEL;
 
 /**
  * Modelo de IMAGEN — Nano Banana 2. Genera imagenes a partir de prompts +
@@ -128,7 +114,7 @@ export type GeminiCallResult =
 
 export type CallGeminiOptions = {
   apiKey: string;
-  /** Nombre del modelo. Usá `GEMINI_TEXT_MODEL` o `GEMINI_IMAGE_MODEL`. */
+  /** Nombre del modelo. Usá `GEMINI_REASONING_MODEL` o `GEMINI_IMAGE_MODEL`. */
   model: string;
   contents: GeminiContent[];
   generationConfig?: Record<string, unknown>;
