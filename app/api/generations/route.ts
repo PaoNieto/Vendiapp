@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       { status: 422 },
     );
   }
-  const { versionId, styleFragment } = parsed.data;
+  const { versionId, styleFragment, brand } = parsed.data;
 
   // 2. Versión (RLS: solo si es del usuario)
   const { data: version, error: versionErr } = await supabase
@@ -157,6 +157,7 @@ export async function POST(req: Request) {
     variations,
     userPrompt,
     styleFragment,
+    brand,
   });
 
   // Si falló TODO: reembolsar el total y marcar failed.

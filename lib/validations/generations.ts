@@ -32,9 +32,22 @@ export type GenerationRequest = z.infer<typeof generationRequestSchema>;
 export const serverGenerationRequestSchema = z.object({
   versionId: z.string().uuid(),
   styleFragment: z.string().max(2000).optional(),
+  // Identidad de marca del usuario (vive en localStorage del cliente vía
+  // useNegocio). Se manda en el body para que el Director la use al sintetizar
+  // escena/mood/paleta y las imágenes salgan coherentes con la marca. Es
+  // contexto del propio usuario (no un borde de seguridad), por eso viaja en el
+  // request en vez de persistirse en DB — simple y suficiente por ahora.
+  brand: z
+    .object({
+      name: z.string().max(120).optional(),
+      industry: z.string().max(120).optional(),
+      description: z.string().max(600).optional(),
+    })
+    .optional(),
 });
 
 export type ServerGenerationRequest = z.infer<typeof serverGenerationRequestSchema>;
+export type BrandContext = NonNullable<ServerGenerationRequest["brand"]>;
 
 export const artDirectorRequestSchema = z.object({
   productImages: z.array(z.string().url()).min(1).max(MAX_PRODUCT_IMAGES),

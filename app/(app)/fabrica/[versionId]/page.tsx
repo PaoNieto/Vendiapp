@@ -14,6 +14,7 @@ import { useVersions } from "@/lib/versions/store";
 import { useProducts } from "@/lib/products/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useGeneracion } from "@/lib/generacion/store";
+import { useNegocio } from "@/lib/negocio/store";
 import { useCreditos } from "@/lib/creditos/use-creditos";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { getStyleFragment } from "@/lib/styles";
@@ -34,6 +35,7 @@ export default function FabricaVersionPage() {
   const products = useProducts();
   const generations = useGenerations();
   const generacion = useGeneracion();
+  const negocio = useNegocio();
   const creditos = useCreditos();
   const brandInitials = useUserInitials();
 
@@ -74,6 +76,12 @@ export default function FabricaVersionPage() {
         body: JSON.stringify({
           versionId: version.id,
           styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+          // Identidad de marca → coherencia de la imagen con la marca del usuario.
+          brand: {
+            name: negocio.state.brandName,
+            industry: negocio.state.industry,
+            description: negocio.state.description,
+          },
         }),
       });
       if (res.status === 402) {

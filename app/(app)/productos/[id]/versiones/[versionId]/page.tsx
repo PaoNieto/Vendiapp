@@ -117,6 +117,13 @@ export default function VersionDetailPage() {
         body: JSON.stringify({
           versionId: version.id,
           styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+          // Identidad de marca → el Director la usa para que las imágenes salgan
+          // coherentes con la marca del usuario.
+          brand: {
+            name: negocio.state.brandName,
+            industry: negocio.state.industry,
+            description: negocio.state.description,
+          },
         }),
       });
 

@@ -27,7 +27,7 @@ import {
   type GeminiResponse,
 } from "@/lib/ai/gemini-client";
 import { OUTPUT_RATIOS, type OutputRatio } from "@/lib/constants";
-import { enrichedPromptSchema } from "@/lib/validations/generations";
+import { enrichedPromptSchema, type BrandContext } from "@/lib/validations/generations";
 
 /* -------------------------------------------------------------------------- */
 /*  Tipos                                                                       */
@@ -40,6 +40,7 @@ export type GenerateOnServerInput = {
   variations: number;
   userPrompt?: string;
   styleFragment?: string;
+  brand?: BrandContext;
 };
 
 export type GeneratedImageBuffer = {
@@ -73,7 +74,7 @@ export async function generateOnServer(
     };
   }
 
-  const { productImages, referenceImages, ratio, userPrompt, styleFragment } =
+  const { productImages, referenceImages, ratio, userPrompt, styleFragment, brand } =
     input;
   const variations = Math.max(1, input.variations);
 
@@ -107,6 +108,7 @@ export async function generateOnServer(
       referenceImages,
       ratio,
       userPrompt,
+      brand,
     });
   } catch {
     basePrompt =
@@ -228,6 +230,7 @@ Reglas duras:
 - PRESERVA siempre la identidad del producto del usuario: forma, color, etiqueta, proporciones.
 - Si las referencias visuales chocan con el producto, priorizas el producto y adaptas el estilo.
 - Las referencias contribuyen mood/luz/paleta — NUNCA reemplazan al producto.
+- Si te dan CONTEXTO DE MARCA (nombre, rubro, descripcion), usalo para que la escena, el mood y la paleta sean COHERENTES con esa identidad. NO inventes logos ni texto de marca dentro de la imagen.
 - NO devuelvas texto fuera del JSON. NO uses code fences.`;
 
 async function enrichPromptServer(input: {
@@ -236,13 +239,14 @@ async function enrichPromptServer(input: {
   referenceImages: string[];
   ratio: string;
   userPrompt?: string;
+  brand?: BrandContext;
 }): Promise<string> {
   const [productParts, referenceParts] = await Promise.all([
     urlsToParts(input.productImages),
     urlsToParts(input.referenceImages),
   ]);
 
-  const userMessage = `Producto del usuario: ${input.productImages.length} foto(s) (las primeras imagenes adjuntas).
+  const userMessage = `${buildBrandBlock(input.brand)}Producto del usuario: ${input.productImages.length} foto(s) (las primeras imagenes adjuntas).
 Referencias visuales: ${input.referenceImages.length} imagen(es) (despues del producto).
 Ratio de salida: ${input.ratio}
 ${input.userPrompt ? `\nInstrucciones extra del usuario:\n${input.userPrompt}` : ""}
@@ -339,6 +343,27 @@ function normalizeError(err: unknown): GeminiError {
 function buildRatioInstruction(ratio: string): string {
   const label = OUTPUT_RATIOS.find((r) => r.value === ratio)?.label ?? ratio;
   return `Aspect ratio: ${ratio} (${label}). Frame the composition to match this aspect ratio exactly.`;
+}
+
+/**
+ * Arma el bloque de contexto de marca que se antepone al mensaje del Director.
+ * Devuelve "" si no hay datos de marca útiles, para no ensuciar el prompt.
+ */
+function buildBrandBlock(brand?: BrandContext): string {
+  if (!brand) return "";
+  const name = brand.name?.trim();
+  const industry = brand.industry?.trim();
+  const description = brand.description?.trim();
+  if (!name && !industry && !description) return "";
+
+  const parts: string[] = ["Contexto de marca del usuario:"];
+  if (name) parts.push(`- Nombre: ${name}`);
+  if (industry) parts.push(`- Rubro: ${industry}`);
+  if (description) parts.push(`- Descripcion: ${description}`);
+  parts.push(
+    "Usa este contexto para que la escena, el mood y la paleta sean coherentes con la identidad de la marca (sin inventar logos ni texto de marca en la imagen).",
+  );
+  return parts.join("\n") + "\n\n";
 }
 
 function stripCodeFences(text: string): string {
