@@ -19,6 +19,13 @@ export type MetricTileProps = {
   delta?: { value: string; positive?: boolean };
   /** Texto secundario al lado del delta (ej "vs semana anterior"). */
   deltaLabel?: string;
+  /**
+   * Pie de contexto honesto que se muestra cuando NO hay `delta` (ej. todavía
+   * no hay mes anterior con qué comparar). Ej: "35 esta semana", "de 35
+   * generadas". Evita que la card quede "pelada" sin inventar un porcentaje.
+   * Si hay `delta`, este caption se ignora (gana el delta).
+   */
+  caption?: string;
   /** Serie para sparkline interno. Si está, se renderiza a la derecha del número. */
   sparkline?: number[];
   /**
@@ -59,6 +66,7 @@ export function MetricTile({
   value,
   delta,
   deltaLabel,
+  caption,
   sparkline,
   sparklineColor,
   className,
@@ -111,6 +119,10 @@ export function MetricTile({
           {deltaLabel ? (
             <span className="text-xs text-mute">{deltaLabel}</span>
           ) : null}
+        </div>
+      ) : caption ? (
+        <div className="mt-4">
+          <span className="text-xs text-mute">{caption}</span>
         </div>
       ) : null}
     </div>

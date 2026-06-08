@@ -459,6 +459,22 @@ function DashboardContent({
   const newProductsThisWeek = countCreatedWithinDays(allProducts, 7);
   const timeSaved = formatTimeSaved(imagesThisMonth);
 
+  // Captions honestos para cuando NO hay delta mes-a-mes (ej. primer mes con
+  // actividad): contexto real derivado de la data, sin inventar porcentajes.
+  // El MetricTile los muestra solo si no hay delta.
+  const imagesCaption =
+    imagesThisWeek > 0
+      ? `${imagesThisWeek} esta semana`
+      : imagesThisMonth > 0
+        ? "este mes"
+        : undefined;
+  const downloadsCaption =
+    allImages.length > 0 ? `de ${allImages.length} generadas` : undefined;
+  const timeSavedCaption =
+    imagesThisMonth > 0
+      ? `sobre ${imagesThisMonth} ${imagesThisMonth === 1 ? "imagen" : "imágenes"}`
+      : undefined;
+
   // El usuario es "nuevo" si no tiene NI productos NI generaciones: en vez de
   // KPIs en cero con deltas vacíos, el header le da un mensaje de bienvenida.
   const isNewUser = productsCount === 0 && allGenerations.length === 0;
@@ -562,11 +578,13 @@ function DashboardContent({
           value={imagesThisMonth}
           delta={imagesDelta ?? undefined}
           deltaLabel={imagesDelta ? "vs mes anterior" : undefined}
+          caption={imagesCaption}
           sparkline={sparkImages}
         />
         <MetricTile
           label="DESCARGAS"
           value={downloads}
+          caption={downloadsCaption}
         />
         <MetricTile
           label="PRODUCTOS ACTIVOS"
@@ -584,6 +602,7 @@ function DashboardContent({
           value={timeSaved}
           delta={imagesDelta ?? undefined}
           deltaLabel={imagesDelta ? "vs mes anterior" : undefined}
+          caption={timeSavedCaption}
           sparkline={sparkImages}
         />
       </section>
