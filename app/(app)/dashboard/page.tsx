@@ -15,6 +15,7 @@ import { formatRelativeTime } from "@/lib/generations/format";
 import {
   useGenerations,
   type Generation,
+  type GeneratedImage,
 } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useUser, useUserInitials } from "@/lib/auth/use-user";
@@ -182,34 +183,39 @@ function getWorkflowState(
 }
 
 /**
- * Cuenta cuántas generaciones completed se cerraron en el mes calendario actual.
+ * Cuenta imágenes generadas cuyo `created_at` cae en un mes calendario dado.
+ * `monthsAgo = 0` es el mes actual, `1` el anterior. Es la métrica real de
+ * "imágenes este mes": cada variación generada es una fila en `generated_images`.
  */
-function countGenerationsThisMonth(generations: Generation[]): number {
+function countImagesInMonth(
+  images: GeneratedImage[],
+  monthsAgo: number,
+): number {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
+  const target = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+  const y = target.getFullYear();
+  const m = target.getMonth();
   let count = 0;
-  for (const g of generations) {
-    if (g.status !== "completed" || !g.completed_at) continue;
-    const ts = new Date(g.completed_at);
+  for (const img of images) {
+    const ts = new Date(img.created_at);
     if (ts.getFullYear() === y && ts.getMonth() === m) count += 1;
   }
   return count;
 }
 
 /**
- * Sparkline de últimos 7 días: cantidad de generaciones completed por día.
- * Devuelve [d-6, d-5, …, hoy]. Si la serie queda toda en 0, devolvemos null
- * para que el caller use el mock visual.
+ * Serie de los últimos 7 días (un bucket por día, [d-6 … hoy]) contando
+ * elementos por su `created_at`. Genérica para imágenes o productos. Si la
+ * serie queda toda en 0, devuelve null para que el caller oculte el sparkline
+ * (no inventamos una curva: tile sin actividad = sin sparkline).
  */
-function buildLast7DaysSpark(generations: Generation[]): number[] | null {
+function buildLast7DaysSpark(items: { created_at: string }[]): number[] | null {
   const buckets = new Array(7).fill(0) as number[];
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const startMs = startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000;
-  for (const g of generations) {
-    if (g.status !== "completed" || !g.completed_at) continue;
-    const ts = Date.parse(g.completed_at);
+  for (const it of items) {
+    const ts = Date.parse(it.created_at);
     if (Number.isNaN(ts) || ts < startMs) continue;
     const dayIdx = Math.min(
       6,
@@ -219,6 +225,81 @@ function buildLast7DaysSpark(generations: Generation[]): number[] | null {
   }
   if (buckets.every((n) => n === 0)) return null;
   return buckets;
+}
+
+/** Cuenta imágenes marcadas como descargadas (`is_downloaded`). */
+function countDownloads(images: GeneratedImage[]): number {
+  let n = 0;
+  for (const img of images) if (img.is_downloaded) n += 1;
+  return n;
+}
+
+/** Cuenta elementos creados dentro de los últimos `days` días. */
+function countCreatedWithinDays(
+  items: { created_at: string }[],
+  days: number,
+): number {
+  const since = Date.now() - days * 24 * 60 * 60 * 1000;
+  let n = 0;
+  for (const it of items) {
+    const ts = Date.parse(it.created_at);
+    if (!Number.isNaN(ts) && ts >= since) n += 1;
+  }
+  return n;
+}
+
+/**
+ * Delta porcentual honesto entre dos períodos. Devuelve null cuando no hay
+ * base de comparación (período anterior en 0): preferimos NO mostrar delta a
+ * inventar un "+100%". El signo va incluido en `value`.
+ */
+function pctDelta(
+  current: number,
+  previous: number,
+): { value: string; positive: boolean } | null {
+  if (previous <= 0) return null;
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return null;
+  return { value: `${pct > 0 ? "+" : ""}${pct}%`, positive: pct >= 0 };
+}
+
+/**
+ * Estimación de minutos ahorrados a partir de imágenes reales generadas. NO es
+ * un cronómetro: es una estimación conservadora — cada foto de producto usable
+ * (montaje + disparo + edición) ronda los 15 min de trabajo manual que la
+ * generación evita. Se mueve con el output real del usuario, no es un número fijo.
+ */
+const MINUTES_SAVED_PER_IMAGE = 15;
+
+function formatTimeSaved(imageCount: number): string {
+  const minutes = imageCount * MINUTES_SAVED_PER_IMAGE;
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.round(minutes / 60)} h`;
+}
+
+/**
+ * Producto con más generaciones asociadas (por `project_id`) — el "más
+ * fotografiado" real. Devuelve null si ninguna generación tiene producto.
+ */
+function getFeaturedProduct(
+  generations: Generation[],
+  products: Product[],
+): Product | null {
+  const counts = new Map<string, number>();
+  for (const g of generations) {
+    if (!g.project_id) continue;
+    counts.set(g.project_id, (counts.get(g.project_id) ?? 0) + 1);
+  }
+  let bestId: string | null = null;
+  let best = 0;
+  for (const [id, n] of counts) {
+    if (n > best) {
+      best = n;
+      bestId = id;
+    }
+  }
+  if (!bestId) return null;
+  return products.find((p) => p.id === bestId) ?? null;
 }
 
 /**
@@ -231,44 +312,9 @@ function buildActivityEvents(
   versions: Version[],
 ): ActivityEvent[] {
   if (generations.length === 0 && products.length === 0) {
-    // Mock alineado con el brief del task.
-    return [
-      {
-        id: "mock-1",
-        actor: "user",
-        message: "descargaste \"Café fuerte medio\" · v.1",
-        time: "14:22",
-        highlight: "Café fuerte medio",
-      },
-      {
-        id: "mock-2",
-        actor: "system",
-        message: "terminó 6 generaciones — Vela aromática",
-        time: "12:08",
-        highlight: "Vela aromática",
-      },
-      {
-        id: "mock-3",
-        actor: "user",
-        message: "subiste producto Miel para 350g",
-        time: "ayer 18:45",
-        highlight: "Miel para 350g",
-      },
-      {
-        id: "mock-4",
-        actor: "user",
-        message: "editaste prompt — Maíz en calabaza · estilo lifestyle",
-        time: "ayer 16:30",
-        highlight: "Maíz en calabaza",
-      },
-      {
-        id: "mock-5",
-        actor: "system",
-        message: "terminó 6 generaciones — Aceite de oliva",
-        time: "ayer 11:12",
-        highlight: "Aceite de oliva",
-      },
-    ];
+    // Usuario sin datos: no hay actividad real que mostrar. Devolvemos []
+    // y <ActivityTimeline> pinta su empty state ("Sin actividad reciente.").
+    return [];
   }
 
   const productById = new Map(products.map((p) => [p.id, p]));
@@ -392,7 +438,6 @@ function DashboardContent({
   generations: ReturnType<typeof useGenerations>;
   versions: ReturnType<typeof useVersions>;
 }) {
-  const stats = generations.getStats();
   const recentGenerations = generations.getRecent(8);
   const productsCount = products.state.products.length;
   const lastProduct = products.getRecent(1)[0];
@@ -401,35 +446,44 @@ function DashboardContent({
   const eyebrowDate = formatEyebrowDate(now);
   const saludo = getSaludo(now);
 
-  // Datos derivados para métricas.
-  const generationsThisMonth = countGenerationsThisMonth(
-    generations.state.generations,
-  );
-  const sparkLast7 = buildLast7DaysSpark(generations.state.generations);
-  // Producto destacado para subtítulo rico: el más reciente (fallback al mock).
-  const featuredProductName = lastProduct?.name ?? "Café fuerte medio";
+  const allGenerations = generations.state.generations;
+  const allImages = generations.state.images;
+  const allProducts = products.state.products;
+
+  // Métricas 100% reales — sin fallbacks inventados.
+  const imagesThisMonth = countImagesInMonth(allImages, 0);
+  const imagesPrevMonth = countImagesInMonth(allImages, 1);
+  const imagesDelta = pctDelta(imagesThisMonth, imagesPrevMonth);
+  const imagesThisWeek = countCreatedWithinDays(allImages, 7);
+  const downloads = countDownloads(allImages);
+  const newProductsThisWeek = countCreatedWithinDays(allProducts, 7);
+  const timeSaved = formatTimeSaved(imagesThisMonth);
+
+  // El usuario es "nuevo" si no tiene NI productos NI generaciones: en vez de
+  // KPIs en cero con deltas vacíos, el header le da un mensaje de bienvenida.
+  const isNewUser = productsCount === 0 && allGenerations.length === 0;
+
+  // Producto más fotografiado real (por cantidad de generaciones).
+  const featured = getFeaturedProduct(allGenerations, allProducts);
 
   // Workflow state — basado en si hay productos, versiones, refs y generations.
   const workflow = getWorkflowState(
     productsCount,
     versions.state.versions,
-    generations.state.generations,
+    allGenerations,
   );
 
-  // Activity events — derivados o mock.
+  // Activity events — derivados de data real (o [] si no hay nada).
   const events = buildActivityEvents(
-    generations.state.generations,
-    products.state.products,
+    allGenerations,
+    allProducts,
     versions.state.versions,
   );
 
-  // Sparklines mock para KPIs que no tenemos data real todavía.
-  // Curvas tendencia-positiva sin caídas bruscas, 7 puntos.
-  const sparkDownloads = [3, 4, 3, 5, 4, 6, 8];
-  const sparkProducts = [4, 5, 5, 6, 6, 7, 8];
-  const sparkTimeSaved = [6, 7, 9, 10, 11, 12, 14];
-  // Para imágenes este mes, si no hubo data real construimos un mock similar.
-  const sparkImages = sparkLast7 ?? [2, 4, 3, 6, 5, 7, 6];
+  // Sparklines reales (últimos 7 días). `undefined` → el MetricTile oculta el
+  // sparkline en vez de pintar una curva inventada.
+  const sparkImages = buildLast7DaysSpark(allImages) ?? undefined;
+  const sparkProducts = buildLast7DaysSpark(allProducts) ?? undefined;
 
   return (
     <>
@@ -470,12 +524,24 @@ function DashboardContent({
             .
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mute sm:text-base">
-            Esta semana subió tu promedio: {stats.thisWeek > 0 ? stats.thisWeek : 5}{" "}
-            generaciones y 12 descargas.{" "}
-            <span className="display-serif-italic text-ink">
-              {featuredProductName}
-            </span>{" "}
-            es tu producto más fotografiado.
+            {isNewUser ? (
+              "Subí tu primer producto y convertilo en imágenes profesionales en segundos."
+            ) : (
+              <>
+                Esta semana generaste{" "}
+                <span className="text-ink">{imagesThisWeek}</span>{" "}
+                {imagesThisWeek === 1 ? "imagen" : "imágenes"}.
+                {featured ? (
+                  <>
+                    {" "}
+                    <span className="display-serif-italic text-ink">
+                      {featured.name}
+                    </span>{" "}
+                    es tu producto más fotografiado.
+                  </>
+                ) : null}
+              </>
+            )}
           </p>
         </div>
 
@@ -493,31 +559,32 @@ function DashboardContent({
       <section className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-4">
         <MetricTile
           label="IMÁGENES ESTE MES"
-          value={generationsThisMonth > 0 ? generationsThisMonth : 47}
-          delta={{ value: "+23%", positive: true }}
-          deltaLabel="vs mes anterior"
+          value={imagesThisMonth}
+          delta={imagesDelta ?? undefined}
+          deltaLabel={imagesDelta ? "vs mes anterior" : undefined}
           sparkline={sparkImages}
         />
         <MetricTile
           label="DESCARGAS"
-          value={23}
-          delta={{ value: "+8%", positive: true }}
-          deltaLabel="vs semana anterior"
-          sparkline={sparkDownloads}
+          value={downloads}
         />
         <MetricTile
           label="PRODUCTOS ACTIVOS"
-          value={productsCount > 0 ? productsCount : 8}
-          delta={{ value: "+2", positive: true }}
-          deltaLabel="vs semana anterior"
+          value={productsCount}
+          delta={
+            newProductsThisWeek > 0
+              ? { value: `+${newProductsThisWeek}`, positive: true }
+              : undefined
+          }
+          deltaLabel={newProductsThisWeek > 0 ? "esta semana" : undefined}
           sparkline={sparkProducts}
         />
         <MetricTile
           label="TIEMPO AHORRADO"
-          value="14 hs"
-          delta={{ value: "+3 hs", positive: true }}
-          deltaLabel="vs semana anterior"
-          sparkline={sparkTimeSaved}
+          value={timeSaved}
+          delta={imagesDelta ?? undefined}
+          deltaLabel={imagesDelta ? "vs mes anterior" : undefined}
+          sparkline={sparkImages}
         />
       </section>
 

@@ -149,6 +149,14 @@ type GenerationsContextValue = {
     finalPrompt?: string,
   ) => void;
   toggleFavorite: (imageId: string) => void;
+  /**
+   * Marca una imagen como descargada (`is_downloaded = true`) y lo persiste.
+   * Idempotente: si ya estaba marcada, no dispara un UPDATE redundante. Lo
+   * llama el botón de descarga de la galería — sin esto, la métrica
+   * "Descargas" del dashboard quedaba siempre en 0 porque el `<a download>`
+   * bajaba el archivo pero nunca tocaba la DB.
+   */
+  markDownloaded: (imageId: string) => void;
   rate: (imageId: string, rating: 1 | 2 | 3 | 4 | 5) => void;
   /**
    * Actualiza el prompt estricto de una imagen generada. Lo usa la UI de
@@ -673,6 +681,15 @@ export function GenerationsProvider({
     [state.images, patchImage],
   );
 
+  const markDownloaded = useCallback(
+    (imageId: string) => {
+      const current = state.images.find((img) => img.id === imageId);
+      if (!current || current.is_downloaded) return;
+      patchImage(imageId, { is_downloaded: true });
+    },
+    [state.images, patchImage],
+  );
+
   const rate = useCallback(
     (imageId: string, rating: 1 | 2 | 3 | 4 | 5) => {
       patchImage(imageId, { user_rating: rating });
@@ -869,6 +886,7 @@ export function GenerationsProvider({
       markFailed,
       attachImages,
       toggleFavorite,
+      markDownloaded,
       rate,
       setImagePrompt,
       getRecent,
@@ -886,6 +904,7 @@ export function GenerationsProvider({
       markFailed,
       attachImages,
       toggleFavorite,
+      markDownloaded,
       rate,
       setImagePrompt,
       getRecent,

@@ -51,7 +51,7 @@ export function VersionGallery({
 }
 
 function ImageTile({ image, index }: { image: GeneratedImage; index: number }) {
-  const { setImagePrompt, toggleFavorite } = useGenerations();
+  const { setImagePrompt, toggleFavorite, markDownloaded } = useGenerations();
   const [localOn, setLocalOn] = useState(false);
   const promptOn = image.strict_prompt.trim().length > 0 || localOn;
 
@@ -110,6 +110,7 @@ function ImageTile({ image, index }: { image: GeneratedImage; index: number }) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Descargar imagen"
+            onClick={() => markDownloaded(image.id)}
             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-foreground/60 text-background backdrop-blur-sm transition-transform hover:scale-110"
           >
             <Download className="h-3.5 w-3.5" />
