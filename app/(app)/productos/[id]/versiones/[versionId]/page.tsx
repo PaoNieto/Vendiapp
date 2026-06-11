@@ -11,10 +11,6 @@ import {
   PillButton,
 } from "@/components/dashboard";
 import { Topbar } from "@/components/app/topbar";
-import {
-  parseCuratedRef,
-  type CuratedStyle,
-} from "@/app/(app)/referencias/page";
 import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
@@ -173,7 +169,6 @@ export default function VersionDetailPage() {
   const hasCompletedGens = versionGenerations.some(
     (g) => g.status === "completed",
   );
-  const curated = pickCuratedStyle(version.reference_images);
 
   return (
     <>
@@ -222,7 +217,6 @@ export default function VersionDetailPage() {
         <SetupRow
           product={product}
           version={version}
-          curated={curated}
           onEditReferences={goEditReferences}
           onEditFormato={goEditFormato}
         />
@@ -235,7 +229,6 @@ export default function VersionDetailPage() {
         ) : null}
 
         <CalloutGenerate
-          curated={curated}
           version={version}
           hasCompletedGens={hasCompletedGens}
           isSubmitting={isSubmitting}
@@ -285,19 +278,18 @@ function Breadcrumb({
 function SetupRow({
   product,
   version,
-  curated,
   onEditReferences,
   onEditFormato,
 }: {
   product: Product;
   version: Version;
-  curated: CuratedStyle | null;
   onEditReferences: () => void;
   onEditFormato: () => void;
 }) {
   const photosCount = product.product_images.length;
   const cover = product.cover_image_url ?? product.product_images[0];
   const ratioInfo = OUTPUT_RATIOS.find((r) => r.value === version.output_ratio);
+  const refsCount = version.reference_images.length;
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -338,10 +330,10 @@ function SetupRow({
         </div>
       </div>
 
-      {/* Estilo */}
+      {/* Referencias */}
       <div className="glass-card p-4 sm:p-5">
         <div className="flex items-center justify-between">
-          <span className="eyebrow">ESTILO</span>
+          <span className="eyebrow">REFERENCIAS</span>
           <button
             type="button"
             onClick={onEditReferences}
@@ -351,25 +343,17 @@ function SetupRow({
           </button>
         </div>
         <div className="mt-3 flex items-center gap-3">
-          <div
-            className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-lg shadow-[0_1px_0_rgba(15,31,22,.06),0_6px_16px_-10px_rgba(15,31,22,.22)]"
-            style={{ backgroundColor: curated?.color ?? "#E8E4D2" }}
-          >
-            <span
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 55%)",
-              }}
-            />
+          <div className="relative flex h-[74px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card-cream/60 text-mute">
+            <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
           </div>
           <div className="min-w-0">
             <div className="truncate font-display text-[22px] italic leading-tight text-foreground">
-              {curated?.label ?? "Sin estilo"}
+              {refsCount > 0
+                ? `${refsCount} ${refsCount === 1 ? "referencia" : "referencias"}`
+                : "Sin referencias"}
             </div>
             <div className="mt-1 text-xs font-medium text-mute">
-              {curated ? "Galería curada" : "Subí o elegí refs"}
+              {refsCount > 0 ? "Inspiración para la tanda" : "Subí o elegí refs"}
             </div>
           </div>
         </div>
@@ -451,13 +435,11 @@ function GeneratedBanner({
 /* -------------------------------------------------------------------------- */
 
 function CalloutGenerate({
-  curated,
   version,
   hasCompletedGens,
   isSubmitting,
   onGenerate,
 }: {
-  curated: CuratedStyle | null;
   version: Version;
   hasCompletedGens: boolean;
   isSubmitting: boolean;
@@ -465,7 +447,6 @@ function CalloutGenerate({
 }) {
   const count = version.variations_default;
   const ratio = version.output_ratio;
-  const styleLabel = curated?.label ?? "neutro";
   const canGenerate = isVersionReady(version) && !isSubmitting;
 
   const eyebrow = hasCompletedGens ? "GENERAR MÁS" : "LISTO PARA GENERAR";
@@ -480,11 +461,7 @@ function CalloutGenerate({
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
         <div
           aria-hidden
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full shadow-[0_1px_0_rgba(15,31,22,.06),0_6px_16px_-10px_rgba(15,31,22,.22)]"
-          style={{
-            backgroundColor: curated?.color ?? "#E8E4D2",
-            color: curated?.textOn === "white" ? "#FFFFFF" : "#1B1B1B",
-          }}
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-border bg-card-cream/60 text-foreground shadow-[0_1px_0_rgba(15,31,22,.06),0_6px_16px_-10px_rgba(15,31,22,.22)]"
         >
           <Sparkles className="h-6 w-6" strokeWidth={1.6} />
         </div>
@@ -492,8 +469,7 @@ function CalloutGenerate({
           <span className="eyebrow">{eyebrow}</span>
           <h3 className="mt-1 font-display text-[26px] italic leading-snug text-foreground">
             <span className="tabular-nums">{count}</span> imágenes{" "}
-            <span className="font-mono text-lg not-italic font-bold">{ratio}</span>{" "}
-            en estilo <em className="italic">{styleLabel}</em>
+            <span className="font-mono text-lg not-italic font-bold">{ratio}</span>
           </h3>
           <p className="mt-1.5 max-w-md text-xs font-medium leading-relaxed text-mute-on-bg">
             {hasCompletedGens
@@ -551,15 +527,6 @@ function VersionSkeleton() {
       <div className="h-44 animate-pulse rounded-xl bg-foreground/5" />
     </div>
   );
-}
-
-
-function pickCuratedStyle(refs: string[]): CuratedStyle | null {
-  for (const ref of refs) {
-    const parsed = parseCuratedRef(ref);
-    if (parsed) return parsed;
-  }
-  return null;
 }
 
 /* -------------------------------------------------------------------------- */

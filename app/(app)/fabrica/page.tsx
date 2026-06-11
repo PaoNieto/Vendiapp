@@ -27,18 +27,13 @@ import { useVersions } from "@/lib/versions/store";
 import type { Version } from "@/lib/versions/store";
 import type { Generation } from "@/lib/generations/store";
 import type { Product } from "@/lib/products/store";
-import {
-  parseCuratedRef,
-  type CuratedStyle,
-} from "@/app/(app)/referencias/page";
 
 /**
  * Fábrica — inbox de versiones según mock v2 `screen-fabrica.jsx`.
  *
  * Cambio respecto a la versión anterior: ya NO es un panel de "generar prompt".
  * Ahora es un grid filtrado de TODAS las versiones del usuario. Cada card
- * comunica producto padre + estilo curado (dot de color) + estado + ratio.
- * Click → abre `<VersionDrawer>`.
+ * comunica producto padre + estado + ratio. Click → abre `<VersionDrawer>`.
  *
  * El botón "Generar" vive ahora DENTRO del drawer (handleGenerateMore) y en
  * el detalle de versión (`/productos/[id]/versiones/[versionId]`).
@@ -220,8 +215,6 @@ function FabricaVersionCard({
   status,
   onOpen,
 }: CardProps) {
-  // Buscamos el estilo curado entre las referencias para el dot de color.
-  const curated = pickCuratedStyle(version.reference_images);
   // Buscamos la primera imagen generada — la usamos como cover si existe.
   const firstImageUrl = useMemo(() => {
     for (const gen of versionGens) {
@@ -260,14 +253,8 @@ function FabricaVersionCard({
       onKeyDown={handleKeyDown}
       className="glass-card group cursor-pointer overflow-hidden p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
     >
-      {/* Hero — color del estilo curado o thumbnail tinteado. */}
-      <div
-        className="relative overflow-hidden"
-        style={{
-          aspectRatio: "5 / 3",
-          backgroundColor: curated?.color ?? undefined,
-        }}
-      >
+      {/* Hero — imagen generada si existe, si no un placeholder neutro del tema. */}
+      <div className="relative overflow-hidden" style={{ aspectRatio: "5 / 3" }}>
         {firstImageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -275,8 +262,6 @@ function FabricaVersionCard({
             alt={version.name}
             className="absolute inset-0 h-full w-full object-cover"
           />
-        ) : curated ? (
-          <CuratedHero curated={curated} />
         ) : (
           <Thumbnail tone={toneFromVersion(version.id)} radius={0} />
         )}
@@ -299,20 +284,6 @@ function FabricaVersionCard({
           {version.name}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] font-medium text-mute">
-          {curated ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                aria-hidden
-                className="inline-block h-2.5 w-2.5 rounded-sm"
-                style={{
-                  backgroundColor: curated.color,
-                  boxShadow: "inset 0 0 0 1px rgba(15,31,22,0.08)",
-                }}
-              />
-              <span className="font-semibold text-ink-soft">{curated.label}</span>
-            </span>
-          ) : null}
-          {curated ? <span aria-hidden className="h-[3px] w-[3px] rounded-sm bg-mute" /> : null}
           <span>
             <span className="font-semibold text-ink-soft">{refsCount}</span>{" "}
             {refsCount === 1 ? "ref" : "refs"}
@@ -333,29 +304,6 @@ function FabricaVersionCard({
         </div>
       </div>
     </motion.div>
-  );
-}
-
-function CuratedHero({ curated }: { curated: CuratedStyle }) {
-  const fg = curated.textOn === "white" ? "#FFFFFF" : "#1B1B1B";
-  return (
-    <>
-      <span
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(circle at 22% 18%, rgba(255,255,255,0.20) 0%, transparent 55%), linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.12) 100%)",
-        }}
-      />
-      <span
-        aria-hidden
-        className="absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage: `repeating-linear-gradient(45deg, ${fg}, ${fg} 1px, transparent 1px, transparent 14px)`,
-        }}
-      />
-    </>
   );
 }
 
@@ -440,18 +388,6 @@ function FabricaSkeleton() {
 function statusFor(effective: "processing" | "completed" | "draft"): StatusBadgeStatus {
   if (effective === "completed") return "completed";
   return "pending";
-}
-
-/**
- * Busca el primer estilo curado dentro del array de refs. Si hay varias refs
- * curadas, gana la primera (orden de selección). Si no hay ninguno, null.
- */
-function pickCuratedStyle(refs: string[]): CuratedStyle | null {
-  for (const ref of refs) {
-    const parsed = parseCuratedRef(ref);
-    if (parsed) return parsed;
-  }
-  return null;
 }
 
 const TONES: ThumbnailTone[] = [
