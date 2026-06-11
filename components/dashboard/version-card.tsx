@@ -5,10 +5,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type VersionCardRatio = "1:1" | "4:5" | "9:16" | "16:9";
+
+/** Cantidad máxima de miniaturas que se muestran en la tira inline. */
+const MAX_THUMBS = 4;
 
 export type VersionCardProps = {
   id: string;
@@ -24,19 +26,15 @@ export type VersionCardProps = {
   lastActivity?: string | null;
   /** Aspect ratio de la versión. */
   ratio: VersionCardRatio;
-  /** Destino del link — típicamente `/productos/[id]/versiones/[versionId]`. */
+  /** Destino del link — `/fabrica/[versionId]` si hay imágenes, setup si es borrador. */
   href: string;
   /** Cover opcional (primera ref o primera generación). Si falta, placeholder verde. */
   thumbnailUrl?: string;
   /**
-   * Callback de "Duplicar versión". Si se provee, se renderiza un botón
-   * sutil en bottom-right de la card. Si no, no se renderiza nada (la
-   * card sigue funcionando como link puro).
-   *
-   * El botón vive **por encima** del `<Link>` (z-index + stopPropagation)
-   * para no disparar la navegación del link al hacer click.
+   * URLs de las imágenes GENERADAS de la versión, para una mini-galería inline.
+   * Si tiene ≥1, se renderiza una tira de miniaturas debajo de las métricas.
    */
-  onDuplicate?: () => void;
+  imageUrls?: string[];
   /** className passthrough sobre el wrapper. */
   className?: string;
 };
@@ -56,10 +54,13 @@ export type VersionCardProps = {
  * Hover desplaza 2px a la derecha (sutil — sugiere "entrá") + sombra más
  * pronunciada. min-h-[88px] para touch target cómodo en mobile.
  *
- * Acción "Duplicar" (si `onDuplicate` está): botón circular en bottom-right
- * del wrapper, por encima del `<Link>` via `z-index`. `stopPropagation` evita
- * que el click burbujee al link (y `preventDefault` evita la navegación si el
- * link contiene el botón en su árbol DOM por accidente).
+ * Mini-galería: cuando `imageUrls` trae imágenes generadas, se muestra una tira
+ * horizontal de hasta 4 miniaturas cuadradas debajo de la línea de métricas. Si
+ * hay más, la última posición muestra un chip "+N". El thumb cover de la
+ * izquierda ya muestra la primera generada, así que la tira arranca desde la
+ * segunda para no repetir.
+ *
+ * La card entera es un link puro hacia `href`.
  */
 export function VersionCard({
   name,
@@ -70,7 +71,7 @@ export function VersionCard({
   ratio,
   href,
   thumbnailUrl,
-  onDuplicate,
+  imageUrls,
   className,
 }: VersionCardProps) {
   // Partes de la línea de métricas — se filtran las que no tienen valor para
@@ -82,12 +83,13 @@ export function VersionCard({
   ];
   if (lastActivity) metricsParts.push(lastActivity);
 
-  function handleDuplicateClick(e: React.MouseEvent<HTMLButtonElement>) {
-    // Cortar el burbujeo para que el `<Link>` no dispare navegación.
-    e.preventDefault();
-    e.stopPropagation();
-    onDuplicate?.();
-  }
+  // La tira arranca desde la 2da imagen: la 1ra ya vive en el thumb cover de la
+  // izquierda, así evitamos que se vea redundante. Si solo hay 1 generada, no
+  // hay tira (ya está representada por el cover).
+  const galleryUrls = (imageUrls ?? []).slice(1);
+  const hasGallery = galleryUrls.length > 0;
+  const visibleThumbs = galleryUrls.slice(0, MAX_THUMBS);
+  const overflowCount = galleryUrls.length - visibleThumbs.length;
 
   return (
     <motion.div
@@ -126,14 +128,8 @@ export function VersionCard({
         </div>
 
         {/* Contenido textual a la derecha. min-w-0 es load-bearing para que
-            truncate/line-clamp funcionen dentro del flex container. Reservamos
-            pr-12 cuando hay botón Duplicar para no chocar con el icono. */}
-        <div
-          className={cn(
-            "flex min-w-0 flex-1 flex-col gap-0.5 pr-2",
-            onDuplicate && "pr-10 sm:pr-12",
-          )}
-        >
+            truncate/line-clamp funcionen dentro del flex container. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
           <span
             className="truncate text-base font-medium text-green-dark"
             title={name}
@@ -150,33 +146,38 @@ export function VersionCard({
           <span className="truncate text-xs text-green-text">
             {metricsParts.join(" · ")}
           </span>
+
+          {/* Mini-galería de imágenes generadas. Tira horizontal compacta; en
+              mobile hace scroll-x sutil sin desbordar la card (min-w-0 +
+              overflow-x-auto). Cada thumb ~40px cuadrado, premium y discreto. */}
+          {hasGallery ? (
+            <div className="-mx-0.5 mt-1.5 flex gap-1.5 overflow-x-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {visibleThumbs.map((url, i) => {
+                const isLastVisible = i === visibleThumbs.length - 1;
+                const showOverflow = isLastVisible && overflowCount > 0;
+                return (
+                  <div
+                    key={`${url}-${i}`}
+                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[8px] border border-border/70 bg-card-cream/40"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`Generación de ${name}`}
+                      className="h-full w-full object-cover"
+                    />
+                    {showOverflow ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-[rgba(15,31,22,0.62)] text-[11px] font-semibold text-white">
+                        +{overflowCount}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </Link>
-
-      {/* Botón Duplicar — vive POR ENCIMA del Link via z-10. stopPropagation
-          evita que el click burbujee al `<Link>` padre. Tamaño cumple 44x44
-          (toque mobile) sin invadir el contenido. */}
-      {onDuplicate ? (
-        <button
-          type="button"
-          onClick={handleDuplicateClick}
-          aria-label="Duplicar versión"
-          title="Duplicar versión"
-          className={cn(
-            "absolute bottom-2 right-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full",
-            "border border-border bg-card-cream/80 text-green-dark backdrop-blur-sm",
-            "opacity-0 transition-all duration-150",
-            "hover:bg-card-cream hover:shadow-md",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-dark/40 focus-visible:opacity-100",
-            // Visible en hover/focus de la card o tap mobile (always visible
-            // en touch via no-hover media query).
-            "group-hover:opacity-100",
-            "max-[640px]:opacity-100",
-          )}
-        >
-          <Copy className="h-4 w-4" strokeWidth={1.8} />
-        </button>
-      ) : null}
     </motion.div>
   );
 }

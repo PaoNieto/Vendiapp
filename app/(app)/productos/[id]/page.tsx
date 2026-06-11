@@ -222,18 +222,6 @@ function ProductVersionsSection({
   versions: ReturnType<typeof useVersions>["state"]["versions"];
   generations: ReturnType<typeof useGenerations>;
 }) {
-  const versionsStore = useVersions();
-  const router = useRouter();
-
-  function handleDuplicate(versionId: string) {
-    const copy = versionsStore.duplicateVersion(versionId);
-    if (copy) {
-      // La copia es una versión existente con su receta lista — la abrimos
-      // directo en la Fábrica para que el usuario vea variaciones inline.
-      router.push(`/fabrica?open=${copy.id}`);
-    }
-  }
-
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-display text-[22px] italic leading-tight text-foreground">
@@ -251,24 +239,31 @@ function ProductVersionsSection({
         <div className="flex flex-col gap-2.5">
           {versions.map((version) => {
             const versionGens = generations.getByVersionId(version.id);
-            const completedWithImage = versionGens.find(
-              (g) =>
-                g.status === "completed" &&
-                generations.state.images.some(
-                  (img) => img.generation_id === g.id,
-                ),
+            // URLs de las imágenes generadas COMPLETADAS de la versión, para el
+            // cover + la mini-galería inline de la card.
+            const completedGenIds = new Set(
+              versionGens
+                .filter((g) => g.status === "completed")
+                .map((g) => g.id),
             );
-            const firstImage = completedWithImage
-              ? generations.state.images.find(
-                  (img) => img.generation_id === completedWithImage.id,
-                )?.image_url
-              : undefined;
+            const versionImageUrls = generations.state.images
+              .filter((img) => completedGenIds.has(img.generation_id))
+              .map((img) => img.image_url)
+              .filter(Boolean);
+            const hasImages = versionImageUrls.length > 0;
+
             const thumbnailUrl =
-              firstImage ?? version.reference_images[0] ?? undefined;
+              versionImageUrls[0] ?? version.reference_images[0] ?? undefined;
             const latestGen = versionGens[0];
             const lastActivity = latestGen
               ? formatRelativeTime(latestGen.created_at)
               : null;
+
+            // Con imágenes → la Fábrica (catálogo). Sin imágenes (borrador) →
+            // la página de setup para configurar y generar la primera tanda.
+            const href = hasImages
+              ? `/fabrica/${version.id}`
+              : `/productos/${version.product_id}/versiones/${version.id}`;
 
             return (
               <VersionCard
@@ -280,9 +275,9 @@ function ProductVersionsSection({
                 generationsCount={versionGens.length}
                 lastActivity={lastActivity}
                 ratio={version.output_ratio}
-                href={`/productos/${version.product_id}/versiones/${version.id}`}
+                href={href}
                 thumbnailUrl={thumbnailUrl}
-                onDuplicate={() => handleDuplicate(version.id)}
+                imageUrls={versionImageUrls}
               />
             );
           })}
