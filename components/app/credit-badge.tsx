@@ -19,8 +19,28 @@ export function CreditBadge({
 }) {
   const { stats, loading } = useCreditos();
   const balance = stats.balance;
+  const unlimited = stats.unlimited;
   const low = balance <= 5;
   const empty = balance <= 0;
+
+  // Usuarios en la allowlist de créditos ilimitados: chip neutral con ∞,
+  // sin alertas de saldo y sin botón de compra.
+  if (unlimited) {
+    return (
+      <div className={cn("inline-flex items-center gap-2", className)}>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full bg-pill-bg/10 px-3 py-1.5 text-sm font-semibold text-foreground"
+          title="Créditos ilimitados"
+        >
+          <Coins className="h-4 w-4" aria-hidden />
+          {loading ? "…" : "∞"}
+          <span className="hidden sm:inline font-normal text-muted-foreground">
+            ilimitado
+          </span>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("inline-flex items-center gap-2", className)}>

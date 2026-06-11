@@ -48,6 +48,10 @@ export async function POST(req: Request) {
     );
   }
 
+  // Cliente admin (service_role): se usa para el chequeo de ilimitados y para
+  // las mutaciones de créditos de análisis (deduct/grant) más abajo.
+  const admin = createAdminClient();
+
   // 3. Pre-check de créditos de análisis (early reject, no gastamos en Google).
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
@@ -57,7 +61,12 @@ export async function POST(req: Request) {
   if (profileErr || !profile) {
     return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
   }
-  if ((profile.analysis_credits_remaining ?? 0) < 1) {
+  // Usuarios ilimitados (allowlist) saltan el rechazo por saldo. El deduct de
+  // abajo ya es no-op server-side para ellos.
+  const { data: isUnlimited } = await admin.rpc("is_unlimited", {
+    p_user_id: user.id,
+  });
+  if (!isUnlimited && (profile.analysis_credits_remaining ?? 0) < 1) {
     return NextResponse.json(
       {
         error: "insufficient_analysis_credits",
@@ -69,7 +78,6 @@ export async function POST(req: Request) {
   }
 
   // 4. Reservar 1 crédito de análisis (atómico, service_role).
-  const admin = createAdminClient();
   const { error: deductErr } = await admin.rpc("deduct_analysis_credit", {
     p_user_id: user.id,
   });
