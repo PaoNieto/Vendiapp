@@ -354,6 +354,7 @@ export default function AnalisisPage() {
             state={creating}
             hasAnalyses={hasAnalyses}
             analysisBalance={analysisBalance}
+            unlimited={stats.unlimited}
             onImageChange={handleImageChange}
             onRatioChange={handleRatioChange}
             onAnalyze={handleAnalyze}
@@ -529,6 +530,7 @@ function CreatingFlow({
   state,
   hasAnalyses,
   analysisBalance,
+  unlimited,
   onImageChange,
   onRatioChange,
   onAnalyze,
@@ -537,6 +539,7 @@ function CreatingFlow({
   state: CreatingState;
   hasAnalyses: boolean;
   analysisBalance: number;
+  unlimited: boolean;
   onImageChange: (next: UploadedImage[]) => void;
   onRatioChange: (ratio: RatioValue) => void;
   onAnalyze: () => void;
@@ -567,7 +570,7 @@ function CreatingFlow({
 
       {state.kind === "analyzing" ? (
         <AnalyzingCard image={state.image} />
-      ) : analysisBalance <= 0 ? (
+      ) : !unlimited && analysisBalance <= 0 ? (
         <NoAnalysisCredits />
       ) : (
         <div className="glass-card flex flex-col gap-7 p-6 sm:p-9">
@@ -581,9 +584,19 @@ function CreatingFlow({
               composición, mood, estilos y por qué la imagen vende.
             </p>
             <p className="text-xs text-mute">
-              Te quedan{" "}
-              <strong className="text-foreground">{analysisBalance}</strong>{" "}
-              análisis con IA.
+              {unlimited ? (
+                <>
+                  Tenés{" "}
+                  <strong className="text-foreground">análisis ilimitados</strong>{" "}
+                  con IA.
+                </>
+              ) : (
+                <>
+                  Te quedan{" "}
+                  <strong className="text-foreground">{analysisBalance}</strong>{" "}
+                  análisis con IA.
+                </>
+              )}
             </p>
           </header>
 

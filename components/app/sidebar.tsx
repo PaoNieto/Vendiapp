@@ -140,14 +140,21 @@ export function Sidebar() {
         <div className="eyebrow mt-3">Créditos</div>
         <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Coins className="h-4 w-4 text-sage-strong" aria-hidden />
-          {creditosLoading ? "…" : `${stats.balance} disponibles`}
+          {creditosLoading
+            ? "…"
+            : stats.unlimited
+              ? "∞ ilimitado"
+              : `${stats.balance} disponibles`}
         </div>
-        <Link
-          href="/upgrade"
-          className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong transition-colors hover:text-foreground"
-        >
-          Comprar más <span aria-hidden>→</span>
-        </Link>
+        {/* Usuarios ilimitados (allowlist) no compran créditos: ocultamos el CTA. */}
+        {!stats.unlimited ? (
+          <Link
+            href="/upgrade"
+            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong transition-colors hover:text-foreground"
+          >
+            Comprar más <span aria-hidden>→</span>
+          </Link>
+        ) : null}
       </div>
 
       {/* ThemeToggle + Cerrar sesión al fondo del sidebar. */}

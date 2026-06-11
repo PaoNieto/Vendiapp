@@ -87,7 +87,7 @@ function UsageSection() {
         <MetricCard
           icon={<Coins className="h-4 w-4" />}
           label="Disponibles"
-          value={loading ? "…" : stats.balance}
+          value={loading ? "…" : stats.unlimited ? "∞" : stats.balance}
           tone="primary"
         />
         <MetricCard
@@ -111,7 +111,7 @@ function UsageSection() {
           Análisis con IA disponibles
         </span>
         <span className="text-base font-bold text-foreground">
-          {loading ? "…" : stats.analysisBalance}
+          {loading ? "…" : stats.unlimited ? "∞" : stats.analysisBalance}
         </span>
       </div>
 
