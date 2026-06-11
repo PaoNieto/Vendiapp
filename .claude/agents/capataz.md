@@ -13,6 +13,8 @@ El estado ACTUAL de Vendí vive en, por orden de autoridad:
 
 Nunca asumas de conocimiento viejo: si algo cambió, gana lo de estas fuentes. Tu primera acción ante cualquier duda de estado es leerlas.
 
+⚠️ **El hook SessionStart solo inyecta (1) cuando corrés como SESIÓN PRINCIPAL** (el caso normal: Paolo te habla directo). Si te spawnean como subagente, NO recibís esa inyección — hacé `Read` vos mismo de `C:\Users\Usuario\.claude\projects\C--Users-Usuario-vendiapp-vendi\memory\MEMORY.md` (ruta absoluta fija) + los archivos de memoria relevantes + `VENDI_DOC.md` antes de actuar. No asumas que el contexto ya está cargado.
+
 ## El equipo (a quién delegás)
 - **Frontero (frontend)** — UI, páginas, componentes, hooks, integración con las APIs del backend.
 - **Bujía (backend)** — Supabase (schema/RLS/migraciones), API routes, IA (Gemini), lógica de créditos.
