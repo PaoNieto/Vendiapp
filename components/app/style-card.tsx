@@ -1,9 +1,14 @@
 "use client";
 
 /**
- * StyleCard — card seleccionable para la estacion "Estilo" de la Fabrica.
+ * StyleCard — card seleccionable para elegir un Estilo Profesional.
  *
  * Sistema visual: tema CUADERNO (cards SOLIDAS cream, nunca translucidas).
+ *
+ * Muestra una mini-foto de ejemplo del estilo (`previewImage`) en la cabecera
+ * para que el usuario entienda de un vistazo de qué estilo se trata. Si no hay
+ * foto, o si falla la carga, cae a un wash de gradiente derivado del label —
+ * así un fallo de imagen NUNCA rompe la estetica de la grilla.
  *
  * Tokens esperados (definidos en app/globals.css :root / [data-theme]):
  *   --card                 -> fondo cream solido
@@ -21,15 +26,19 @@
  * `text-card-foreground`, etc. y el componente sigue compilando.
  */
 
+import { useState } from "react";
 import { motion } from "motion/react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type StyleCardProps = {
-  /** Nombre del estilo (h3, font-display). Ej: "Cafe de barrio". */
+  /** Nombre del estilo (h3, font-display). Ej: "Flat lay cenital". */
   label: string;
   /** Descripcion corta (1-2 lineas, font-sans). Color muted. */
   description: string;
+  /** Mini-foto de ejemplo del estilo (ruta en /public, ej "/estilos/flat-lay.jpg").
+   *  Opcional: si falta o falla la carga, se usa el wash de gradiente. */
+  previewImage?: string;
   /** True cuando este estilo esta elegido en el store. */
   selected: boolean;
   /** Callback al togglear seleccion. La grilla decide single vs multi. */
@@ -40,26 +49,33 @@ export type StyleCardProps = {
 
 function inferWashColors(label: string): { start: string; end: string } {
   const text = label.toLowerCase();
-  if (/caf[eé]|c[aá]lid|barrio|vintage|retro|terracota|tierra|rustic/.test(text)) {
+  if (/caf[eé]|c[aá]lid|barrio|vintage|retro|terracota|tierra|rustic|artesan/.test(text)) {
     return { start: "var(--vd-clay)", end: "var(--vd-butter)" };
   }
-  if (/vibrant|pop|satura|energ|brillan|fiesta|tropical/.test(text)) {
+  if (/vibrant|pop|satura|energ|brillan|fiesta|tropical|fondo de color|color/.test(text)) {
     return { start: "var(--vd-butter)", end: "var(--vd-clay)" };
   }
-  if (/limpi|minimal|editoria|lujo|premium|elegant|sofistic|natural|wellness/.test(text)) {
-    return { start: "var(--vd-sage)", end: "var(--vd-sage-strong)" };
+  if (/flot|float|levit|aire|libre|outdoor|fresc/.test(text)) {
+    return { start: "var(--vd-sage)", end: "var(--vd-butter)" };
   }
+  if (/macro|detalle|textura|editoria|lujo|premium|elegant|sofistic|nocturn|dramatic/.test(text)) {
+    return { start: "var(--vd-sage-strong)", end: "var(--vd-clay)" };
+  }
+  // limpi / minimal / natural / lifestyle / flat lay / knolling / cenital / default
   return { start: "var(--vd-sage)", end: "var(--vd-sage-strong)" };
 }
 
 export function StyleCard({
   label,
   description,
+  previewImage,
   selected,
   onSelect,
   className,
 }: StyleCardProps) {
+  const [imgFailed, setImgFailed] = useState(false);
   const wash = inferWashColors(label);
+  const showImage = Boolean(previewImage) && !imgFailed;
 
   return (
     <motion.button
@@ -84,23 +100,49 @@ export function StyleCard({
       )}
     >
       <div aria-hidden className="relative w-full overflow-hidden h-[104px] sm:h-[120px]">
-        <div
-          className={cn(
-            "absolute inset-0 transition-opacity duration-200 ease-out",
-            selected ? "opacity-[0.55]" : "opacity-[0.35]",
-          )}
-          style={{
-            background: `linear-gradient(135deg, ${wash.start} 0%, ${wash.end} 100%)`,
-          }}
-        />
-        <div
-          aria-hidden
-          className="absolute inset-0 mix-blend-soft-light"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(250,246,232,0.0) 0%, rgba(250,246,232,0.4) 100%)",
-          }}
-        />
+        {showImage ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- thumbnail estatico en /public con fallback a wash; next/image es innecesario aca. */}
+            <img
+              src={previewImage}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onError={() => setImgFailed(true)}
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out",
+                selected ? "scale-[1.02]" : "group-hover:scale-[1.03]",
+              )}
+            />
+            {/* Velo inferior para dar profundidad y fundir con la card cream. */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(15,31,22,0) 45%, rgba(15,31,22,0.18) 100%)",
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <div
+              className={cn(
+                "absolute inset-0 transition-opacity duration-200 ease-out",
+                selected ? "opacity-[0.55]" : "opacity-[0.35]",
+              )}
+              style={{
+                background: `linear-gradient(135deg, ${wash.start} 0%, ${wash.end} 100%)`,
+              }}
+            />
+            <div
+              className="absolute inset-0 mix-blend-soft-light"
+              style={{
+                background:
+                  "linear-gradient(180deg, rgba(250,246,232,0) 0%, rgba(250,246,232,0.4) 100%)",
+              }}
+            />
+          </>
+        )}
         {selected && (
           <motion.span
             initial={{ scale: 0.6, opacity: 0 }}

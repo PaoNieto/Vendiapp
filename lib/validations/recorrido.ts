@@ -10,9 +10,12 @@ import type { Version } from "@/lib/versions/store";
  * y la valida con este shape. Solo pedimos lo crítico:
  * - `product_id` (a qué producto pertenece)
  * - `name` (el usuario le da identidad a la campaña)
- * - al menos 1 referencia visual
  * - ratio explícito
  * - variations entre 1 y MAX_VARIATIONS
+ *
+ * Las referencias visuales son OPCIONALES: una versión puede generar con
+ * referencias, con un estilo profesional solo, con ambas o sin nada. Por eso
+ * `reference_images` admite el array vacío y no gatea el envío a la Fábrica.
  *
  * NOTA: el archivo se llama todavía `recorrido.ts` por compatibilidad con
  * importadores existentes. Conceptualmente valida **una versión**, no el
@@ -24,9 +27,7 @@ export const versionBriefSchema = z.object({
     .string()
     .min(1, "Ponele un nombre a la versión")
     .max(60, "Máximo 60 caracteres"),
-  reference_images: z
-    .array(z.string())
-    .min(1, "Agregá al menos una referencia"),
+  reference_images: z.array(z.string()),
   output_ratio: z.enum(["1:1", "4:5", "9:16", "16:9"]),
   variations_default: z.number().int().min(1).max(MAX_VARIATIONS),
 });

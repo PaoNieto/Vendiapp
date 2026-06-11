@@ -10,6 +10,7 @@ import { Topbar } from "@/components/app/topbar";
 import { CreditBadge } from "@/components/app/credit-badge";
 import { GeneratingOverlay } from "@/components/app/generating-overlay";
 import { VersionGallery } from "@/components/app/version-gallery";
+import { StyleCard } from "@/components/app/style-card";
 import { useVersions } from "@/lib/versions/store";
 import { useProducts } from "@/lib/products/store";
 import { useGenerations } from "@/lib/generations/store";
@@ -17,7 +18,7 @@ import { useGeneracion } from "@/lib/generacion/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useCreditos } from "@/lib/creditos/use-creditos";
 import { useUserInitials } from "@/lib/auth/use-user";
-import { getStyleFragment } from "@/lib/styles";
+import { STYLE_LIST, getStyleFragment, type StyleId } from "@/lib/styles";
 import { isVersionReady } from "@/lib/validations/recorrido";
 
 /**
@@ -175,6 +176,15 @@ export default function FabricaVersionPage() {
           />
         ) : null}
 
+        <StyleSelector
+          selectedId={generacion.state.selectedStyleId}
+          onSelect={(id) =>
+            generacion.setStyle(
+              generacion.state.selectedStyleId === id ? null : id,
+            )
+          }
+        />
+
         <VersionGallery
           images={versionImages}
           onGenerateMore={handleGenerateMore}
@@ -183,6 +193,47 @@ export default function FabricaVersionPage() {
 
       {isSubmitting ? <GeneratingOverlay /> : null}
     </>
+  );
+}
+
+/**
+ * Selector de Estilo Profesional embebido en la página de la versión: el
+ * usuario ve los estilos con su mini-foto y elige uno (o ninguno) justo antes
+ * de generar. La elección vive en el store `useGeneracion` y viaja como
+ * `styleFragment` en el POST a /api/generations.
+ */
+function StyleSelector({
+  selectedId,
+  onSelect,
+}: {
+  selectedId: StyleId | null;
+  onSelect: (id: StyleId) => void;
+}) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="font-display text-xl italic text-foreground">
+          Estilo profesional
+        </h2>
+        <span className="text-xs font-medium text-mute">
+          {selectedId
+            ? "Tocá de nuevo para quitarlo"
+            : "Opcional — elegí uno o generá sin estilo"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {STYLE_LIST.map((style) => (
+          <StyleCard
+            key={style.id}
+            label={style.label}
+            description={style.description}
+            previewImage={style.previewImage}
+            selected={selectedId === style.id}
+            onSelect={() => onSelect(style.id)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

@@ -16,8 +16,8 @@ export default function EstiloPage() {
   return (
     <StationShell
       number="03"
-      title="Estilo"
-      description="Elegi un estilo fotografico (opcional). Define el mood, la luz y la ambientacion. Podes combinarlo con referencias o usarlo solo."
+      title="Estilos profesionales"
+      description="Elegí un estilo de fotografía de producto. Define la luz, la composición y el mood. Funciona solo, con tus referencias, o ambos."
       prevHref="/referencias"
       prevLabel="Volver a Referencias"
       nextHref="/formato"
@@ -39,6 +39,7 @@ export default function EstiloPage() {
               key={style.id}
               label={style.label}
               description={style.description}
+              previewImage={style.previewImage}
               selected={selected === style.id}
               onSelect={() => toggle(style.id)}
             />

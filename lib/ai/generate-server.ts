@@ -124,9 +124,18 @@ export async function generateOnServer(
       : "";
   const productCount = productImages.length;
   const refCount = referenceImages.length;
-  const rolePrefix = `The first ${productCount} image(s) show the PRODUCT — preserve EXACTLY: same shape, same color, same label, same proportions. The remaining ${refCount} image(s) are STYLE references only — extract aesthetic (lighting, mood, palette, composition) but DO NOT copy their content or their products.`;
+  // El prompt se adapta a si hay o no referencias de estilo. Sin refs, no
+  // mencionamos imagenes inexistentes (confunde al modelo): solo describimos el
+  // producto y blindamos su identidad.
+  const rolePrefix =
+    refCount > 0
+      ? `The first ${productCount} image(s) show the PRODUCT — preserve EXACTLY: same shape, same color, same label, same proportions. The remaining ${refCount} image(s) are STYLE references only — extract aesthetic (lighting, mood, palette, composition) but DO NOT copy their content or their products.`
+      : `The ${productCount} attached image(s) show the PRODUCT — preserve EXACTLY: same shape, same color, same label, same proportions. Recreate it as a polished commercial photograph; do not alter the product itself.`;
   const ratioInstruction = buildRatioInstruction(ratio);
-  const identityGuard = `\n\nPRESERVE EXACTLY THE PRODUCT SHOWN IN THE FIRST REFERENCE IMAGE: same shape, same colors, same packaging, same label text, same proportions. THE STYLE REFERENCES CONTRIBUTE AESTHETIC ONLY — THEY MUST NEVER REPLACE OR ALTER THE PRODUCT ITSELF.`;
+  const identityGuard =
+    refCount > 0
+      ? `\n\nPRESERVE EXACTLY THE PRODUCT SHOWN IN THE FIRST REFERENCE IMAGE: same shape, same colors, same packaging, same label text, same proportions. THE STYLE REFERENCES CONTRIBUTE AESTHETIC ONLY — THEY MUST NEVER REPLACE OR ALTER THE PRODUCT ITSELF.`
+      : `\n\nPRESERVE EXACTLY THE PRODUCT SHOWN IN THE ATTACHED IMAGE(S): same shape, same colors, same packaging, same label text, same proportions. Only the scene, lighting and styling may change — THE PRODUCT ITSELF MUST NEVER BE REPLACED OR ALTERED.`;
 
   const finalPrompt = `${rolePrefix}
 

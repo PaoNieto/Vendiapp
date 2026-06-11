@@ -1,33 +1,33 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Check } from "lucide-react";
+import { useEffect, useState } from "react";
 import { StationShell } from "@/components/app/station-shell";
 import { ImageUploader, type UploadedImage } from "@/components/fabrica";
-import { cn } from "@/lib/utils";
 import { useRecorrido } from "@/lib/recorrido/store";
 import { useVersions } from "@/lib/versions/store";
 
 /**
- * Estación 01 — Referencias.
+ * Estación — Referencias (OPCIONAL).
  *
- * Según mock v2 `screen-referencias.jsx`:
- *   - Sección "Sube tu propia inspiración" — ImageUploader controlado.
- *   - Sección "O elige un estilo curado" — grid 3 / 5 cols de 9 tiles con
- *     colores planos exactos del handoff. Tap toggle.
+ * Subir referencias propias es opcional: una versión puede generar con
+ * referencias, con un Estilo Profesional solo (estación "Estilos
+ * profesionales"), con ambos o sin nada. Por eso esta estación ya no gatea el
+ * avance ni ofrece el viejo selector de "estilos curados" (cuadrados de color
+ * planos que, usados como referencia visual, no aportaban nada al modelo).
  *
- * Las refs viven en `version.reference_images` (string[]) y mezclan:
- *   - URLs subidas (object URLs)
- *   - SVG dataURIs marcados con `<!--curated:<id>-->` para que podamos
- *     reconocerlos en cualquier otra pantalla y pintar el dot del estilo.
+ * Las refs viven en `version.reference_images` (string[]).
  *
- * Helpers exportados para que otras pantallas (versión detalle, fábrica)
- * puedan parsear si una ref es curada o no.
+ * COMPAT: se conservan los helpers `CURATED_STYLES` / `parseCuratedRef` y los
+ * tipos `CuratedStyle` / `CuratedStyleId`. NO se usan más como selector acá,
+ * pero otras pantallas los siguen importando:
+ *   - Análisis con IA (El Oráculo) los usa como vocabulario de estilos.
+ *   - Versión / Fábrica los usan para reconocer refs curadas de versiones
+ *     viejas ya guardadas (retrocompatibilidad).
  */
 
 /* -------------------------------------------------------------------------- */
-/*  Catálogo curado — colores exactos del handoff                              */
+/*  Catálogo curado (legacy) — vocabulario de El Oráculo + parseo retrocompat  */
 /* -------------------------------------------------------------------------- */
 
 export type CuratedStyleId =
@@ -63,6 +63,8 @@ export const CURATED_STYLES: ReadonlyArray<CuratedStyle> = [
 /**
  * Construye el dataURI de un estilo curado. Lleva un marker `<!--curated:<id>-->`
  * para que `parseCuratedRef` pueda extraer el id desde cualquier consumer.
+ * (Legacy: ya no se generan nuevas refs curadas, pero se conserva por simetría
+ * con `parseCuratedRef`.)
  */
 export function curatedRefDataUrl(style: CuratedStyle): string {
   const textColor = style.textOn === "white" ? "#FFFFFF" : "#1B1B1B";
@@ -71,9 +73,9 @@ export function curatedRefDataUrl(style: CuratedStyle): string {
 }
 
 /**
- * Si la URL pertenece a un estilo curado, devuelve el style. Si no, null.
- * Tolerante a encoding (busca tanto `<!--curated:xxx-->` como su forma
- * url-encoded `%3C!--curated:xxx--%3E`).
+ * Si la URL pertenece a un estilo curado (versión vieja), devuelve el style.
+ * Si no, null. Tolerante a encoding (busca tanto `<!--curated:xxx-->` como su
+ * forma url-encoded `%3C!--curated:xxx--%3E`).
  */
 export function parseCuratedRef(url: string): CuratedStyle | null {
   if (!url.startsWith("data:image/svg+xml")) return null;
@@ -128,7 +130,6 @@ function ReferenciasContent({
 }) {
   const versions = useVersions();
   const [uploaderState, setUploaderState] = useState<UploadedImage[]>([]);
-  const refsSet = useMemo(() => new Set(referenceImages), [referenceImages]);
 
   function handleUploaderChange(next: UploadedImage[]) {
     const previousUploaderUrls = new Set(uploaderState.map((p) => p.previewUrl));
@@ -147,38 +148,21 @@ function ReferenciasContent({
     setUploaderState(next);
   }
 
-  function handleToggleCurated(dataUrl: string) {
-    if (refsSet.has(dataUrl)) {
-      versions.updateVersion(versionId, {
-        reference_images: referenceImages.filter((u) => u !== dataUrl),
-      });
-    } else {
-      versions.updateVersion(versionId, {
-        reference_images: [...referenceImages, dataUrl],
-      });
-    }
-  }
-
-  const nextDisabled = referenceImages.length === 0;
-
   return (
     <StationShell
-      number="01"
+      number="02"
       title="Referencias"
-      description="Subí refs propias o elegí un estilo curado. Definen el look de las imágenes generadas."
+      description="Opcional: subí fotos que te gusten como inspiración. Si no, podés ir directo a elegir un Estilo Profesional."
       prevHref={`/productos/${productId}`}
       prevLabel="Volver al producto"
-      nextHref="/formato"
-      nextLabel="Continuar a Formato"
-      nextDisabled={nextDisabled}
-      nextDisabledHint={
-        nextDisabled ? "Subí o elegí al menos 1 referencia" : undefined
-      }
+      nextHref="/estilo"
+      nextLabel="Continuar a Estilos"
     >
       <div className="flex flex-col gap-8">
         <section className="flex flex-col gap-3">
           <h2 className="font-display text-xl italic text-foreground">
-            Sube tu propia inspiración
+            Sube tu propia inspiración{" "}
+            <span className="text-base not-italic text-mute">(opcional)</span>
           </h2>
           <ImageUploader
             multi
@@ -188,79 +172,8 @@ function ReferenciasContent({
             hint="PNG, JPG o WebP. Inspiraciones que te gusten estéticamente."
           />
         </section>
-
-        <section className="flex flex-col gap-3">
-          <h2 className="font-display text-xl italic text-foreground">
-            O elegí un estilo curado
-          </h2>
-          <p className="text-xs font-medium text-mute">
-            Estilos pre-armados — tocá los que quieras sumar.
-          </p>
-          <CuratedGallery
-            selected={refsSet}
-            onToggle={handleToggleCurated}
-          />
-        </section>
       </div>
     </StationShell>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Galería curada                                                             */
-/* -------------------------------------------------------------------------- */
-
-function CuratedGallery({
-  selected,
-  onToggle,
-}: {
-  selected: Set<string>;
-  onToggle: (dataUrl: string) => void;
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-      {CURATED_STYLES.map((style) => {
-        const dataUrl = curatedRefDataUrl(style);
-        const isSelected = selected.has(dataUrl);
-        const textColor = style.textOn === "white" ? "#FFFFFF" : "#1B1B1B";
-        return (
-          <button
-            key={style.id}
-            type="button"
-            onClick={() => onToggle(dataUrl)}
-            aria-pressed={isSelected}
-            className={cn(
-              "group relative flex aspect-square min-h-[44px] items-end overflow-hidden rounded-lg p-3 text-left transition-all",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40",
-              isSelected
-                ? "shadow-[0_0_0_3px_var(--color-pill-bg),0_8px_22px_-12px_rgba(15,31,22,0.34)]"
-                : "shadow-[0_1px_0_rgba(15,31,22,0.06),0_8px_20px_-12px_rgba(15,31,22,0.24)] hover:scale-[1.01]",
-            )}
-            style={{ backgroundColor: style.color, color: textColor }}
-          >
-            {/* Overlay para profundidad */}
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 55%), linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.12) 100%)",
-              }}
-            />
-            {isSelected ? (
-              <span className="absolute right-2.5 top-2.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-pill-bg text-pill-fg shadow-md">
-                <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
-              </span>
-            ) : null}
-            <span className="relative z-10 flex flex-col gap-0.5">
-              <span className="font-display text-lg italic leading-none">
-                {style.label}
-              </span>
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -275,11 +188,6 @@ function ReferenciasSkeleton() {
         <div className="h-3 w-12 animate-pulse rounded-full bg-foreground/10" />
         <div className="mt-2 h-8 w-56 animate-pulse rounded-full bg-foreground/10" />
         <div className="mt-8 h-40 animate-pulse rounded-xl bg-foreground/5" />
-        <div className="mt-8 grid grid-cols-3 gap-3 sm:grid-cols-5">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="aspect-square animate-pulse rounded-lg bg-foreground/5" />
-          ))}
-        </div>
       </div>
     </div>
   );
