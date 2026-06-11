@@ -3,14 +3,26 @@
 import { StationShell } from "@/components/app/station-shell";
 import { StyleCard } from "@/components/app/style-card";
 import { useGeneracion } from "@/lib/generacion/store";
+import { useRecorrido } from "@/lib/recorrido/store";
+import { useVersions } from "@/lib/versions/store";
 import { STYLE_LIST, type StyleId } from "@/lib/styles";
 
 export default function EstiloPage() {
   const { state, hydrated, setStyle } = useGeneracion();
+  const recorrido = useRecorrido();
+  const versions = useVersions();
   const selected = state.selectedStyleId;
 
   const toggle = (id: StyleId) => {
-    setStyle(selected === id ? null : id);
+    const nextSelected: StyleId | null = selected === id ? null : id;
+    // Store global efímero (no rompemos el flujo actual).
+    setStyle(nextSelected);
+    // Persistencia a la versión activa, sólo si hay una hidratada. Sin
+    // versionId activo, el estilo vive sólo en el store global.
+    const versionId = recorrido.state.versionId;
+    if (versionId && recorrido.hydrated && versions.hydrated) {
+      versions.updateVersion(versionId, { style_id: nextSelected });
+    }
   };
 
   return (

@@ -131,3 +131,15 @@ export function getStyleFragment(id: StyleId | null | undefined): string {
 export function isStyleId(value: unknown): value is StyleId {
   return typeof value === "string" && value in STYLES;
 }
+
+/** Devuelve el Style completo a partir de un id (o undefined si es null/inválido). */
+export function getStyleById(id: StyleId | null | undefined): Style | undefined {
+  if (!id) return undefined;
+  return STYLES[id as StyleId];
+}
+
+/** Devuelve el label en español del estilo (o null si no hay estilo). */
+export function getStyleLabel(id: StyleId | null | undefined): string | null {
+  const s = getStyleById(id);
+  return s ? s.label : null;
+}

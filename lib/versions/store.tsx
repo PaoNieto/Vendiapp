@@ -20,6 +20,7 @@ import {
   uploadImagesToBucket,
   type UploadResult,
 } from "@/lib/supabase/storage";
+import { isStyleId, type StyleId } from "@/lib/styles";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:versions`. Ya no se escribe ni lee — los datos viven en Supabase
@@ -55,6 +56,12 @@ export type Version = {
   output_ratio: OutputRatio;
   variations_default: number;
   user_prompt: string;
+  /**
+   * Estilo Profesional elegido para esta versión (clave de `lib/styles`).
+   * `null` si el usuario no eligió ninguno. Persistido en `versions.style_id`
+   * (migración 0010) — antes vivía sólo en el store global efímero.
+   */
+  style_id: StyleId | null;
   created_at: string;
   updated_at: string;
 };
@@ -67,6 +74,7 @@ export type VersionCreateInput = {
   output_ratio?: OutputRatio;
   variations_default?: number;
   user_prompt?: string;
+  style_id?: StyleId | null;
 };
 
 type VersionsState = {
@@ -86,9 +94,9 @@ type VersionsContextValue = {
   removeVersion: (id: string) => void;
   /**
    * Clona una versión existente con su misma config (refs, ratio, variations,
-   * prompt). Devuelve la versión nueva con nombre "{original} (copia)". Las
-   * imágenes y generaciones de la original NO se copian — la copia arranca en
-   * blanco para que el usuario decida cuándo generar.
+   * prompt, estilo). Devuelve la versión nueva con nombre "{original} (copia)".
+   * Las imágenes y generaciones de la original NO se copian — la copia arranca
+   * en blanco para que el usuario decida cuándo generar.
    */
   duplicateVersion: (id: string) => Version | undefined;
   getById: (id: string) => Version | undefined;
@@ -172,6 +180,7 @@ function parseVersionRow(row: unknown): Version | null {
         ? r.variations_default
         : DEFAULT_VARIATIONS,
     user_prompt: typeof r.user_prompt === "string" ? r.user_prompt : "",
+    style_id: isStyleId(r.style_id) ? r.style_id : null,
     created_at:
       typeof r.created_at === "string"
         ? r.created_at
@@ -245,6 +254,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
         output_ratio: input.output_ratio ?? "1:1",
         variations_default: variations,
         user_prompt: input.user_prompt ?? "",
+        style_id: input.style_id ?? null,
         created_at: now,
         updated_at: now,
       };
@@ -290,6 +300,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
             output_ratio: optimistic.output_ratio,
             variations_default: optimistic.variations_default,
             user_prompt: optimistic.user_prompt,
+            style_id: optimistic.style_id,
           })
           .select()
           .single();
@@ -367,6 +378,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
         if ("variations_default" in partial)
           patch.variations_default = partial.variations_default;
         if ("user_prompt" in partial) patch.user_prompt = partial.user_prompt;
+        if ("style_id" in partial) patch.style_id = partial.style_id;
         // product_id NO se patcha — una versión no migra entre productos.
 
         if (Object.keys(patch).length === 0) return;
@@ -442,6 +454,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
         output_ratio: source.output_ratio,
         variations_default: source.variations_default,
         user_prompt: source.user_prompt,
+        style_id: source.style_id,
       });
     },
     [state.versions, createVersion],

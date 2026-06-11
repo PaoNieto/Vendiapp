@@ -225,12 +225,22 @@ function FabricaVersionCard({
     return undefined;
   }, [versionGens, images]);
 
+  // "Una imagen = una generación" (Paolo): contamos la cantidad REAL de
+  // imágenes de generations `completed` de esta versión, para que el contador
+  // de la card coincida con el catálogo (no batches).
+  const imagesCount = useMemo(() => {
+    const completedGenIds = new Set(
+      versionGens.filter((g) => g.status === "completed").map((g) => g.id),
+    );
+    if (completedGenIds.size === 0) return 0;
+    return images.filter((i) => completedGenIds.has(i.generation_id)).length;
+  }, [versionGens, images]);
+
   const latestGen = versionGens[0];
   const lastActivity = latestGen
     ? formatRelativeTime(latestGen.created_at)
     : null;
 
-  const generationsCount = versionGens.length;
   const refsCount = version.reference_images.length;
 
   function handleClick() {
@@ -290,10 +300,8 @@ function FabricaVersionCard({
           </span>
           <span aria-hidden className="h-[3px] w-[3px] rounded-sm bg-mute" />
           <span>
-            <span className="font-semibold text-ink-soft">
-              {generationsCount}
-            </span>{" "}
-            {generationsCount === 1 ? "gen" : "gens"}
+            <span className="font-semibold text-ink-soft">{imagesCount}</span>{" "}
+            {imagesCount === 1 ? "img" : "imgs"}
           </span>
           {lastActivity ? (
             <>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverGenerationRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
+import { getStyleFragment, type StyleId } from "@/lib/styles";
 import type { OutputRatio } from "@/lib/constants";
 
 /**
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
   const { data: version, error: versionErr } = await supabase
     .from("versions")
     .select(
-      "id, product_id, reference_images, output_ratio, variations_default, user_prompt",
+      "id, product_id, reference_images, output_ratio, variations_default, user_prompt, style_id",
     )
     .eq("id", versionId)
     .single();
@@ -157,14 +158,21 @@ export async function POST(req: Request) {
     );
   }
 
-  // 6. Generar con la key propia
+  // 6. Generar con la key propia.
+  // El estilo AUTORITATIVO es el persistido en la versión (style_id, migración
+  // 0010): así el server no depende de lo que mande el cliente. Si la versión
+  // no tiene estilo, caemos al styleFragment del body (compat / override).
+  const versionStyleFragment = getStyleFragment(
+    version.style_id as StyleId | null,
+  );
+  const effectiveStyleFragment = versionStyleFragment || styleFragment;
   const result = await generateOnServer({
     productImages,
     referenceImages,
     ratio,
     variations,
     userPrompt,
-    styleFragment,
+    styleFragment: effectiveStyleFragment,
     brand,
   });
 
@@ -209,7 +217,10 @@ export async function POST(req: Request) {
       user_id: user.id,
       image_url: url,
       variation_index: index,
-      strict_prompt: result.finalPrompt,
+      // El prompt estricto del usuario arranca vacío; es lo que él edita luego.
+      strict_prompt: "",
+      // El prompt original/base (lo que produjo el modelo) queda read-only acá.
+      metadata: { base_prompt: result.finalPrompt },
     });
     if (url) urls.push(url);
     index += 1;

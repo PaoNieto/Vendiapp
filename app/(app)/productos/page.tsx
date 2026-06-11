@@ -124,14 +124,19 @@ function CatalogGrid({
     list.push(gen);
     byProduct.set(gen.project_id, list);
   }
-  // Set rápido para chequear si una generation tiene imágenes attached.
-  const genIdsWithImages = new Set(images.map((i) => i.generation_id));
+  // Indexamos imágenes por generation_id para contar las reales generadas.
+  const imagesByGen = new Map<string, number>();
+  for (const img of images) {
+    imagesByGen.set(
+      img.generation_id,
+      (imagesByGen.get(img.generation_id) ?? 0) + 1,
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-6">
       {products.map((product) => {
         const productGens = byProduct.get(product.id) ?? [];
-        const generationsCount = productGens.length;
         const latest = productGens.reduce<Generation | null>(
           (acc, g) => (acc && acc.created_at > g.created_at ? acc : g),
           null,
@@ -139,12 +144,14 @@ function CatalogGrid({
         const lastActivity = latest
           ? formatRelativeTime(latest.created_at)
           : null;
-        // Mostramos el badge "N imágenes" sólo si hay generations completed
-        // que tienen al menos una imagen attached. Si todas son pending/failed
-        // pintamos el placeholder como si no hubiera fotos generadas.
-        const completedWithImages = productGens.filter(
-          (g) => g.status === "completed" && genIdsWithImages.has(g.id),
-        ).length;
+        // "Una imagen creada es una generación" (Paolo): contamos la cantidad
+        // REAL de imágenes generadas de generations `completed` del producto.
+        // Este único número alimenta TANTO el badge amarillo como el texto
+        // inferior — antes divergían (gens-totales vs gens-con-imagen).
+        const completedImagesCount = productGens.reduce((acc, g) => {
+          if (g.status !== "completed") return acc;
+          return acc + (imagesByGen.get(g.id) ?? 0);
+        }, 0);
         const hasUploadedPhotos = product.product_images.length > 0;
         const coverUrl =
           product.cover_image_url ?? product.product_images[0] ?? null;
@@ -156,8 +163,7 @@ function CatalogGrid({
             tone={toneFor(product.id)}
             hasUploadedPhotos={hasUploadedPhotos}
             coverUrl={coverUrl}
-            generationsCount={generationsCount}
-            completedWithImagesCount={completedWithImages}
+            completedImagesCount={completedImagesCount}
             lastActivity={lastActivity}
           />
         );
@@ -175,20 +181,19 @@ function ProductCard({
   tone,
   hasUploadedPhotos,
   coverUrl,
-  generationsCount,
-  completedWithImagesCount,
+  completedImagesCount,
   lastActivity,
 }: {
   product: Product;
   tone: ThumbnailTone;
   hasUploadedPhotos: boolean;
   coverUrl: string | null;
-  generationsCount: number;
-  completedWithImagesCount: number;
+  completedImagesCount: number;
   lastActivity: string | null;
 }) {
-  const showCount =
-    hasUploadedPhotos && generationsCount > 0 && completedWithImagesCount > 0;
+  // El badge sólo aparece si hay foto de portada y al menos una imagen generada.
+  // El MISMO número se muestra abajo, así "coinciden" como pidió Paolo.
+  const showCount = hasUploadedPhotos && completedImagesCount > 0;
   // Si tiene fotos reales subidas: mostramos la foto real. Si no: thumbnail
   // tinteado por tono. Si NO tiene nada: placeholder neutro gris.
   return (
@@ -233,8 +238,8 @@ function ProductCard({
           {showCount && (
             <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[rgba(15,31,22,0.85)] px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.5px] text-[#F0F4E7] backdrop-blur-sm shadow-lg">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-butter" />
-              {completedWithImagesCount}{" "}
-              {completedWithImagesCount === 1 ? "imagen" : "imágenes"}
+              {completedImagesCount}{" "}
+              {completedImagesCount === 1 ? "imagen" : "imágenes"}
             </span>
           )}
 
@@ -266,12 +271,12 @@ function ProductCard({
           >
             {product.name}
           </h3>
-          {generationsCount > 0 ? (
+          {completedImagesCount > 0 ? (
             <div className="flex items-center gap-2 text-[12.5px] font-medium text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-sage-strong" />
-                {generationsCount}{" "}
-                {generationsCount === 1 ? "generación" : "generaciones"}
+                {completedImagesCount}{" "}
+                {completedImagesCount === 1 ? "imagen" : "imágenes"}
               </span>
               {lastActivity ? (
                 <>

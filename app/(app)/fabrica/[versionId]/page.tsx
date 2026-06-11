@@ -3,31 +3,37 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowLeft, Copy, Plus, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, ImageIcon, Plus, X } from "lucide-react";
 
 import { AvatarCircle, PillButton } from "@/components/dashboard";
 import { Topbar } from "@/components/app/topbar";
 import { CreditBadge } from "@/components/app/credit-badge";
 import { GeneratingOverlay } from "@/components/app/generating-overlay";
-import { VersionGallery } from "@/components/app/version-gallery";
-import { StyleCard } from "@/components/app/style-card";
+import {
+  VersionGallery,
+  type VersionSettings,
+} from "@/components/app/version-gallery";
 import { useVersions } from "@/lib/versions/store";
+import type { Version } from "@/lib/versions/store";
 import { useProducts } from "@/lib/products/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useGeneracion } from "@/lib/generacion/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useCreditos } from "@/lib/creditos/use-creditos";
 import { useUserInitials } from "@/lib/auth/use-user";
-import { STYLE_LIST, getStyleFragment, type StyleId } from "@/lib/styles";
+import { getStyleFragment, getStyleById, getStyleLabel } from "@/lib/styles";
 import { isVersionReady } from "@/lib/validations/recorrido";
+import { OUTPUT_RATIOS } from "@/lib/constants";
 
 /**
  * Página completa de una versión dentro de la Fábrica.
  *
  * Decisión de producto (2026-06): al abrir una campaña/versión desde la
- * Fábrica se navega a ESTA página (no a un modal). Acá se ven TODAS las
- * imágenes generadas de la versión, se generan más (con créditos) y se
- * duplica.
+ * Fábrica se navega a ESTA página (no a un modal). Acá se ven los SETEOS
+ * read-only de la versión (referencias, estilo, formato) y TODAS las imágenes
+ * generadas como un catálogo limpio. Cada imagen abre un modal con su detalle
+ * (prompt original + prompt estricto editable). Se pueden generar más
+ * variaciones con créditos.
  */
 export default function FabricaVersionPage() {
   const params = useParams<{ versionId: string }>();
@@ -57,6 +63,27 @@ export default function FabricaVersionPage() {
     const genIds = new Set(versionGens.map((g) => g.id));
     return generations.state.images.filter((i) => genIds.has(i.generation_id));
   }, [versionGens, generations.state.images]);
+
+  // Seteos read-only de la versión que viajan al modal de detalle de cada
+  // imagen (catálogo). Cálculo barato (un find sobre 4 ratios + 2 lookups
+  // O(1)); lo dejamos inline sin useMemo manual — el React Compiler de Next 16
+  // ya memoiza automáticamente y evita el conflicto con
+  // react-hooks/preserve-manual-memoization sobre `version`.
+  const versionSettings: VersionSettings = version
+    ? {
+        outputRatio: version.output_ratio,
+        ratioLabel:
+          OUTPUT_RATIOS.find((r) => r.value === version.output_ratio)?.label ??
+          null,
+        referencesCount: version.reference_images.length,
+        styleLabel: getStyleLabel(version.style_id),
+      }
+    : {
+        outputRatio: "",
+        ratioLabel: null,
+        referencesCount: 0,
+        styleLabel: null,
+      };
 
   useEffect(() => {
     if (!allHydrated) return;
@@ -109,12 +136,6 @@ export default function FabricaVersionPage() {
     }
   }
 
-  function handleDuplicate() {
-    if (!version) return;
-    const copy = versions.duplicateVersion(version.id);
-    if (copy) router.push(`/fabrica/${copy.id}`);
-  }
-
   if (!allHydrated || !version) {
     return (
       <div className="flex flex-1 flex-col gap-5 px-5 py-6 sm:px-8 lg:px-10">
@@ -153,20 +174,10 @@ export default function FabricaVersionPage() {
             Volver a la Fábrica
           </Link>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDuplicate}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-foreground/5"
-            >
-              <Copy className="h-4 w-4" />
-              Duplicar
-            </button>
-            <PillButton size="md" onClick={handleGenerateMore}>
-              <Plus className="h-4 w-4" />
-              {versionImages.length > 0 ? "Más variaciones" : "Generar"}
-            </PillButton>
-          </div>
+          <PillButton size="md" onClick={handleGenerateMore}>
+            <Plus className="h-4 w-4" />
+            {versionImages.length > 0 ? "Más variaciones" : "Generar"}
+          </PillButton>
         </div>
 
         {errorBanner ? (
@@ -176,17 +187,11 @@ export default function FabricaVersionPage() {
           />
         ) : null}
 
-        <StyleSelector
-          selectedId={generacion.state.selectedStyleId}
-          onSelect={(id) =>
-            generacion.setStyle(
-              generacion.state.selectedStyleId === id ? null : id,
-            )
-          }
-        />
+        <SetupPanel version={version} />
 
         <VersionGallery
           images={versionImages}
+          versionSettings={versionSettings}
           onGenerateMore={handleGenerateMore}
         />
       </div>
@@ -196,44 +201,122 @@ export default function FabricaVersionPage() {
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Panel de seteos read-only (Referencias · Estilo · Formato)                 */
+/* -------------------------------------------------------------------------- */
+
 /**
- * Selector de Estilo Profesional embebido en la página de la versión: el
- * usuario ve los estilos con su mini-foto y elige uno (o ninguno) justo antes
- * de generar. La elección vive en el store `useGeneracion` y viaja como
- * `styleFragment` en el POST a /api/generations.
+ * Resumen de la receta de la versión. Read-only: la edición vive en el flujo
+ * de Referencias/Estilo/Formato, no acá. Mismo lenguaje visual que el
+ * `SetupRow` de `/productos/[id]/versiones/[versionId]`.
  */
-function StyleSelector({
-  selectedId,
-  onSelect,
-}: {
-  selectedId: StyleId | null;
-  onSelect: (id: StyleId) => void;
-}) {
+function SetupPanel({ version }: { version: Version }) {
+  const refs = version.reference_images;
+  const refsCount = refs.length;
+  const style = getStyleById(version.style_id);
+  const styleLabel = getStyleLabel(version.style_id);
+  const ratioInfo = OUTPUT_RATIOS.find((r) => r.value === version.output_ratio);
+
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="font-display text-xl italic text-foreground">
-          Estilo profesional
-        </h2>
-        <span className="text-xs font-medium text-mute">
-          {selectedId
-            ? "Tocá de nuevo para quitarlo"
-            : "Opcional — elegí uno o generá sin estilo"}
-        </span>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Referencias */}
+      <div className="glass-card p-4 sm:p-5">
+        <span className="eyebrow">REFERENCIAS</span>
+        <div className="mt-3 flex flex-col gap-3.5">
+          <div className="font-display text-[22px] italic leading-tight text-foreground">
+            {refsCount > 0
+              ? `${refsCount} ${refsCount === 1 ? "referencia" : "referencias"}`
+              : "Sin referencias"}
+          </div>
+          {refsCount > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {refs.slice(0, 5).map((url) => (
+                <div
+                  key={url}
+                  className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg border border-border bg-card-cream/60 shadow-[0_1px_2px_rgba(15,31,22,.06)]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt="Referencia"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ))}
+              {refsCount > 5 ? (
+                <div className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-lg border border-border bg-card-cream/60 font-mono text-[13px] font-bold text-mute">
+                  +{refsCount - 5}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="flex h-[60px] w-[60px] items-center justify-center rounded-lg border border-dashed border-foreground/15 bg-card-cream/50 text-mute">
+              <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
+            </div>
+          )}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {STYLE_LIST.map((style) => (
-          <StyleCard
-            key={style.id}
-            label={style.label}
-            description={style.description}
-            previewImage={style.previewImage}
-            selected={selectedId === style.id}
-            onSelect={() => onSelect(style.id)}
-          />
-        ))}
+
+      {/* Estilo */}
+      <div className="glass-card p-4 sm:p-5">
+        <span className="eyebrow">ESTILO</span>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg border border-border bg-card-cream/60 shadow-[0_1px_2px_rgba(15,31,22,.06)]">
+            {style?.previewImage ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={style.previewImage}
+                alt={styleLabel ?? "Estilo"}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-mute">
+                <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="truncate font-display text-[22px] italic leading-tight text-foreground">
+              {styleLabel ?? "Sin estilo"}
+            </div>
+            <div className="mt-1 text-xs font-medium text-mute">
+              {styleLabel ? "Estilo profesional aplicado" : "Generado sin estilo"}
+            </div>
+          </div>
+        </div>
       </div>
-    </section>
+
+      {/* Formato */}
+      <div className="glass-card p-4 sm:p-5">
+        <span className="eyebrow">FORMATO</span>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[1.1px] text-mute">
+              Ratio
+            </div>
+            <div className="mt-1 font-mono text-[22px] font-bold text-foreground">
+              {version.output_ratio}
+            </div>
+            {ratioInfo ? (
+              <div className="mt-0.5 text-[11px] font-medium text-mute">
+                {ratioInfo.label}
+              </div>
+            ) : null}
+          </div>
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[1.1px] text-mute">
+              Por tanda
+            </div>
+            <div className="mt-1 font-mono text-[22px] font-bold text-foreground">
+              {version.variations_default}
+            </div>
+            <div className="mt-0.5 text-[11px] font-medium text-mute">
+              {version.variations_default === 1 ? "imagen" : "imágenes"}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
