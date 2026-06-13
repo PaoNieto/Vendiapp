@@ -1,15 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
 
-// Landing pública mínima: por ahora siempre redirige. Si hay sesión va
-// directo a /dashboard; si no, a /login. Cuando exista landing real
-// (post-launch), este componente devolverá la home pública para
-// usuarios anónimos.
+// Landing pública mínima: por ahora siempre redirige. Con sesión de Clerk va a
+// /dashboard; si no, a /login. `auth()` (server-side) lee el userId del token
+// de Clerk sin pegarle a Supabase. Cuando exista landing real (post-launch),
+// este componente devolverá la home pública para usuarios anónimos.
 export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  redirect(user ? "/dashboard" : "/login");
+  const { userId } = await auth();
+  redirect(userId ? "/dashboard" : "/login");
 }

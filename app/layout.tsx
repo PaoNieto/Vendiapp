@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
+import { clerkAppearance, clerkLocalizationES } from "@/lib/auth/clerk-appearance";
 import "./globals.css";
 
 const inter = Inter({
@@ -54,19 +56,29 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // <ClerkProvider> envuelve TODO el árbol (incluido <html>): es el placement
+  // recomendado por Clerk en App Router. Expone window.Clerk —de donde
+  // lib/supabase/client.ts saca el token para RLS— y habilita los hooks
+  // (useUser/useAuth/useClerk) y los componentes <SignIn/>/<SignUp/>.
+  //
+  // `appearance` + `localization` lo themean con Cuaderno v2 en español, así
+  // el login se ve premium y no el default de Clerk. AppProviders/UserProvider
+  // quedan anidados adentro (en (app)/layout.tsx) — leen el Clerk de acá.
   return (
-    <html
-      lang="es"
-      className={`${inter.variable} ${instrumentSerif.variable} h-full`}
-      suppressHydrationWarning
-    >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
-      <body className="min-h-dvh">
-        {children}
-        <Toaster richColors position="top-center" />
-      </body>
-    </html>
+    <ClerkProvider appearance={clerkAppearance} localization={clerkLocalizationES}>
+      <html
+        lang="es"
+        className={`${inter.variable} ${instrumentSerif.variable} h-full`}
+        suppressHydrationWarning
+      >
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        </head>
+        <body className="min-h-dvh">
+          {children}
+          <Toaster richColors position="top-center" />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

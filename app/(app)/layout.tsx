@@ -2,12 +2,18 @@ import { AppProviders } from "@/components/app/app-providers";
 import { BottomNav } from "@/components/app/bottom-nav";
 import { Sidebar } from "@/components/app/sidebar";
 import { AppBackground } from "@/components/dashboard";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Garantiza que el usuario Clerk tenga su fila en `profiles` (+ créditos de
+  // regalo) antes de renderizar la sección autenticada. Reemplaza al trigger
+  // `handle_new_user`, muerto con Clerk. Idempotente: no-op si ya existe.
+  await ensureProfile();
+
   return (
     <AppProviders>
       {/*

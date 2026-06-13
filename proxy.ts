@@ -1,93 +1,73 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 /**
- * Next.js 16 renombra `middleware` a `proxy`.
- * Acá vive el refresh de sesión de Supabase + guards de ruta.
+ * Next.js 16 renombra `middleware` a `proxy`. Clerk es compatible: el único
+ * cambio es el nombre del archivo. `clerkMiddleware()` devuelve un handler que
+ * exportamos como default.
  *
- * Reglas:
- *  - Rutas públicas: `/`, `/login`, `/signup`, `/privacidad`, `/terminos`,
- *    `/onboarding`. Las pueden visitar tanto usuarios anónimos como
- *    logueados (aunque algunas redirijan internamente).
+ * Auth = Clerk (login + verificación). Supabase queda como DB con RLS vivo via
+ * la integración nativa third-party auth (el token de Clerk se inyecta en el
+ * cliente Supabase; ver lib/supabase/{client,server}.ts).
+ *
+ * Reglas de ruta (igual semántica que la versión Supabase):
+ *  - PÚBLICAS: `/`, `/login`, `/signup`, `/privacidad`, `/terminos`,
+ *    `/onboarding`, `/recuperar` (y subrutas). Visitables por anónimos y
+ *    logueados.
  *  - Cualquier otra ruta (todo (app)/*) requiere sesión. Sin sesión →
  *    redirect a `/login?from=<ruta-original>` para volver post-login.
- *  - Usuarios logueados que vuelvan a `/login` o `/signup` → directo a
- *    `/dashboard` (no tiene sentido mostrarles el form de auth).
+ *  - Logueado entrando a `/login` o `/signup` → redirect a `/dashboard`.
  *
- * El refresh de cookies se hace siempre, incluso en rutas públicas:
- * Supabase rota tokens automáticamente y necesitamos que la response
- * lleve los Set-Cookie actualizados.
+ * OJO bug Clerk #8302: `auth.protect()` en el proxy de Next 16 redirige a la
+ * URL actual en vez del sign-in. Por eso NO usamos `auth.protect()`: leemos el
+ * userId con `auth()` y hacemos los redirects a mano con NextResponse.
  */
 
-const PUBLIC_PATHS = [
+const isPublicRoute = createRouteMatcher([
   "/",
   "/login",
+  "/login/(.*)",
   "/signup",
+  "/signup/(.*)",
   "/privacidad",
+  "/privacidad/(.*)",
   "/terminos",
+  "/terminos/(.*)",
   "/onboarding",
+  "/onboarding/(.*)",
   "/recuperar",
-  "/auth/callback",
-];
+  "/recuperar/(.*)",
+]);
 
-const AUTH_REDIRECT_PATHS = ["/login", "/signup"];
+// Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
+const isAuthFormRoute = createRouteMatcher(["/login", "/signup"]);
 
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(p + "/"),
-  );
-}
+export default clerkMiddleware(async (auth, request) => {
+  const { userId } = await auth();
+  const { pathname } = request.nextUrl;
 
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Logueado en /login o /signup → al dashboard.
+  if (userId && isAuthFormRoute(request)) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  // getUser() valida el JWT contra Supabase. NUNCA usar getSession()
-  // acá: solo lee la cookie sin verificar firma, y un atacante podría
-  // forjar cookies.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  if (!user && !isPublicPath(pathname)) {
+  // Sin sesión en ruta protegida → al login, conservando el destino.
+  if (!userId && !isPublicRoute(request)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && AUTH_REDIRECT_PATHS.includes(pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  return response;
-}
+  return NextResponse.next();
+});
 
 export const config = {
-  // Excluimos assets estáticos y /api (las routes de API hacen su
-  // propia validación de auth con createClient() de server.ts).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Corre en todas las rutas de app salvo assets estáticos / internos de Next.
+    // (Las API routes hacen su propia validación con auth() en server.)
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Siempre corre en las rutas de API y en el handshake interno de Clerk.
+    "/(api|trpc)(.*)",
+    "/__clerk/(.*)",
   ],
 };

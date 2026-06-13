@@ -11,8 +11,10 @@ import { RecorridoProvider } from "@/lib/recorrido/store";
 import { VersionsProvider } from "@/lib/versions/store";
 
 // UserProvider va MUY arriba en el árbol: cualquier store o componente
-// que necesite saber quién está logueado (para hidratar desde Supabase,
-// filtrar por user_id, etc.) puede leerlo via useUser().
+// que necesite saber quién está logueado (para hidratar sus datos de
+// Supabase, filtrar por user_id, etc.) puede leerlo via useUser(). El estado
+// de sesión real lo gobierna <ClerkProvider> (root layout); UserProvider es
+// un passthrough que expone la firma estable useUser()/useUserInitials().
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <UserProvider>

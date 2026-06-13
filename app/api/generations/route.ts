@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { serverGenerationRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
@@ -26,14 +28,18 @@ import type { OutputRatio } from "@/lib/constants";
  * deduct_credits / grant_credits — el usuario nunca las puede invocar directo.
  */
 export async function POST(req: Request) {
-  // 1. Auth
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
+  // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
+  // (`auth.jwt()->>'sub'`). El cliente de `lib/supabase/server.ts` ya inyecta
+  // ese token, así que las queries de abajo respetan ownership.
+  const { userId } = await auth();
+  if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+  // Red de seguridad: si el usuario Clerk todavía no tiene perfil (ej. primera
+  // acción antes de cargar una página del shell), lo creamos acá. Idempotente.
+  await ensureProfile();
+  const supabase = await createClient();
 
   // Validación del body
   const body = await req.json().catch(() => null);
@@ -96,7 +102,7 @@ export async function POST(req: Request) {
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("credits_remaining")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
   if (profileErr || !profile) {
     return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
@@ -104,7 +110,7 @@ export async function POST(req: Request) {
   // Usuarios ilimitados (allowlist) saltan el rechazo por saldo. El deduct de
   // abajo ya es no-op server-side para ellos.
   const { data: isUnlimited } = await admin.rpc("is_unlimited", {
-    p_user_id: user.id,
+    p_user_id: userId,
   });
   if (!isUnlimited && (profile.credits_remaining ?? 0) < variations) {
     return NextResponse.json(
@@ -121,7 +127,7 @@ export async function POST(req: Request) {
   const { data: generation, error: genErr } = await supabase
     .from("generations")
     .insert({
-      user_id: user.id,
+      user_id: userId,
       project_id: product.id,
       version_id: version.id,
       status: "processing",
@@ -143,7 +149,7 @@ export async function POST(req: Request) {
 
   // 5. RESERVAR créditos (deduct atómico vía service_role)
   const { error: deductErr } = await admin.rpc("deduct_credits", {
-    p_user_id: user.id,
+    p_user_id: userId,
     p_amount: variations,
     p_generation_id: generationId,
   });
@@ -179,7 +185,7 @@ export async function POST(req: Request) {
   // Si falló TODO: reembolsar el total y marcar failed.
   if (!result.ok) {
     await admin.rpc("grant_credits", {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_amount: variations,
       p_reason: "refund",
     });
@@ -197,7 +203,7 @@ export async function POST(req: Request) {
   const urls: string[] = [];
   let index = 0;
   for (const img of result.images) {
-    const path = `${user.id}/${generationId}/${index}.jpg`;
+    const path = `${userId}/${generationId}/${index}.jpg`;
     const { error: upErr } = await supabase.storage
       .from("generated-images")
       .upload(path, img.buffer, { contentType: img.contentType, upsert: false });
@@ -214,7 +220,7 @@ export async function POST(req: Request) {
 
     await supabase.from("generated_images").insert({
       generation_id: generationId,
-      user_id: user.id,
+      user_id: userId,
       image_url: url,
       variation_index: index,
       // El prompt estricto del usuario arranca vacío; es lo que él edita luego.
@@ -231,7 +237,7 @@ export async function POST(req: Request) {
   const refundCount = variations - delivered;
   if (refundCount > 0) {
     await admin.rpc("grant_credits", {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_amount: refundCount,
       p_reason: "refund",
     });
@@ -246,7 +252,7 @@ export async function POST(req: Request) {
   const { data: finalProfile } = await supabase
     .from("profiles")
     .select("credits_remaining")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   return NextResponse.json(

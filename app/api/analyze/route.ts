@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { analyzeImage } from "@/lib/ai/image-analyzer";
 import { analyzeRequestSchema } from "@/lib/validations/analyze";
 
@@ -20,14 +22,18 @@ import { analyzeRequestSchema } from "@/lib/validations/analyze";
  * Recibe { imageDataUrl, ratio }. Requiere usuario logueado.
  */
 export async function POST(req: Request) {
-  // 1. Auth
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
+  // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
+  // (`auth.jwt()->>'sub'`). El cliente de `lib/supabase/server.ts` ya inyecta
+  // ese token.
+  const { userId } = await auth();
+  if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+  // Red de seguridad: provisiona el perfil del usuario Clerk si aún no existe.
+  // Idempotente. Reemplaza al trigger handle_new_user (muerto con Clerk).
+  await ensureProfile();
+  const supabase = await createClient();
 
   // 2. Validación estricta del body.
   const body = await req.json().catch(() => null);
@@ -56,7 +62,7 @@ export async function POST(req: Request) {
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("analysis_credits_remaining")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
   if (profileErr || !profile) {
     return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
@@ -64,7 +70,7 @@ export async function POST(req: Request) {
   // Usuarios ilimitados (allowlist) saltan el rechazo por saldo. El deduct de
   // abajo ya es no-op server-side para ellos.
   const { data: isUnlimited } = await admin.rpc("is_unlimited", {
-    p_user_id: user.id,
+    p_user_id: userId,
   });
   if (!isUnlimited && (profile.analysis_credits_remaining ?? 0) < 1) {
     return NextResponse.json(
@@ -79,7 +85,7 @@ export async function POST(req: Request) {
 
   // 4. Reservar 1 crédito de análisis (atómico, service_role).
   const { error: deductErr } = await admin.rpc("deduct_analysis_credit", {
-    p_user_id: user.id,
+    p_user_id: userId,
   });
   if (deductErr) {
     return NextResponse.json(
@@ -92,7 +98,7 @@ export async function POST(req: Request) {
   const result = await analyzeImage({ apiKey, imageDataUrl, ratio });
   if (!result.ok) {
     await admin.rpc("grant_analysis_credits", {
-      p_user_id: user.id,
+      p_user_id: userId,
       p_amount: 1,
     });
     return NextResponse.json(
