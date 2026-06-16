@@ -26,7 +26,7 @@ Antes de tocar Supabase, mirá las migraciones reales en `supabase/migrations/` 
   - La key es **propia de Vendí** (`process.env.GOOGLE_API_KEY`), server-side. Ya NO es BYOK.
 
 ## Auth
-**Supabase Auth. NO Clerk** (decisión durable). Callback en `app/auth/callback/route.ts`.
+**Clerk** (migración Supabase Auth → Clerk, LIVE en prod, commit `c33177c`). `clerkMiddleware` en `proxy.ts` (Next 16 renombró `middleware` → `proxy`; NO usamos `auth.protect()` por bug Clerk #8302 — redirects a mano con `auth()`). Supabase queda como **DB con RLS vivo** vía integración third-party auth: el token de Clerk se inyecta en el cliente Supabase (ver `lib/supabase/{client,server}.ts`) y las policies leen `auth.jwt()->>'sub'`. El `id` de `profiles` = userId de Clerk (text). El perfil nuevo lo crea `ensureProfile()` (`lib/auth/ensure-profile.ts`), que reemplaza al trigger `handle_new_user` (muerto con Clerk); se invoca desde `app/(app)/layout.tsx`.
 
 ## Modelo de CRÉDITOS (core)
 - `profiles.credits_remaining` (saldo de generación, regalo 60) y `analysis_credits_remaining` (bolsa separada de análisis, regalo 10).
