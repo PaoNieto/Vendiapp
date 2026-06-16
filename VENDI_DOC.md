@@ -27,9 +27,9 @@ Vendí es un generador de fotografía de producto con IA para PYMEs de Latinoam�
 
 - Vendí tiene **UNA** API key de Google **propia**, server-side (`process.env.GOOGLE_API_KEY`), nunca en el browser.
 - La generación corre en **el server de Vendí** (`/api/generations`), no en el browser.
-- El usuario paga una suscripción/packs por **Culqi** (Perú, soles, Yape) y recibe **créditos**.
+- El usuario paga una suscripción/packs por **Mercado Pago** (Perú, soles) y recibe **créditos**.
 - Cada generación **descuenta créditos** (1 crédito = 1 imagen). A 0, no genera hasta comprar más.
-- Los créditos **NO son dinero** — son fichas que cuentan imágenes restantes. La plata entra por Culqi; sale por la cuenta de Google del founder (**prepago**: se carga saldo por adelantado).
+- Los créditos **NO son dinero** — son fichas que cuentan imágenes restantes. La plata entra por Mercado Pago; sale por la cuenta de Google del founder (**prepago**: se carga saldo por adelantado).
 - Vendí absorbe el costo de IA + markup.
 
 ### Economía (2026-06-06)
@@ -64,7 +64,7 @@ Vendí es un generador de fotografía de producto con IA para PYMEs de Latinoam�
 | IA — Director de arte | Gemini 3.1 Pro |
 | IA — Análisis de imagen (Oráculo) | Gemini 2.5 Flash |
 | Validación | Zod |
-| Pagos | Culqi (pendiente de integrar) |
+| Pagos | Mercado Pago (pendiente de integrar; Culqi descartado) |
 | Hosting | Vercel — vendiapp.vercel.app |
 
 ### Modelos de Gemini (strings exactos — `lib/ai/gemini-client.ts`)
@@ -147,7 +147,7 @@ PRODUCT ITSELF."
 | `generated_images` | Cada imagen individual. image_url, variation_index, strict_prompt, user_rating, is_favorite, is_downloaded. | select/update/insert own |
 | `analyses` | Análisis con Oráculo. composition, lighting, why_it_sells, identified_styles. | all own |
 | `starter_references` | Galería curada por Vendí (pública). category, image_url, tags. | select public |
-| **`subscriptions`** | Plan activo. plan, status, credits_per_cycle, cycle_start/end, culqi_customer_id, culqi_subscription_id. | **select own** (escritura solo server) |
+| **`subscriptions`** | Plan activo. plan, status, credits_per_cycle, cycle_start/end, culqi_customer_id, culqi_subscription_id (columnas `culqi_*` legacy — el riel ahora es Mercado Pago). | **select own** (escritura solo server) |
 | **`credit_ledger`** | Registro auditable de cada movimiento de créditos. delta, reason, generation_id, balance_after. Fuente de verdad del saldo. | **select own** (escritura solo server) |
 
 ### Créditos — seguridad crítica
@@ -211,7 +211,7 @@ PRODUCT ITSELF."
 | `/fabrica/[versionId]` | `fabrica/[versionId]/page.tsx` | **Versión en PÁGINA COMPLETA** (no drawer). Detalle + galería + generar más. |
 | `/analisis` | `analisis/page.tsx` | Análisis de imágenes con Oráculo. |
 | `/ajustes` | `ajustes/page.tsx` | **Cuenta + Uso de créditos + Plan.** La sección "Uso" es el dashboard de créditos: saldo, consumo del mes, histórico, movimientos del `credit_ledger`. |
-| `/upgrade` | `upgrade/page.tsx` | Landing de planes + "Comprar créditos" (botón **placeholder** hasta integrar Culqi). |
+| `/upgrade` | `upgrade/page.tsx` | Landing de planes + "Comprar créditos" (botón **placeholder** hasta integrar Mercado Pago). |
 
 ### Proxy/Middleware (`proxy.ts`)
 
@@ -316,7 +316,7 @@ Identidad **Cuaderno**: paleta sage + cream + butter + clay, pill verde-oscuro p
 
 - **Observabilidad**: Sentry/PostHog tienen campos en `.env.example` pero no están en código.
 - **Entornos separados**: un solo proyecto Supabase para dev y prod. Separar antes de escalar.
-- **Webhook Culqi**: acreditar créditos al confirmarse el pago (ver §15).
+- **Webhook Mercado Pago**: acreditar créditos al confirmarse el pago (ver §15).
 
 ---
 
@@ -339,7 +339,7 @@ Identidad **Cuaderno**: paleta sage + cream + butter + clay, pill verde-oscuro p
 | **Bujía** | Backend | Supabase, migraciones, RLS, Zod, créditos, integración con APIs de IA |
 | **Frontero** | Frontend | Next.js 16, shadcn/ui, páginas, componentes responsive, hooks |
 | **Davinci** | Estilos | Tailwind, paleta Cuaderno, glassmorphism, animaciones Motion |
-| **Integral** | Integraciones | Culqi, Meta Ads API, webhooks (Fase 2) |
+| **Integral** | Integraciones | Mercado Pago, Meta Ads API, webhooks (Fase 2) |
 | **Hawkeye** | Testing/QA | Vitest, Playwright, mobile, accesibilidad |
 
 > Componentes de IA (no agentes de dev): **El Director** + **Banano** (generate-server), **Oráculo** (analyzer), **Cartero** (gemini-client).
@@ -360,7 +360,7 @@ Identidad **Cuaderno**: paleta sage + cream + butter + clay, pill verde-oscuro p
 9. Fábrica (/fabrica) → todas sus versiones; abre /fabrica/[versionId] en página completa
 10. Análisis (/analisis) → Oráculo analiza cualquier imagen
 11. Ajustes (/ajustes) → cuenta, uso de créditos, plan
-12. Sin saldo → /upgrade → comprar créditos (Culqi, pendiente)
+12. Sin saldo → /upgrade → comprar créditos (Mercado Pago, pendiente)
 ```
 
 ---
@@ -386,7 +386,7 @@ be78177  feat(estilo): catalogo de estilos + picker + identity guard reforzado
 
 ### Prioridad alta
 
-1. **Culqi (cobro real)**: el botón "Comprar créditos" en `/upgrade` es placeholder. Falta integrar el pago + **webhook** que acredita créditos vía `grant_credits` (reason `purchase`/`subscription_grant`). Las columnas `culqi_*` en `subscriptions` ya están listas.
+1. **Mercado Pago (cobro real)**: el botón "Comprar créditos" en `/upgrade` es placeholder. Falta integrar el pago + **webhook** que acredita créditos vía `grant_credits` (reason `purchase`/`subscription_grant`). Las columnas `culqi_*` en `subscriptions` (nombre legacy) se reusan. **Esperando verificación de la cuenta de Mercado Pago.** (Culqi y Yape descartados.)
 2. **Validar la CALIDAD de las imágenes**: que el producto salga fiel y el estilo profesional, en producción real.
 3. **Mostrar a dueños de negocio reales** para validar demanda.
 
@@ -507,10 +507,10 @@ SENTRY_DSN=
 NEXT_PUBLIC_POSTHOG_KEY=
 NEXT_PUBLIC_POSTHOG_HOST=
 
-# --- Culqi (pasarela de pago — Perú/soles/Yape). Pendiente de credenciales ---
-# CULQI_PUBLIC_KEY=
-# CULQI_SECRET_KEY=
-# CULQI_WEBHOOK_SECRET=
+# --- Mercado Pago (pasarela de pago — Perú/soles). Pendiente de credenciales (cuenta en verificación) ---
+# MERCADOPAGO_PUBLIC_KEY=
+# MERCADOPAGO_ACCESS_TOKEN=
+# MERCADOPAGO_WEBHOOK_SECRET=
 
 # --- Fase 2 ---
 # META_ADS_APP_ID=

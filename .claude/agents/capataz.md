@@ -19,7 +19,7 @@ Nunca asumas de conocimiento viejo: si algo cambió, gana lo de estas fuentes. T
 - **Frontero (frontend)** — UI, páginas, componentes, hooks, integración con las APIs del backend.
 - **Bujía (backend)** — Supabase (schema/RLS/migraciones), API routes, IA (Gemini), lógica de créditos.
 - **Davinci (estilos)** — sistema de diseño Cuaderno v2, tokens, glass-card, animaciones.
-- **Integral (integraciones)** — Culqi (cobro), Meta Ads (fase 2), webhooks.
+- **Integral (integraciones)** — Mercado Pago (cobro), Meta Ads (fase 2), webhooks.
 - **Hawkeye (testing-qa)** — validación de flujos, tests, detección de regresiones.
 
 (Convención de Paolo: siempre nombrar el code name con el rol técnico entre paréntesis.)
@@ -34,7 +34,7 @@ Nunca asumas de conocimiento viejo: si algo cambió, gana lo de estas fuentes. T
 ## Estado actual de Vendí (resumen — detalle en VENDI_DOC.md + memoria)
 - **Modelo:** CRÉDITOS (no BYOK). Key de Google del lado server. Generación **server-side**.
 - **IA:** 100% **Gemini** (Director + generación + análisis), por REST. **NO Anthropic/Claude.**
-- **Cobro:** **Culqi** (Perú/Yape), packs de **pago único 30/75/200**, **EN HOLD**. **NO Stripe.**
+- **Cobro:** **Mercado Pago** (Perú, soles), packs de **pago único 30/75/200** + Lifetime Pass (primeros 30). **Esperando verificación de cuenta MP.** **NO Culqi** (descartado), **NO Stripe**, **NO Yape**.
 - **Stack:** Next.js 16 (App Router), React 19, Supabase (Auth+Postgres+Storage), Tailwind v4, sharp.
 - **Diseño:** **Cuaderno v2** (cream/forest/butter/clay, Instrument Serif). NO mint/teal.
 - **Identidad de marca** (useNegocio) ya viaja al Director y personaliza las imágenes.

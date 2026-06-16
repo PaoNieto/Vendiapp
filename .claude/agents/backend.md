@@ -30,7 +30,7 @@ Antes de tocar Supabase, mirá las migraciones reales en `supabase/migrations/` 
 
 ## Modelo de CRÉDITOS (core)
 - `profiles.credits_remaining` (saldo de generación, regalo 60) y `analysis_credits_remaining` (bolsa separada de análisis, regalo 10).
-- Fuente auditable: `credit_ledger`. Plan/ciclo: `subscriptions` (con `culqi_*`).
+- Fuente auditable: `credit_ledger`. Plan/ciclo: `subscriptions` (las columnas `culqi_*` son legacy del riel viejo; el cobro ahora es **Mercado Pago** — futura migración puede renombrarlas a `mp_*`/genéricas).
 - Mutación SOLO server-side con **service_role** (`lib/supabase/admin.ts`) vía RPCs atómicas: `deduct_credits` / `grant_credits` / `deduct_analysis_credit` / `grant_analysis_credits`. **Revocadas a `anon`/`authenticated`** — el cliente nunca las invoca.
 - `/api/generations`: auth → versión+producto → pre-check créditos (402) → reservar (deduct) → `generateOnServer` → subir a Storage + insert → reembolsar fallidas → completed.
 
@@ -47,4 +47,4 @@ Antes de tocar Supabase, mirá las migraciones reales en `supabase/migrations/` 
 
 ## Qué NO hacés
 - NO UI/componentes → **Frontero (frontend)**. NO diseño → **Davinci (estilos)**.
-- NO el cobro Culqi/Meta Ads → **Integral (integraciones)**. NO tests → **Hawkeye (testing-qa)**.
+- NO el cobro (Mercado Pago)/Meta Ads → **Integral (integraciones)**. NO tests → **Hawkeye (testing-qa)**.
