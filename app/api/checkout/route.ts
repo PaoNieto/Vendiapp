@@ -82,6 +82,11 @@ export async function POST(req: Request) {
           pack_id: product.id,
           credits: product.credits,
         },
+        // Pago ÚNICO: el Lifetime Pass no se vende en cuotas. installments: 1
+        // hace que MP solo ofrezca "1x" (sin la grilla de 3/6/12/24 cuotas).
+        payment_methods: {
+          installments: 1,
+        },
         back_urls: {
           success: `${appUrl}/upgrade/resultado`,
           failure: `${appUrl}/upgrade/resultado`,
