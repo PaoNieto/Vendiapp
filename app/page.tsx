@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 
-// Fallback del root. En la práctica NO se renderiza: `proxy.ts` intercepta `/`
-// antes — anónimo → rewrite a `public/landing.html` (la landing pública),
-// logueado → redirect a `/dashboard`. Este componente queda como red de
-// seguridad por si el proxy no corriera. `auth()` lee el userId del token de
-// Clerk sin pegarle a Supabase.
+// Landing pública mínima: por ahora siempre redirige. Con sesión de Clerk va a
+// /dashboard; si no, a /login. `auth()` (server-side) lee el userId del token
+// de Clerk sin pegarle a Supabase. Cuando exista landing real (post-launch),
+// este componente devolverá la home pública para usuarios anónimos.
 export default async function Home() {
   const { userId } = await auth();
   redirect(userId ? "/dashboard" : "/login");
