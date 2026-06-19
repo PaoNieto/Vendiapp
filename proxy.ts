@@ -37,6 +37,8 @@ const isPublicRoute = createRouteMatcher([
   "/onboarding/(.*)",
   "/recuperar",
   "/recuperar/(.*)",
+  // Destino del boton "Comenzar" de la landing: sin sesion va al pago, no al login.
+  "/comenzar",
 ]);
 
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
