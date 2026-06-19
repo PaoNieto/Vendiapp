@@ -37,6 +37,11 @@ const isPublicRoute = createRouteMatcher([
   "/onboarding/(.*)",
   "/recuperar",
   "/recuperar/(.*)",
+  // Webhooks de terceros (Mercado Pago, etc.): los invoca un sistema EXTERNO
+  // sin sesión Clerk y validan su propia firma (x-signature). Si el middleware
+  // los protege, MP recibe un 307 a /login y el pago NUNCA se acredita.
+  "/api/webhooks/mercadopago",
+  "/api/webhooks/(.*)",
 ]);
 
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
