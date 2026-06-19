@@ -1,0 +1,2598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Vendí — Tu producto, en cualquier escenario, sin sesión de fotos</title>
+
+<!-- SEO -->
+<meta name="description" content="Convertí la foto de tu producto en imágenes profesionales listas para vender, en menos de 5 minutos. Sin sesión de fotos, sin Photoshop, sin prompts. Hecho para quienes venden en LATAM.">
+<meta name="theme-color" content="#b7ca91">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Vendí — Tu producto, en cualquier escenario, sin sesión de fotos">
+<meta property="og:description" content="Convertí la foto de tu producto en imágenes profesionales listas para vender, en menos de 5 minutos. Sin sesión de fotos, sin Photoshop, sin prompts. Hecho para quienes venden en LATAM.">
+<meta property="og:locale" content="es_LA">
+<meta property="og:site_name" content="Vendí">
+<meta property="og:image" content="/og-image.jpg"><!-- TODO: falta el asset real og-image.jpg de 1200x630 -->
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Vendí — Tu producto, en cualquier escenario, sin sesión de fotos">
+<meta name="twitter:description" content="Convertí la foto de tu producto en imágenes profesionales listas para vender, en menos de 5 minutos. Sin sesión de fotos, sin Photoshop, sin prompts. Hecho para quienes venden en LATAM.">
+<meta name="twitter:image" content="/og-image.jpg"><!-- TODO: mismo asset que og:image -->
+
+<!-- Favicon inline SVG: cuadrado redondeado forest con "V" cream -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230f1f16'/%3E%3Ctext x='32' y='33' font-family='Georgia,serif' font-size='42' font-style='italic' font-weight='600' fill='%23f0f4e7' text-anchor='middle' dominant-baseline='central'%3EV%3C/text%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   VENDÍ — LANDING (light sage / cream editorial)
+   Prototipo para iterar. Mockups donde no hay assets reales.
+   ============================================================ */
+
+:root{
+  /* palette (modo claro de la app) */
+  --bg:#b7ca91;
+  --fg:#0d1b12;
+  --card:#faf6e8;
+  --card-fg:#0d1b12;
+  --pill-bg:#0f1f16;
+  --pill-fg:#f0f4e7;
+  --ink:#0d1b12;
+  --ink-soft:#283827;
+  --mute:#5a6852;
+  --mute-on-bg:#3d4b37;
+  --sage:#7e9a75;
+  --sage-strong:#3d5a36;
+  --butter:#c9a640;
+  --clay:#a85a3f;
+  --secondary:#f4efdb;
+  --muted-bg:rgba(15,31,22,.05);
+  --border:rgba(15,31,22,.10);
+  --border-strong:rgba(15,31,22,.16);
+  --ring:#0f1f16;
+  --forest:#0f1f16;
+  --cream:#f0f4e7;
+  --butter-soft:#d6cd7c;
+
+  --font-display:'Fraunces',Georgia,serif;
+  --font-sans:'Hanken Grotesk',system-ui,sans-serif;
+  --font-mono:'DM Mono',ui-monospace,monospace;
+  --font-brand:'Fraunces',Georgia,serif;
+
+  --maxw:1180px;
+  --pad:clamp(20px,5vw,64px);
+  --radius:22px;
+  --radius-sm:14px;
+  --shadow:0 30px 70px -28px rgba(15,31,22,.45);
+  --shadow-lg:0 50px 110px -34px rgba(15,31,22,.55);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+section[id],header[id]{scroll-margin-top:84px}
+body{
+  font-family:var(--font-sans);
+  color:var(--ink);
+  background:#b7ca91;
+  background-image:
+    radial-gradient(ellipse 70% 80% at 88% 8%, #d6cd7c 0%, transparent 55%),
+    radial-gradient(ellipse 110% 120% at 30% 80%, #a6c198 0%, #b7ca91 70%, #b7ca91 100%);
+  background-attachment:fixed;
+  background-repeat:no-repeat;
+  line-height:1.55;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+/* grain overlay */
+body::before{
+  content:"";position:fixed;inset:0;z-index:1;pointer-events:none;
+  opacity:.05;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--forest);color:var(--cream)}
+
+.wrap{max-width:var(--maxw);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad);position:relative;z-index:2}
+section{position:relative;z-index:2}
+
+/* type helpers */
+.serif{font-family:var(--font-display)}
+.i{font-style:italic}
+.t-clay{color:var(--clay)}
+.t-forest{color:var(--sage-strong)}
+.t-butter{color:var(--butter)}
+.t-sage{color:var(--sage)}
+.t-cream{color:var(--cream)}
+.kicker{
+  font-family:var(--font-mono);font-size:13px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--clay);font-weight:500;
+  display:inline-flex;align-items:center;gap:10px;
+}
+.kicker::before{content:"";width:28px;height:2px;background:var(--clay);display:inline-block}
+.kicker.center{justify-content:center}
+.kicker.on-dark{color:var(--butter)}
+.kicker.on-dark::before{background:var(--butter)}
+
+h1,h2,h3{font-family:var(--font-display);font-weight:600;line-height:1.02;letter-spacing:-.02em}
+h2{font-size:clamp(2rem,4.6vw,3.6rem)}
+.lead{color:var(--ink-soft);font-size:clamp(1rem,1.5vw,1.18rem);line-height:1.65;font-weight:400}
+
+/* buttons */
+.pill{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--pill-bg);color:var(--pill-fg);
+  font-family:var(--font-sans);font-weight:600;font-size:1.02rem;
+  padding:16px 30px;border-radius:999px;border:none;cursor:pointer;
+  transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,background .25s;
+  box-shadow:0 14px 34px -12px rgba(15,31,22,.6);
+}
+.pill:hover{transform:translateY(-2px);box-shadow:0 22px 46px -14px rgba(15,31,22,.7);background:#16291d}
+.pill svg{transition:transform .25s}
+.pill:hover svg{transform:translateX(3px)}
+.pill.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--border-strong);box-shadow:none}
+.pill.ghost:hover{background:var(--muted-bg);border-color:var(--ring)}
+.pill.lg{padding:19px 38px;font-size:1.1rem}
+.pill.on-dark{background:var(--cream);color:var(--forest)}
+.pill.on-dark:hover{background:#fff}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}
+.reveal.d2{transition-delay:.16s}
+.reveal.d3{transition-delay:.24s}
+.reveal.d4{transition-delay:.32s}
+
+/* ============ NAV ============ */
+nav{position:sticky;top:0;z-index:50;transition:background .3s,box-shadow .3s,backdrop-filter .3s}
+nav.scrolled{background:rgba(183,202,145,.82);backdrop-filter:blur(14px) saturate(1.1);box-shadow:0 1px 0 rgba(15,31,22,.08),0 18px 40px -30px rgba(15,31,22,.5)}
+.nav-in{
+  max-width:var(--maxw);margin:0 auto;padding:18px var(--pad);
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.nav-toggle{display:none;width:44px;height:44px;border:none;background:transparent;cursor:pointer;flex-direction:column;justify-content:center;gap:5px;align-items:center}
+.nav-toggle span{width:24px;height:2px;background:var(--ink);border-radius:2px;transition:transform .3s,opacity .3s}
+.nav-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle.open span:nth-child(2){opacity:0}
+.nav-toggle.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.brand{font-family:var(--font-brand);font-style:italic;font-weight:500;font-size:1.7rem;letter-spacing:-.01em;color:var(--ink)}
+.brand b{color:inherit;font-style:inherit;font-weight:inherit}
+.nav-links{display:flex;gap:30px;font-size:.95rem;font-weight:500;color:var(--ink-soft)}
+.nav-links a{position:relative;padding:4px 0;transition:color .2s}
+.nav-links a::after{content:"";position:absolute;left:0;bottom:-2px;width:0;height:1.5px;background:var(--clay);transition:width .25s}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{width:100%}
+.nav-cta .pill{padding:12px 24px;font-size:.95rem}
+
+/* ============ HERO ============ */
+.hero{padding:clamp(40px,7vw,90px) 0 clamp(30px,5vw,50px);text-align:center;position:relative}
+.hero-inner{max-width:920px;margin:0 auto;position:relative;z-index:5}
+.hero h1{
+  font-size:clamp(2.6rem,6.6vw,5.4rem);line-height:.98;margin:26px 0 0;
+  letter-spacing:-.035em;color:var(--ink);
+}
+.hero h1 .blk{display:block}
+.hero .lead{max-width:600px;margin:24px auto 0}
+.hero .lead strong{color:var(--ink);font-weight:700}
+.hero-audience{margin:22px auto 0;display:flex;align-items:center;justify-content:center;gap:14px}
+.hero-audience::before,.hero-audience::after{content:"";height:1px;width:34px;background:linear-gradient(90deg,transparent,rgba(168,90,63,.5))}
+.hero-audience::after{background:linear-gradient(90deg,rgba(168,90,63,.5),transparent)}
+.hero-audience span{font-family:var(--font-display);font-style:italic;font-weight:400;font-size:clamp(1.05rem,1.9vw,1.32rem);color:var(--clay);letter-spacing:-.01em;line-height:1.3}
+@media(max-width:560px){.hero-audience::before,.hero-audience::after{width:18px}}
+.hero-bullets{list-style:none;margin:22px auto 0;max-width:520px;display:flex;flex-direction:column;gap:11px;text-align:left}
+.hero-bullets li{display:flex;align-items:center;gap:11px;font-size:1.02rem;font-weight:500;color:var(--ink-soft)}
+.hero-bullets svg{flex:0 0 auto;color:var(--sage-strong);background:rgba(61,90,54,.13);border-radius:999px;padding:3px;width:24px;height:24px}
+@media(max-width:560px){.hero-bullets{max-width:340px}}
+.hero-cta{margin-top:30px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.hero-micro{margin-top:18px;font-family:var(--font-mono);font-size:12.5px;letter-spacing:.04em;color:var(--mute-on-bg)}
+.hero-micro strong{color:var(--clay);font-weight:600}
+.founders{margin-top:30px;display:inline-flex;align-items:center;gap:13px;flex-wrap:wrap;justify-content:center;
+  background:rgba(15,31,22,.05);border:1px solid var(--border);border-radius:999px;padding:9px 9px 9px 16px}
+.founders-badge{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;
+  color:var(--sage-strong);white-space:nowrap}
+.founders small{font-family:var(--font-sans);font-size:.95rem;color:var(--ink-soft);letter-spacing:0;display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
+.founders small b{color:var(--ink);font-weight:700}
+.founders-cta{background:var(--forest);color:var(--cream);border:none;cursor:pointer;font:inherit;font-weight:600;font-size:.9rem;
+  padding:8px 16px;border-radius:999px;min-height:36px;transition:transform .2s,background .2s;white-space:nowrap}
+.founders-cta:hover{transform:translateY(-1px);background:#16291d}
+@media(max-width:520px){.founders{flex-direction:column;border-radius:18px}}
+
+/* decorative floating cards (desktop) */
+.hero-floats{position:absolute;inset:0;z-index:1;pointer-events:none}
+.float-card{
+  position:absolute;width:148px;border-radius:16px;overflow:hidden;
+  box-shadow:var(--shadow);border:5px solid var(--card);
+  animation:float 7s ease-in-out infinite;
+}
+.float-card .photo{border-radius:0}
+.f1{top:6%;left:-1%;transform:rotate(-8deg);animation-delay:0s}
+.f2{top:2%;right:0%;transform:rotate(7deg);width:132px;animation-delay:1.1s}
+.f3{bottom:4%;left:5%;transform:rotate(6deg);width:120px;animation-delay:.6s}
+.f4{bottom:0%;right:3%;transform:rotate(-7deg);animation-delay:1.6s}
+@keyframes float{0%,100%{translate:0 0}50%{translate:0 -16px}}
+@media(max-width:1080px){.hero-floats{display:none}}
+@media(min-width:841px) and (max-width:1080px){
+  .hero-floats{display:block}
+  .f1{left:-3%;width:120px}.f2{right:-2%;width:108px}
+  .f3{left:1%;width:100px}.f4{right:-1%;width:118px}
+}
+
+/* hero showcase strip (antes/después + estilos) */
+.hero-strip-wrap{margin-top:clamp(40px,6vw,68px);position:relative;z-index:5}
+.hero-strip{
+  display:flex;gap:18px;justify-content:center;align-items:flex-end;
+  overflow-x:auto;padding:8px 4px 18px;scrollbar-width:none;cursor:grab;
+}
+.hero-strip.dragging{cursor:grabbing}
+.hero-strip::-webkit-scrollbar{display:none}
+.ba-pair{display:flex;align-items:center;gap:14px;flex:0 0 auto}
+.ba-card{width:170px;border-radius:18px;overflow:hidden;box-shadow:var(--shadow);border:6px solid var(--card);position:relative}
+.ba-card .photo{border-radius:0}
+.ba-label{
+  position:absolute;top:10px;left:10px;z-index:4;font-family:var(--font-mono);
+  font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
+  padding:5px 9px;border-radius:7px;
+}
+.ba-before .ba-label{background:rgba(40,56,39,.75);color:#c6d6b2}
+.ba-after .ba-label{background:var(--butter);color:var(--forest)}
+.ba-arrow{
+  width:42px;height:42px;flex:0 0 auto;border-radius:999px;background:var(--forest);color:var(--cream);
+  display:grid;place-items:center;box-shadow:0 10px 24px -8px rgba(15,31,22,.6);
+}
+.strip-card{flex:0 0 auto;width:140px;border-radius:18px;overflow:hidden;box-shadow:var(--shadow);border:6px solid var(--card);transform:translateY(10px)}
+.strip-card:nth-child(odd){transform:translateY(-6px)}
+.strip-card .photo{border-radius:0}
+@media(max-width:720px){
+  .hero-strip{justify-content:flex-start}
+  .ba-card{width:150px}.strip-card{width:124px}
+}
+
+/* ============ PHOTO PLACEHOLDER (mockup de foto de producto) ============ */
+.photo{
+  position:relative;aspect-ratio:4/5;border-radius:var(--radius-sm);overflow:hidden;
+  background:linear-gradient(160deg,#f3ead0 0%,#e7d9b6 48%,#d8c79c 100%);
+  display:grid;place-items:center;isolation:isolate;
+}
+.photo::before{ /* light beam */
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 55% at 32% 22%, rgba(255,255,255,.55), transparent 60%);
+  mix-blend-mode:soft-light;z-index:2;
+}
+.photo::after{ /* vignette */
+  content:"";position:absolute;inset:0;z-index:3;
+  box-shadow:inset 0 -50px 60px -30px rgba(80,60,30,.4), inset 0 0 0 1px rgba(255,255,255,.18);
+}
+.photo .obj{
+  position:relative;z-index:1;width:42%;height:58%;border-radius:14px 14px 18px 18px;
+  background:linear-gradient(145deg,#7e9a75,#3d5a36);
+  box-shadow:0 26px 30px -14px rgba(20,30,15,.55), inset 2px 2px 6px rgba(255,255,255,.25), inset -3px -4px 10px rgba(0,0,0,.25);
+}
+.photo .obj::before{ /* label band */
+  content:"";position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+  width:78%;height:30%;border-radius:5px;background:rgba(250,246,232,.92);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.1);
+}
+.photo .obj::after{ /* cap */
+  content:"";position:absolute;left:50%;top:-12%;transform:translateX(-50%);
+  width:40%;height:16%;border-radius:5px 5px 3px 3px;background:linear-gradient(180deg,#283827,#0f1f16);
+}
+.photo .floor{position:absolute;z-index:0;bottom:11%;left:50%;transform:translateX(-50%);width:54%;height:6%;background:radial-gradient(ellipse,rgba(20,30,15,.4),transparent 70%);filter:blur(3px)}
+.photo .tag{
+  position:absolute;z-index:5;top:9px;left:9px;font-family:var(--font-mono);
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;
+  background:rgba(15,31,22,.7);color:#dCe7c8;padding:4px 8px;border-radius:6px;backdrop-filter:blur(4px);
+}
+.photo .fmt{
+  position:absolute;z-index:5;bottom:8px;left:9px;font-family:var(--font-mono);
+  font-size:9px;letter-spacing:.08em;color:rgba(15,31,22,.55);font-weight:500;
+}
+.photo .wm{
+  position:absolute;z-index:5;bottom:7px;right:9px;font-family:var(--font-display);
+  font-style:italic;font-size:13px;color:rgba(15,31,22,.32);font-weight:500;
+}
+/* scene variants */
+.photo.sg{background:linear-gradient(160deg,#cdd9b6 0%,#aec199 50%,#8ea479 100%)}
+.photo.sg .obj{background:linear-gradient(145deg,#f3ead0,#d8c79c)}
+.photo.sg .obj::after{background:linear-gradient(180deg,#a85a3f,#7e3b27)}
+.photo.cl{background:linear-gradient(160deg,#e9cbb8 0%,#d39e82 55%,#a85a3f 100%)}
+.photo.cl .obj{background:linear-gradient(145deg,#faf6e8,#e7d9b6)}
+.photo.dk{background:linear-gradient(160deg,#283827 0%,#16241d 55%,#0f1f16 100%)}
+.photo.dk .obj{background:linear-gradient(145deg,#c9a640,#8a6f1f)}
+.photo.dk .fmt{color:rgba(240,244,231,.4)}
+.photo.dk .wm{color:rgba(240,244,231,.28)}
+.photo.cr{background:linear-gradient(160deg,#fbf8ee 0%,#f0e7cf 55%,#e3d6b3 100%)}
+.photo.cr .obj{background:linear-gradient(145deg,#7e9a75,#3d5a36)}
+/* obj shapes */
+.photo.box .obj{width:54%;height:48%;border-radius:8px}
+.photo.box .obj::after{display:none}
+.photo.box .obj::before{height:38%;width:64%;top:50%}
+.photo.tube .obj{width:24%;height:62%;border-radius:30px}
+.photo.tube .obj::after{width:60%;height:9%;border-radius:3px}
+/* ratio variants */
+.photo.r-sq{aspect-ratio:1/1}
+.photo.r-st{aspect-ratio:9/16}
+.photo.r-ws{aspect-ratio:1.9/1}
+/* before/after states */
+.photo.before{background:linear-gradient(160deg,#9aa68c,#828e76 60%,#6f7a63);filter:saturate(.6)}
+.photo.before::before{background:radial-gradient(ellipse 90% 70% at 50% 30%,rgba(225,230,210,.35),transparent 70%);mix-blend-mode:normal}
+.photo.before::after{box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.photo.before .obj{box-shadow:0 8px 10px -8px rgba(0,0,0,.4);border-radius:10px}
+.photo.before .floor{opacity:.25}
+
+/* ============ IMÁGENES REALES (reemplazan los mockups .photo) ============ */
+/* .rimg ocupa el mismo slot que .photo: mismo ratio 4/5 por defecto, object-fit cover */
+.rimg{
+  position:relative;display:block;width:100%;aspect-ratio:4/5;
+  border-radius:var(--radius-sm);overflow:hidden;background:#e7d9b6;isolation:isolate;
+}
+.rimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.rimg::after{content:"";position:absolute;inset:0;z-index:2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.rimg .tag{
+  position:absolute;z-index:5;top:9px;left:9px;font-family:var(--font-mono);
+  font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;
+  background:rgba(15,31,22,.7);color:#dce7c8;padding:4px 8px;border-radius:6px;backdrop-filter:blur(4px);
+}
+/* hereda los contenedores que ya envolvían .photo con border-radius:0 */
+.float-card .rimg,.ba-card .rimg,.strip-card .rimg,.g-card .rimg,.tkt-card .rimg,
+.out-grid .rimg,.co-prop .rimg,.pick .rimg,.collage .rimg{border-radius:0}
+.pick .rimg{border-radius:13px;border:5px solid var(--card)}
+.out-grid .rimg{aspect-ratio:auto;height:100%;border-radius:11px}
+.co-prop .rimg{aspect-ratio:4/5}
+/* ratio helpers */
+.rimg.r-st{aspect-ratio:9/16}
+
+/* ============ FLOW ANIMATION (reemplaza el VSL) ============ */
+.flow{
+  position:relative;max-width:880px;margin:0 auto;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  gap:clamp(14px,3vw,34px);
+}
+.flow-card{
+  position:relative;border-radius:var(--radius);overflow:hidden;
+  box-shadow:var(--shadow-lg);border:6px solid var(--card);
+  aspect-ratio:4/5;background:#e7d9b6;
+}
+.flow-card .flow-tag{
+  position:absolute;z-index:6;top:12px;left:12px;font-family:var(--font-mono);
+  font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
+  padding:5px 10px;border-radius:8px;
+}
+.flow-before .flow-tag{background:rgba(40,56,39,.78);color:#c6d6b2}
+.flow-after .flow-tag{background:var(--butter);color:var(--forest)}
+/* "antes": mockup de foto mala de celular — cropeada, desaturada, mal encuadre */
+.flow-before .badphoto{position:absolute;inset:0;background:linear-gradient(165deg,#9aa68c,#7d8a6f 55%,#69755b);filter:saturate(.55) contrast(.92)}
+.flow-before .badphoto::before{ /* objeto descentrado y cortado */
+  content:"";position:absolute;left:8%;bottom:-6%;width:50%;height:74%;
+  border-radius:14px 14px 10px 10px;transform:rotate(-7deg);
+  background:linear-gradient(150deg,#5d6f55,#39492f);
+  box-shadow:0 10px 14px -8px rgba(0,0,0,.5),inset 2px 2px 6px rgba(255,255,255,.12);
+}
+.flow-before .badphoto::after{ /* flash/reflejo feo + sombra dura */
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse 38% 30% at 74% 22%,rgba(255,255,255,.5),transparent 60%),
+             linear-gradient(180deg,transparent 60%,rgba(0,0,0,.35));
+  mix-blend-mode:normal;
+}
+.flow-before .glint{position:absolute;z-index:5;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.14) 50%,transparent 60%)}
+/* "después": imagen real que se revela */
+.flow-after img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.flow-after .veil{position:absolute;inset:0;z-index:5;background:var(--card);transform-origin:left;transform:scaleX(0)}
+.flow-after::after{content:"";position:absolute;inset:0;z-index:4;box-shadow:inset 0 -50px 60px -34px rgba(80,60,30,.35),inset 0 0 0 1px rgba(255,255,255,.16)}
+/* conector central */
+.flow-mid{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.flow-arrow{
+  width:clamp(46px,7vw,60px);height:clamp(46px,7vw,60px);border-radius:999px;
+  background:var(--forest);color:var(--cream);display:grid;place-items:center;
+  box-shadow:0 16px 34px -12px rgba(15,31,22,.6);
+}
+.flow-arrow svg{animation:flowArrow 1.8s ease-in-out infinite}
+@keyframes flowArrow{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+.flow-mlabel{font-family:var(--font-display);font-style:italic;font-size:clamp(.95rem,1.6vw,1.15rem);color:var(--clay);line-height:1.2;max-width:140px}
+/* ciclo de animación: el velo del "después" entra/sale en loop */
+@keyframes flowReveal{
+  0%,8%{transform:scaleX(1)}
+  30%,70%{transform:scaleX(0)}
+  92%,100%{transform:scaleX(1)}
+}
+@keyframes flowGlint{
+  0%,12%{transform:translateX(-120%)}
+  26%,100%{transform:translateX(120%)}
+}
+@keyframes flowPulse{0%,100%{opacity:.55}45%{opacity:1}}
+.flow.animate .flow-after .veil{animation:flowReveal 6.5s cubic-bezier(.7,0,.3,1) infinite}
+.flow.animate .flow-before .glint{animation:flowGlint 6.5s ease-in-out infinite}
+.flow.animate .flow-arrow{animation:none}
+.flow.animate .flow-arrow svg{animation:flowArrow 1.8s ease-in-out infinite}
+.flow-foot{text-align:center;margin-top:clamp(22px,3vw,34px);font-family:var(--font-mono);font-size:12.5px;letter-spacing:.04em;color:var(--mute-on-bg)}
+@media(max-width:600px){
+  .flow{grid-template-columns:1fr;gap:14px}
+  .flow-mid{flex-direction:row;gap:10px}
+  .flow-mlabel{max-width:none}
+  .flow-arrow svg{transform:rotate(90deg)}
+}
+@media(prefers-reduced-motion:reduce){
+  .flow-after .veil{display:none}
+  .flow-before .glint{display:none}
+  .flow-arrow svg{animation:none}
+}
+
+/* wordmark de marca en Instrument Serif itálica */
+.brand-i{font-family:var(--font-brand);font-style:italic;font-weight:400}
+
+/* ============ VSL ============ */
+.vsl{padding:clamp(50px,7vw,90px) 0}
+.vsl-head{text-align:center;max-width:680px;margin:0 auto clamp(34px,4vw,52px)}
+.player{
+  position:relative;max-width:960px;margin:0 auto;aspect-ratio:16/9;border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow-lg);
+  background:linear-gradient(150deg,#16241d 0%,#0f1f16 60%,#0a160f 100%);
+  border:1px solid rgba(240,244,231,.08);
+}
+.player::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 50% 38%,rgba(126,154,117,.18),transparent 65%)}
+.player .bar-top{position:absolute;top:0;left:0;right:0;height:46px;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:4}
+.player .dot{width:11px;height:11px;border-radius:999px}
+.player .dot.r{background:#e06a4f}.player .dot.y{background:#d6b94a}.player .dot.g{background:#6fa06a}
+.player .live{margin-left:auto;font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;color:#c6d6b2;display:flex;align-items:center;gap:7px}
+.player .live::before{content:"";width:7px;height:7px;border-radius:999px;background:#e06a4f;box-shadow:0 0 0 0 rgba(224,106,79,.6);animation:rec 1.6s infinite}
+@keyframes rec{0%{box-shadow:0 0 0 0 rgba(224,106,79,.5)}70%{box-shadow:0 0 0 9px rgba(224,106,79,0)}100%{box-shadow:0 0 0 0 rgba(224,106,79,0)}}
+.play{
+  position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);z-index:5;
+  width:clamp(72px,9vw,98px);height:clamp(72px,9vw,98px);border-radius:999px;cursor:pointer;
+  background:var(--cream);display:grid;place-items:center;border:none;
+  box-shadow:0 20px 50px -12px rgba(0,0,0,.6);transition:transform .25s;
+}
+.play::after{content:"";position:absolute;inset:-10px;border-radius:999px;border:2px solid rgba(240,244,231,.4);animation:halo 2.4s ease-out infinite}
+@keyframes halo{0%{transform:scale(.9);opacity:.8}100%{transform:scale(1.3);opacity:0}}
+.play:hover{transform:translate(-50%,-50%) scale(1.06)}
+.play svg{margin-left:5px}
+.player .vsl-title{position:absolute;left:24px;bottom:54px;z-index:4;font-family:var(--font-display);font-style:italic;color:var(--cream);font-size:clamp(1.1rem,2.2vw,1.6rem);max-width:60%;line-height:1.2;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+.player .controls{position:absolute;left:0;right:0;bottom:0;height:46px;display:flex;align-items:center;gap:14px;padding:0 18px;z-index:4}
+.player .time{font-family:var(--font-mono);font-size:11.5px;color:#c6d6b2;white-space:nowrap}
+.player .scrub{flex:1;height:4px;border-radius:999px;background:rgba(240,244,231,.18);position:relative;overflow:hidden}
+.player .scrub i{position:absolute;left:0;top:0;height:100%;width:22%;background:var(--butter);border-radius:999px}
+.player .scrub::after{content:"";position:absolute;left:22%;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:999px;background:var(--cream);box-shadow:0 0 8px rgba(0,0,0,.4)}
+
+/* ============ METRICS ============ */
+.metrics{padding:clamp(20px,3vw,30px) 0 clamp(50px,6vw,70px)}
+.metrics-row{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:clamp(16px,3vw,40px)}
+.metric{text-align:center}
+.metric .num{font-family:var(--font-display);font-weight:500;font-size:clamp(3rem,8vw,6rem);line-height:.9;letter-spacing:-.03em}
+.metric .num.a{color:var(--sage-strong)}
+.metric .num.b{color:var(--clay)}
+.metric .num.c{color:var(--ink)}
+.metric .lbl{font-family:var(--font-mono);font-size:13px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--clay);margin-top:14px}
+.divider{width:1px;height:90px;background:linear-gradient(180deg,transparent,rgba(15,31,22,.3),transparent);justify-self:center}
+@media(max-width:760px){
+  .metrics-row{grid-template-columns:1fr;gap:34px}
+  .divider{width:120px;height:1px;background:linear-gradient(90deg,transparent,rgba(15,31,22,.3),transparent)}
+}
+
+/* ============ GALLERY (carrusel infinito) ============ */
+.gallery{padding:clamp(40px,5vw,64px) 0 clamp(50px,6vw,80px)}
+.gallery-head{text-align:center;max-width:640px;margin:0 auto clamp(30px,4vw,46px)}
+.marquee{overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.marquee + .marquee{margin-top:18px}
+.track{display:flex;gap:18px;width:max-content}
+.track.left{animation:scrollL 48s linear infinite}
+.track.right{animation:scrollR 56s linear infinite}
+.marquee:hover .track{animation-play-state:paused}
+@keyframes scrollL{to{transform:translateX(-50%)}}
+@keyframes scrollR{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.g-card{flex:0 0 auto;width:clamp(170px,22vw,230px);border-radius:var(--radius-sm);overflow:hidden;box-shadow:var(--shadow);border:5px solid var(--card)}
+.g-card .photo{border-radius:0}
+
+/* ============ PROBLEM ============ */
+.problem{padding:clamp(20px,4vw,40px) 0}
+/* block 1 — lista estilo cienads dentro de card cream */
+.pains{background:var(--card);border-radius:var(--radius);padding:clamp(30px,4vw,56px);box-shadow:var(--shadow);border:1px solid var(--border)}
+.pains-head{max-width:560px;margin-bottom:clamp(26px,3vw,40px)}
+.pains-head h2{color:var(--ink);margin-top:18px}
+.pains-head h2 em{font-style:italic;color:var(--clay)}
+.pain{
+  display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:clamp(16px,3vw,30px);
+  padding:clamp(18px,2.4vw,26px) 4px;border-top:1px solid var(--border);
+}
+.pain:first-of-type{border-top:none}
+.pain .pnum{font-family:var(--font-display);font-weight:400;font-size:clamp(1.8rem,4vw,2.8rem);color:var(--sage);line-height:1;min-width:46px}
+.pain .pico{font-size:clamp(1.5rem,3vw,2rem);filter:saturate(.9)}
+.pain .ptxt{font-size:clamp(1.02rem,1.7vw,1.32rem);font-weight:500;color:var(--ink-soft);line-height:1.35}
+.pain:hover .pnum{color:var(--clay);transition:color .3s}
+
+/* manifesto band (dark) */
+.manifesto{
+  margin:clamp(50px,7vw,90px) calc(-1*var(--pad));
+  padding:clamp(64px,11vw,140px) var(--pad);
+  background:var(--forest);position:relative;overflow:hidden;text-align:center;z-index:2;
+}
+.manifesto::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 50% 70% at 70% 20%,rgba(201,166,64,.16),transparent 60%),radial-gradient(ellipse 60% 80% at 20% 90%,rgba(126,154,117,.14),transparent 60%)}
+.manifesto::after{content:"";position:absolute;inset:0;opacity:.06;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.manifesto .m-txt{position:relative;z-index:2;max-width:980px;margin:0 auto;font-family:var(--font-display);font-weight:400;font-size:clamp(2rem,5.6vw,4.4rem);line-height:1.08;letter-spacing:-.02em;color:var(--cream)}
+.manifesto .m-txt em{font-style:italic}
+.manifesto .small{position:relative;z-index:2;margin-top:26px;font-family:var(--font-mono);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:rgba(240,244,231,.5)}
+
+/* block 2 — revenue chart */
+.truth{padding:clamp(40px,6vw,70px) 0}
+.truth-head{text-align:center;max-width:680px;margin:0 auto clamp(34px,4vw,50px)}
+.truth-head h2 em{font-style:italic;color:var(--sage-strong)}
+.chart-card{
+  max-width:980px;margin:0 auto;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);
+  background:linear-gradient(155deg,#16241d,#0f1f16);border:1px solid rgba(240,244,231,.08);
+  padding:clamp(26px,3.5vw,44px);position:relative;
+}
+.chart-card::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 50% 60% at 80% 10%,rgba(201,166,64,.1),transparent 60%)}
+.chart-top{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+.chart-top .ct-l .ct-k{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(240,244,231,.5)}
+.chart-top .ct-l .ct-v{font-family:var(--font-display);font-size:clamp(1.4rem,3vw,2rem);color:var(--cream);margin-top:6px}
+.legend{display:flex;gap:18px;flex-wrap:wrap}
+.lg{display:flex;align-items:center;gap:9px;font-size:.92rem;font-weight:500}
+.lg .sw{width:26px;height:4px;border-radius:999px}
+.lg.you{color:#e9b98f}.lg.you .sw{background:var(--clay)}
+.lg.comp{color:#9fb295}.lg.comp .sw{background:var(--sage)}
+.chart-wrap{position:relative;z-index:2}
+.chart-svg{width:100%;height:auto;display:block;overflow:visible}
+.cl-path{fill:none;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
+.cl-you{stroke:var(--clay);stroke-width:3}
+.cl-comp{stroke:#9fe27a;stroke-width:5}
+.chart-end-label{font-family:var(--font-mono);font-size:11px;font-weight:500}
+.gridline{stroke:rgba(240,244,231,.07);stroke-width:1}
+.axis-lbl{font-family:var(--font-mono);font-size:10.5px;fill:rgba(240,244,231,.4)}
+.chart-note{position:relative;z-index:2;margin-top:18px;font-size:.9rem;color:rgba(240,244,231,.55);font-family:var(--font-mono);letter-spacing:.02em}
+.lottery{text-align:center;margin:clamp(46px,6vw,72px) auto 0;max-width:860px}
+.lottery p{font-family:var(--font-display);font-size:clamp(1.7rem,4.4vw,3rem);line-height:1.14;letter-spacing:-.02em;color:var(--ink)}
+.lottery em{font-style:italic}
+
+/* block 3 — generic tools */
+.generic{padding:clamp(46px,7vw,80px) 0 clamp(30px,4vw,50px)}
+.generic-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(28px,4vw,56px);align-items:center}
+.generic-grid h2{color:var(--ink)}
+.generic-grid h2 em{font-style:italic;color:var(--clay)}
+.generic-grid .lead{margin-top:20px;max-width:440px}
+.tools{display:flex;flex-direction:column;gap:14px}
+.tool{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 24px;box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.tool .tn{font-family:var(--font-display);font-size:clamp(1.3rem,3vw,1.9rem);color:var(--ink);position:relative;display:inline-block}
+.tool .tn::after{content:"";position:absolute;left:-4px;right:-4px;top:52%;height:2.5px;background:var(--clay);transform:scaleX(0);transform-origin:left;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.tool.in .tn::after{transform:scaleX(1)}
+.tool .tx{font-size:.96rem;color:var(--mute);text-align:right;max-width:55%}
+.tool .xmark{position:absolute;right:-14px;top:-14px;font-size:5rem;color:rgba(168,90,63,.08);font-family:var(--font-display);line-height:1}
+.tool.win{background:var(--forest);border-color:var(--forest);box-shadow:0 20px 44px -16px rgba(15,31,22,.6)}
+.tool.win .tn{color:var(--cream)}
+.tool.win .tn::after{display:none}
+.tool.win .tx{color:rgba(240,244,231,.72)}
+.tool.win .checkmark{position:absolute;right:-10px;top:-18px;font-size:5rem;color:rgba(201,166,64,.18);font-family:var(--font-display);line-height:1}
+.tool.win::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--butter)}
+@media(max-width:840px){.generic-grid{grid-template-columns:1fr}}
+
+/* ============ TRANSFORMACIÓN (antes / después) + garantía ============ */
+.cases{padding:clamp(40px,6vw,72px) 0}
+.cases-head{text-align:center;max-width:640px;margin:0 auto clamp(30px,4vw,46px)}
+.cases-head h2 em{font-style:italic;color:var(--clay)}
+.transform{display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,4vw,48px);max-width:920px;margin:0 auto}
+.tr-pair{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:clamp(8px,1.6vw,16px)}
+.tr-card{position:relative;border-radius:18px;overflow:hidden;box-shadow:var(--shadow-lg);border:6px solid var(--card)}
+.tr-card .photo,.tr-card .rimg{border-radius:0}
+.tr-tag{position:absolute;z-index:6;top:10px;left:10px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;padding:5px 9px;border-radius:7px}
+.tr-tag.before{background:rgba(40,56,39,.78);color:#c6d6b2}
+.tr-tag.after{background:var(--butter);color:var(--forest)}
+.tr-arrow{width:38px;height:38px;flex:0 0 auto;border-radius:999px;background:var(--forest);color:var(--cream);display:grid;place-items:center;box-shadow:0 10px 22px -8px rgba(15,31,22,.6)}
+.guarantee{display:flex;align-items:center;gap:18px;max-width:680px;margin:clamp(34px,5vw,52px) auto 0;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:clamp(20px,3vw,28px) clamp(22px,3vw,32px);box-shadow:var(--shadow)}
+.guarantee-ic{font-size:2.2rem;flex:0 0 auto;line-height:1}
+.guarantee-txt{display:flex;flex-direction:column;gap:5px}
+.guarantee-txt b{font-family:var(--font-display);font-weight:600;font-size:clamp(1.15rem,2.4vw,1.5rem);color:var(--ink);line-height:1.1}
+.guarantee-txt span{font-size:.98rem;color:var(--ink-soft);line-height:1.5}
+@media(max-width:780px){.transform{grid-template-columns:1fr;max-width:480px}}
+@media(max-width:560px){.guarantee{flex-direction:column;text-align:center;align-items:center}.guarantee-txt{align-items:center}}
+
+/* ============ SOLUTION ============ */
+.solution{padding:clamp(50px,7vw,90px) 0 clamp(40px,5vw,60px)}
+.sol-head{text-align:center;max-width:720px;margin:0 auto clamp(40px,5vw,64px)}
+.sol-head h2{margin-top:18px}
+.sol-head h2 b{color:var(--clay);font-style:italic;font-weight:400}
+.sol-sub{max-width:560px;margin:22px auto 0;font-family:var(--font-display);font-style:italic;font-size:clamp(1.05rem,1.9vw,1.35rem);color:var(--ink-soft);line-height:1.5}
+
+/* brandmark artístico */
+.sol-title{display:inline-flex;align-items:baseline;flex-wrap:wrap;justify-content:center;gap:.18em}
+.brandmark{position:relative;display:inline-block;font-style:italic;font-weight:500;color:var(--clay);line-height:.9}
+.brandmark .bm-i{position:relative;display:inline-block;color:var(--clay)}
+.brandmark .bm-i::after{content:"";position:absolute;top:-.16em;left:50%;transform:translateX(-50%);width:.16em;height:.16em;border-radius:999px;background:var(--butter);box-shadow:0 0 0 .04em rgba(201,166,64,.3)}
+.brandmark .bm-line{position:absolute;left:-.04em;right:-.04em;bottom:-.16em;height:.34em;color:var(--butter);pointer-events:none}
+.brandmark .bm-line svg{width:100%;height:100%;overflow:visible}
+.brandmark .bm-line path{stroke-dasharray:520;stroke-dashoffset:520;transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)}
+.sol-head.in .brandmark .bm-line path,.brandmark.draw .bm-line path{stroke-dashoffset:0}
+.bm-dot{color:var(--clay);font-style:italic;font-weight:500}
+
+/* Vendí 3D — gradiente verde Bottega */
+.sol-title{font-size:clamp(2.2rem,5.5vw,4rem)}
+.brandmark.v3d{
+  font-family:var(--font-brand);font-style:italic;font-weight:500;letter-spacing:-.01em;line-height:1;
+  color:var(--ink);
+  padding:0 .04em;
+}
+
+/* Ticket de lanzamiento (sección precios) */
+.tkt{position:relative;overflow:hidden;background:var(--forest);color:var(--cream);border-radius:var(--radius);padding:clamp(26px,3.5vw,48px);box-shadow:var(--shadow-lg);max-width:1000px;margin:0 auto clamp(26px,3vw,40px)}
+.tkt-glow{position:absolute;inset:0;pointer-events:none;background:radial-gradient(50% 70% at 12% 10%,rgba(126,154,117,.22),transparent 60%),radial-gradient(60% 80% at 92% 100%,rgba(201,166,64,.16),transparent 60%)}
+.tkt-inner{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(22px,3vw,44px);align-items:center}
+.tkt-copy .kicker{color:var(--butter)}
+.tkt-copy .kicker::before{background:var(--butter)}
+.tkt-h{font-family:var(--font-display);font-weight:600;color:var(--cream);font-size:clamp(1.7rem,3.2vw,2.7rem);line-height:1.05;letter-spacing:-.02em;margin-top:16px}
+.tkt-h em{font-style:italic;color:var(--butter)}
+.tkt-sub{margin-top:16px;max-width:440px;font-family:var(--font-display);font-style:italic;font-size:clamp(1rem,1.6vw,1.15rem);line-height:1.5;color:rgba(240,244,231,.85)}
+.tkt-sub strong{font-style:normal;font-weight:600;color:var(--cream)}
+.tkt-props{position:relative;display:flex;align-items:flex-end;justify-content:center;min-height:210px}
+.tkt-card{flex:0 0 auto;width:128px;border-radius:13px;overflow:hidden;border:5px solid var(--card);box-shadow:0 26px 44px -20px rgba(0,0,0,.7)}
+.tkt-card .photo,.tkt-card .rimg{width:100%;border-radius:0}
+.tkt-card.a{transform:rotate(-8deg);z-index:1}
+.tkt-card.b{transform:rotate(-1deg);width:140px;margin:0 -22px;z-index:3}
+.tkt-card.c{transform:rotate(7deg);z-index:2}
+@media(max-width:760px){
+  .tkt-inner{grid-template-columns:1fr;gap:22px}
+  .tkt-props{min-height:180px}
+}
+
+/* capítulos editoriales */
+.chapter{margin-top:clamp(56px,8vw,110px)}
+.chapter:first-of-type{margin-top:clamp(44px,6vw,80px)}
+.chapter-head{display:flex;align-items:center;gap:clamp(18px,3vw,34px);padding-bottom:28px;margin-bottom:clamp(30px,4vw,48px);border-bottom:1px solid var(--border-strong);position:relative}
+.ch-num{font-family:var(--font-display);font-weight:300;font-size:clamp(3.2rem,8vw,6rem);line-height:.8;color:transparent;-webkit-text-stroke:1.5px var(--sage-strong);letter-spacing:-.04em;flex:0 0 auto}
+.ch-titles{display:flex;flex-direction:column;gap:8px}
+.ch-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--clay);font-weight:500;display:inline-flex;align-items:center;gap:10px}
+.ch-kicker::before{content:"";width:24px;height:1.5px;background:var(--clay)}
+.ch-title{font-family:var(--font-display);font-weight:600;font-size:clamp(1.7rem,4vw,2.9rem);line-height:1.02;letter-spacing:-.02em;color:var(--ink)}
+.ch-title em{font-style:italic;color:var(--clay)}
+@media(max-width:560px){
+  .chapter-head{gap:14px}
+  .ch-num{font-size:3.4rem}
+}
+
+/* el cómo — 3 pasos grandes */
+.step{display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,5vw,72px);align-items:center;margin:clamp(40px,6vw,90px) 0}
+.step:nth-child(even) .step-visual{order:-1}
+.chapter .step:first-of-type{margin-top:0}
+.step-num{font-family:var(--font-display);font-weight:300;font-size:clamp(4rem,12vw,9rem);line-height:.8;color:var(--sage);-webkit-text-stroke:1px var(--sage-strong);letter-spacing:-.04em}
+.step h3{font-size:clamp(1.7rem,3.6vw,2.7rem);color:var(--ink);margin:12px 0 14px}
+.step h3 em{font-style:italic;color:var(--clay)}
+.step p{color:var(--ink-soft);font-size:1.08rem;max-width:420px;line-height:1.6}
+.step-visual{border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--border)}
+/* app screen mockups */
+.appscr{background:linear-gradient(160deg,#16241d,#0f1f16);aspect-ratio:4/3;position:relative;overflow:hidden}
+.appscr .topbar{height:42px;display:flex;align-items:center;gap:7px;padding:0 14px;border-bottom:1px solid rgba(240,244,231,.07)}
+.appscr .topbar .d{width:9px;height:9px;border-radius:999px;background:rgba(240,244,231,.25)}
+.appscr .topbar .url{margin-left:10px;font-family:var(--font-mono);font-size:10px;color:rgba(240,244,231,.45);background:rgba(240,244,231,.06);padding:4px 10px;border-radius:6px}
+.appscr .body{padding:22px;display:grid;gap:12px;height:calc(100% - 42px)}
+.up-zone{border:2px dashed rgba(126,154,117,.4);border-radius:14px;flex:1;display:grid;place-items:center;color:rgba(240,244,231,.5);font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;gap:10px;text-align:center;padding:20px}
+.up-zone .ic{width:46px;height:46px;border-radius:12px;background:rgba(126,154,117,.18);display:grid;place-items:center}
+.style-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.style-chip{aspect-ratio:1;border-radius:11px;background:linear-gradient(150deg,#283827,#1a2b22);border:1px solid rgba(240,244,231,.06);position:relative;overflow:hidden}
+.style-chip.sel{border:2px solid var(--butter);box-shadow:0 0 0 3px rgba(201,166,64,.2)}
+.style-chip::after{content:"";position:absolute;inset:18% 22%;border-radius:8px;background:linear-gradient(145deg,#7e9a75,#3d5a36)}
+.style-chip.c2::after{background:linear-gradient(145deg,#c9a640,#8a6f1f)}
+.style-chip.c3::after{background:linear-gradient(145deg,#a85a3f,#7e3b27)}
+.style-chip.c4::after{background:linear-gradient(145deg,#f0e7cf,#d8c79c)}
+.style-chip.c5::after{background:linear-gradient(145deg,#5a6852,#3d4b37)}
+.style-chip.real::after{display:none}
+.style-chip.real img{width:100%;height:100%;object-fit:cover;display:block}
+.out-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;height:100%}
+.out-grid .photo{aspect-ratio:auto;border-radius:11px}
+@media(max-width:760px){.step{grid-template-columns:1fr}.step:nth-child(even) .step-visual{order:0}}
+
+/* por qué — feature cards */
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.why{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:clamp(26px,3vw,38px);box-shadow:var(--shadow);transition:transform .3s}
+.why:hover{transform:translateY(-4px)}
+.why .wic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;margin-bottom:20px}
+.why.a .wic{background:rgba(61,90,54,.12);color:var(--sage-strong)}
+.why.b .wic{background:rgba(201,166,64,.16);color:var(--butter)}
+.why.c .wic{background:rgba(168,90,63,.12);color:var(--clay)}
+.why h3{font-size:1.4rem;color:var(--ink);margin-bottom:10px}
+.why h3 em{font-style:italic}
+.why p{color:var(--mute);font-size:.98rem;line-height:1.6}
+@media(max-width:840px){.why-grid{grid-template-columns:1fr}}
+
+/* el resultado — collage con watermark */
+.collage{columns:4;column-gap:14px;margin-top:8px}
+.collage .c-item{break-inside:avoid;margin-bottom:14px;border-radius:var(--radius-sm);overflow:hidden;box-shadow:var(--shadow);border:5px solid var(--card)}
+.collage .photo{border-radius:0}
+@media(max-width:980px){.collage{columns:3}}
+@media(max-width:640px){.collage{columns:2}}
+
+/* el resultado — galería scrolleable + seleccionable */
+.picker-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px}
+.picker-hint{display:flex;align-items:center;gap:9px;font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;color:var(--mute-on-bg)}
+.picker-hint svg{opacity:.55}
+.picker-status{font-size:.96rem;color:var(--mute);font-weight:500}
+.picker-status b{font-family:var(--font-display);font-style:italic;font-weight:500;color:var(--clay);font-size:1.15rem}
+.picker-rail{
+  display:flex;gap:16px;overflow-x:auto;padding:14px 4px 22px;
+  scroll-snap-type:x proximity;scrollbar-width:none;cursor:grab;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
+}
+.picker-rail::-webkit-scrollbar{display:none}
+.picker-rail.dragging{cursor:grabbing;scroll-snap-type:none}
+.pick{
+  flex:0 0 auto;width:clamp(176px,24vw,224px);scroll-snap-align:center;
+  position:relative;padding:0;border:none;background:none;cursor:pointer;
+  border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow);
+  outline:3px solid transparent;outline-offset:2px;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1),outline-color .25s,box-shadow .3s,filter .3s;
+}
+.pick .photo{border-radius:13px;border:5px solid var(--card)}
+.pick:hover{transform:translateY(-6px)}
+.pick.selected{outline-color:var(--forest);transform:translateY(-6px) scale(1.015);box-shadow:var(--shadow-lg)}
+.pick:not(.selected){filter:saturate(.94)}
+.pick-check{
+  position:absolute;top:14px;right:14px;z-index:6;width:32px;height:32px;border-radius:999px;
+  background:var(--forest);color:var(--cream);display:grid;place-items:center;
+  transform:scale(0) rotate(-30deg);transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 8px 18px -6px rgba(15,31,22,.6);
+}
+.pick.selected .pick-check{transform:scale(1) rotate(0)}
+.picker-progress{height:4px;border-radius:999px;background:var(--muted-bg);overflow:hidden;max-width:240px;margin-top:6px}
+.picker-progress i{display:block;height:100%;width:18%;background:var(--clay);border-radius:999px;transition:width .15s linear,margin-left .15s linear}
+@media(max-width:640px){.picker-status{display:none}}
+
+/* ============ PRECIOS ============ */
+.pricing{padding:clamp(50px,7vw,90px) 0}
+.pricing-head{text-align:center;max-width:680px;margin:0 auto clamp(40px,5vw,60px)}
+.pricing-head h2 em{font-style:italic}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+.plan{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:clamp(28px,3vw,38px);box-shadow:var(--shadow);display:flex;flex-direction:column;
+  position:relative;transition:transform .3s,box-shadow .3s;
+}
+.plan:hover{transform:translateY(-5px)}
+.plan.featured{background:var(--forest);border-color:var(--forest);box-shadow:var(--shadow-lg);transform:scale(1.03)}
+.plan.featured:hover{transform:scale(1.03) translateY(-5px)}
+.plan.featured::before{content:"";position:absolute;inset:0;border-radius:var(--radius);background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(201,166,64,.16),transparent 60%);pointer-events:none}
+.plan-badge{
+  position:absolute;top:-13px;left:50%;transform:translateX(-50%);z-index:2;
+  background:var(--butter);color:var(--forest);font-family:var(--font-mono);
+  font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
+  padding:7px 16px;border-radius:999px;box-shadow:0 10px 22px -8px rgba(15,31,22,.5);white-space:nowrap;
+}
+.plan-top{position:relative;z-index:1;padding-bottom:22px;border-bottom:1px solid var(--border)}
+.plan.featured .plan-top{border-color:rgba(240,244,231,.14)}
+.plan-top h3{font-size:1.7rem;color:var(--ink)}
+.plan.featured .plan-top h3{color:var(--cream)}
+.plan-sub{font-size:.94rem;color:var(--mute);margin-top:6px;line-height:1.45}
+.plan.featured .plan-sub{color:rgba(240,244,231,.7)}
+.plan-price{margin-top:20px;display:flex;align-items:baseline;gap:8px}
+.plan-price .amt{font-family:var(--font-display);font-weight:500;font-size:clamp(2.6rem,5vw,3.4rem);line-height:1;color:var(--ink);letter-spacing:-.03em}
+.plan.featured .plan-price .amt{color:var(--butter)}
+.plan-price .per{font-family:var(--font-mono);font-size:13px;color:var(--mute)}
+.plan.featured .plan-price .per{color:rgba(240,244,231,.55)}
+.plan-feats{list-style:none;margin:24px 0 28px;display:flex;flex-direction:column;gap:13px;flex:1;position:relative;z-index:1}
+.plan-feats li{display:flex;align-items:flex-start;gap:11px;font-size:.97rem;color:var(--ink-soft);line-height:1.4}
+.plan-feats li::before{content:"";flex:0 0 auto;width:18px;height:18px;margin-top:1px;border-radius:999px;background:rgba(61,90,54,.13) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233d5a36' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/12px no-repeat}
+.plan.featured .plan-feats li{color:rgba(240,244,231,.86)}
+.plan.featured .plan-feats li::before{background:rgba(201,166,64,.2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c9a640' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/12px no-repeat}
+.plan-feats .byok{display:block;font-size:.82rem;color:var(--mute);margin-top:2px}
+.plan.featured .plan-feats .byok{color:rgba(240,244,231,.5)}
+.plan.featured .pill{background:var(--cream);color:var(--forest)}
+.plan.featured .pill:hover{background:#fff}
+.pricing-foot{text-align:center;margin-top:clamp(28px,3vw,40px);font-family:var(--font-mono);font-size:12.5px;letter-spacing:.04em;color:var(--mute-on-bg)}
+@media(max-width:860px){
+  .plans{grid-template-columns:1fr;max-width:440px;margin:0 auto}
+  .plan.featured{transform:none;order:-1}
+  .plan.featured:hover{transform:translateY(-5px)}
+}
+
+/* ============ FINAL CTA ============ */
+.final{
+  margin:clamp(50px,7vw,90px) calc(-1*var(--pad)) 0;padding:clamp(70px,11vw,150px) var(--pad);
+  background:var(--forest);position:relative;overflow:hidden;text-align:center;z-index:2;
+}
+.final::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 50% 70% at 50% 0%,rgba(201,166,64,.2),transparent 55%),radial-gradient(ellipse 70% 90% at 80% 100%,rgba(126,154,117,.18),transparent 60%)}
+.final-in{position:relative;z-index:2;max-width:820px;margin:0 auto}
+.final h2{font-size:clamp(2.2rem,6vw,4.6rem);color:var(--cream);line-height:1.02}
+.final h2 em{font-style:italic;color:var(--butter)}
+.final p{margin-top:22px;color:rgba(240,244,231,.7);font-size:clamp(1rem,1.6vw,1.2rem);font-family:var(--font-display);font-style:italic}
+.final .pill{margin-top:38px}
+.final-cta{margin-top:38px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.final-cta .pill{margin-top:0}
+.pill.on-dark-ghost{background:transparent;color:var(--cream);border:1.5px solid rgba(240,244,231,.3);box-shadow:none}
+.pill.on-dark-ghost:hover{background:rgba(240,244,231,.1);border-color:rgba(240,244,231,.55)}
+.final .micro{margin-top:20px;font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;color:rgba(240,244,231,.45)}
+
+/* ============ FOOTER ============ */
+footer{padding:clamp(40px,5vw,64px) 0 50px;position:relative;z-index:2}
+.foot-in{display:flex;justify-content:space-between;align-items:flex-start;gap:30px;flex-wrap:wrap}
+.foot-brand .brand{font-size:2rem}
+.foot-brand p{margin-top:10px;color:var(--mute-on-bg);font-family:var(--font-display);font-style:italic;font-size:1.05rem;max-width:320px}
+.foot-social{display:flex;gap:12px;margin-top:18px}
+.foot-social a{width:40px;height:40px;border-radius:999px;display:grid;place-items:center;color:var(--ink-soft);background:var(--muted-bg);border:1px solid var(--border);transition:transform .25s,background .25s,color .25s}
+.foot-social a:hover{transform:translateY(-2px);background:var(--forest);color:var(--cream);border-color:var(--forest)}
+.foot-links{display:flex;gap:50px;flex-wrap:wrap}
+.foot-col h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--clay);margin-bottom:14px;font-weight:500}
+.foot-col a{display:block;color:var(--ink-soft);font-size:.95rem;padding:5px 0;transition:color .2s}
+.foot-col a:hover{color:var(--ink)}
+.foot-bottom{margin-top:clamp(36px,4vw,56px);padding-top:24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;font-family:var(--font-mono);font-size:12px;color:var(--mute-on-bg)}
+
+@media(max-width:780px){
+  .nav-toggle{display:flex}
+  .nav-links{
+    position:fixed;inset:0 0 auto 0;top:0;padding:92px var(--pad) 32px;
+    flex-direction:column;gap:4px;background:rgba(183,202,145,.97);backdrop-filter:blur(18px);
+    transform:translateY(-110%);transition:transform .4s cubic-bezier(.2,.8,.2,1);
+    box-shadow:0 30px 60px -20px rgba(15,31,22,.5);z-index:45;
+  }
+  .nav-links.open{transform:translateY(0)}
+  .nav-links a{font-size:1.3rem;font-family:var(--font-display);padding:14px 0;border-bottom:1px solid var(--border)}
+  .nav-cta{display:none}
+}
+@media(max-width:600px){
+  .kicker{font-size:11px}
+}
+</style>
+
+<!-- ===== TWEAKS: fuentes alternativas para el panel de diseño ===== -->
+<style>
+/* toggles controlados por el panel de tweaks */
+body.no-grain::before{opacity:0 !important}
+body.no-floats .hero-floats{display:none !important}
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav>
+  <div class="nav-in">
+    <a href="#" class="brand">Vend<b>í</b>.</a>
+    <div class="nav-links">
+      <a href="#producto">Producto</a>
+      <a href="#galeria">Ejemplos</a>
+      <a href="#vsl">Cómo funciona</a>
+      <a href="#precios">Precios</a>
+      <a href="#faq">Preguntas</a>
+      <a href="#casos">Casos</a>
+    </div>
+    <div class="nav-cta">
+      <button class="pill" onclick="window.VendiQuiz&&window.VendiQuiz.openCheckout&&window.VendiQuiz.openCheckout()">Comenzar</button>
+    </div>
+    <button class="nav-toggle" aria-label="Abrir menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="producto">
+  <div class="hero-floats">
+    <div class="float-card f1"><div class="rimg"><span class="tag">Editorial</span><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div></div>
+    <div class="float-card f2"><div class="rimg"><span class="tag">Lifestyle</span><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div></div>
+    <div class="float-card f3"><div class="rimg"><span class="tag">Fondo de color</span><img src="/estilos/fondo-color.jpg" alt="Fondo de color" loading="lazy"></div></div>
+    <div class="float-card f4"><div class="rimg"><span class="tag">Estudio limpio</span><img src="/estilos/estudio-limpio.jpg" alt="Estudio limpio" loading="lazy"></div></div>
+  </div>
+
+  <div class="wrap hero-inner">
+    <span class="kicker center reveal">Sistema de imágenes de productos con IA para comercios</span>
+    <h1 class="reveal d1">
+      <span class="blk">Genera imágenes de <em class="serif i t-forest">alta calidad</em></span>
+      <span class="blk">de tus productos físicos en <em class="serif i t-clay">5 minutos</em>.</span>
+      <span class="blk t-butter serif i">Listas para vender.</span>
+    </h1>
+    <p class="hero-audience reveal d2"><span>Para negocios que venden productos físicos de manera digital.</span></p>
+    <p class="lead reveal d2">Sacá una foto con el celular, elegí un estilo y descargá imágenes profesionales de tu producto. <strong>En menos de 5 minutos.</strong></p>
+    <ul class="hero-bullets reveal d2">
+      <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Sin sesión de fotos ni Photoshop</li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Estilos profesionales, sin prompts</li>
+      <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Listas para Instagram, Facebook Marketplace y Temu</li>
+    </ul>
+    <div class="hero-cta reveal d3">
+      <button class="pill lg" onclick="window.VendiQuiz&&window.VendiQuiz.openCheckout&&window.VendiQuiz.openCheckout()">Comenzar a crear
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <a href="#vsl"><button class="pill ghost lg">Ver cómo funciona</button></a>
+    </div>
+    <p class="hero-micro reveal d3">Arrancás con <strong>60 créditos + 10 análisis IA de regalo</strong> · Sin tarjeta</p>
+    <div class="founders reveal d4">
+      <span class="founders-badge">🌱 Solo 30 lugares</span>
+      <small>Sé uno de los primeros <b>30 fundadores</b> de Vendí.
+        <button class="founders-cta" onclick="window.VendiQuiz&&window.VendiQuiz.openCheckout&&window.VendiQuiz.openCheckout()">Unirme →</button>
+      </small>
+    </div>
+  </div>
+
+  <!-- showcase strip: antes/después + estilos -->
+  <div class="wrap hero-strip-wrap reveal d4">
+    <div class="hero-strip">
+      <div class="ba-pair">
+        <div class="ba-card ba-before"><span class="ba-label">Antes</span><div class="photo before"><div class="floor"></div><div class="obj"></div></div></div>
+        <div class="ba-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="ba-card ba-after"><span class="ba-label">Después</span><div class="rimg"><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div></div>
+      </div>
+      <div class="strip-card"><div class="rimg"><span class="tag">Estudio limpio</span><img src="/estilos/estudio-limpio.jpg" alt="Estudio limpio" loading="lazy"></div></div>
+      <div class="strip-card"><div class="rimg"><span class="tag">Flat lay</span><img src="/estilos/flat-lay.jpg" alt="Flat lay cenital" loading="lazy"></div></div>
+      <div class="strip-card"><div class="rimg"><span class="tag">Macro</span><img src="/estilos/macro-detalle.jpg" alt="Macro / detalle" loading="lazy"></div></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ CÓMO FUNCIONA (animación del flujo) ============ -->
+<section class="vsl" id="vsl">
+  <div class="wrap">
+    <div class="vsl-head reveal">
+      <span class="kicker center">Cómo funciona</span>
+      <h2 style="margin-top:18px">De foto de celular a <em class="serif i t-clay">foto que vende</em></h2>
+      <p class="lead" style="margin-top:14px;max-width:520px;margin-left:auto;margin-right:auto">Subís la foto cruda, elegís un estilo y Vendí te la devuelve lista para publicar.</p>
+    </div>
+    <div class="flow reveal d1" id="vendiFlow" aria-label="Antes y después: una foto de celular se transforma en una foto profesional">
+      <div class="flow-card flow-before">
+        <span class="flow-tag">Tu foto hoy</span>
+        <div class="badphoto"></div>
+        <span class="glint"></span>
+      </div>
+      <div class="flow-mid" aria-hidden="true">
+        <div class="flow-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <span class="flow-mlabel">Vendí lo transforma</span>
+      </div>
+      <div class="flow-card flow-after">
+        <span class="flow-tag">Con Vendí</span>
+        <img src="/estilos/editorial-premium.jpg" alt="Resultado profesional con Vendí" loading="lazy">
+        <span class="veil"></span>
+      </div>
+    </div>
+    <p class="flow-foot reveal d2">Sin sesión de fotos · Sin Photoshop · En menos de 5 minutos</p>
+  </div>
+</section>
+
+<!-- ============ METRICS ============ -->
+<section class="metrics">
+  <div class="wrap">
+    <div class="metrics-row reveal">
+      <div class="metric"><div class="num a">10</div><div class="lbl">Estilos Profesionales<br>de fotografía de producto</div></div>
+      <div class="divider"></div>
+      <div class="metric"><div class="num b">&lt;5min</div><div class="lbl">De foto cruda a lista</div></div>
+      <div class="divider"></div>
+      <div class="metric"><div class="num c serif i">Sin</div><div class="lbl">Sesión de fotos</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GALLERY (carrusel infinito) ============ -->
+<section class="gallery" id="galeria">
+  <div class="wrap">
+    <div class="gallery-head reveal">
+      <span class="kicker center">La galería</span>
+      <h2 style="margin-top:16px">Un mismo producto, <em class="serif i t-forest">infinitos escenarios</em></h2>
+    </div>
+  </div>
+  <div class="marquee reveal d1">
+    <div class="track left">
+      <div class="g-card"><div class="rimg"><span class="tag">Editorial premium</span><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Lifestyle</span><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Flat lay cenital</span><img src="/estilos/flat-lay.jpg" alt="Flat lay cenital" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Knolling</span><img src="/estilos/knolling.jpg" alt="Knolling" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Producto flotando</span><img src="/estilos/producto-flotando.jpg" alt="Producto flotando" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Estudio limpio</span><img src="/estilos/estudio-limpio.jpg" alt="Estudio limpio" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Editorial premium</span><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Lifestyle</span><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Flat lay cenital</span><img src="/estilos/flat-lay.jpg" alt="Flat lay cenital" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Knolling</span><img src="/estilos/knolling.jpg" alt="Knolling" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Producto flotando</span><img src="/estilos/producto-flotando.jpg" alt="Producto flotando" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Estudio limpio</span><img src="/estilos/estudio-limpio.jpg" alt="Estudio limpio" loading="lazy"></div></div>
+    </div>
+  </div>
+  <div class="marquee reveal d2">
+    <div class="track right">
+      <div class="g-card"><div class="rimg"><span class="tag">Aire libre</span><img src="/estilos/aire-libre.jpg" alt="Aire libre" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Macro / detalle</span><img src="/estilos/macro-detalle.jpg" alt="Macro / detalle" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Fondo de color</span><img src="/estilos/fondo-color.jpg" alt="Fondo de color" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Cálido artesanal</span><img src="/estilos/calido-artesanal.jpg" alt="Cálido artesanal" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Producto flotando</span><img src="/estilos/producto-flotando.jpg" alt="Producto flotando" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Knolling</span><img src="/estilos/knolling.jpg" alt="Knolling" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Aire libre</span><img src="/estilos/aire-libre.jpg" alt="Aire libre" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Macro / detalle</span><img src="/estilos/macro-detalle.jpg" alt="Macro / detalle" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Fondo de color</span><img src="/estilos/fondo-color.jpg" alt="Fondo de color" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Cálido artesanal</span><img src="/estilos/calido-artesanal.jpg" alt="Cálido artesanal" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Producto flotando</span><img src="/estilos/producto-flotando.jpg" alt="Producto flotando" loading="lazy"></div></div>
+      <div class="g-card"><div class="rimg"><span class="tag">Knolling</span><img src="/estilos/knolling.jpg" alt="Knolling" loading="lazy"></div></div>
+    </div>
+  </div>
+  <div class="wrap" style="text-align:center;margin-top:clamp(30px,4vw,48px)">
+    <p style="font-family:var(--font-display);font-style:italic;font-size:clamp(1.4rem,3.4vw,2.3rem);color:var(--ink);line-height:1.15">Tus productos pueden estar <em style="color:var(--clay)">acá</em>.</p>
+    <button class="pill" style="margin-top:18px" onclick="window.VendiQuiz&&window.VendiQuiz.buy&&window.VendiQuiz.buy()">Quiero mis fotos así
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</section>
+
+<!-- ============ PROBLEM ============ -->
+<section class="problem">
+  <div class="wrap">
+    <div class="pains reveal">
+      <div class="pains-head">
+        <span class="kicker">¿Vendés productos físicos por redes?</span>
+        <h2>Entonces seguro <em>te pasa esto…</em></h2>
+      </div>
+      <div class="pain"><span class="pnum">01</span><span class="pico">🖼️</span><span class="ptxt">Las fotos no transmiten la calidad real de tu producto.</span></div>
+      <div class="pain"><span class="pnum">02</span><span class="pico">🔄</span><span class="ptxt">Querés cambiar un detalle y se te arruina <b>toda</b> la imagen.</span></div>
+      <div class="pain"><span class="pnum">03</span><span class="pico">⏰</span><span class="ptxt">Pasás horas para conseguir una sola foto decente.</span></div>
+      <div class="pain"><span class="pnum">04</span><span class="pico">📸</span><span class="ptxt">Pagás una sesión cara que igual no representa tu marca.</span></div>
+      <div class="pain"><span class="pnum">05</span><span class="pico">💸</span><span class="ptxt">Publicás y las fotos no transmiten la calidad de tu producto.</span></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="manifesto reveal">
+      <p class="m-txt">El problema <em class="t-sage">no eres tú</em>.<br>El problema es que las imágenes <em class="t-clay">mediocres</em> no venden.</p>
+      <p class="small">La cruda verdad</p>
+    </div>
+  </div>
+
+  <div class="truth">
+    <div class="wrap">
+      <div class="truth-head reveal">
+        <span class="kicker center">La matemática es simple</span>
+        <h2 style="margin-top:16px">Más fotos, más pruebas, <em>más ventas</em>.</h2>
+      </div>
+      <div class="chart-card reveal d1">
+        <div class="chart-top">
+          <div class="ct-l">
+            <div class="ct-k">Más fotos publicadas · más chances de vender</div>
+            <div class="ct-v">Quien publica más, vende más.</div>
+          </div>
+          <div class="legend">
+            <span class="lg you"><span class="sw"></span>Pocas fotos</span>
+            <span class="lg comp"><span class="sw"></span>Muchas fotos (con Vendí)</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart-svg" viewBox="0 0 900 360" preserveAspectRatio="xMidYMid meet" aria-label="Más fotos publicadas, más ventas">
+            <line class="gridline" x1="60" y1="40" x2="860" y2="40"/>
+            <line class="gridline" x1="60" y1="120" x2="860" y2="120"/>
+            <line class="gridline" x1="60" y1="200" x2="860" y2="200"/>
+            <line class="gridline" x1="60" y1="280" x2="860" y2="280"/>
+            <text class="axis-lbl axis-y" x="12" y="48" transform="rotate(-90 12 165)">Ventas →</text>
+            <text class="axis-lbl" x="60" y="320">Pocas fotos</text>
+            <text class="axis-lbl" x="860" y="320" text-anchor="end">Muchas fotos →</text>
+            <path id="compArea" d="M60,272 C 250,255 430,150 620,95 S 800,55 860,42 L860,290 L60,290 Z" fill="url(#youGrad)" opacity="0"/>
+            <path id="youArea" d="M60,278 C 250,272 430,262 620,255 S 800,250 860,246 L860,290 L60,290 Z" fill="url(#compGrad)" opacity="0"/>
+            <defs>
+              <linearGradient id="compGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a85a3f" stop-opacity=".45"/><stop offset="100%" stop-color="#a85a3f" stop-opacity="0"/></linearGradient>
+              <linearGradient id="youGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7e9a75" stop-opacity=".55"/><stop offset="100%" stop-color="#7e9a75" stop-opacity="0"/></linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <path class="cl-path cl-comp" id="compLine" filter="url(#glow)" d="M60,272 C 250,255 430,150 620,95 S 800,55 860,42"/>
+            <path class="cl-path cl-you" id="youLine" d="M60,278 C 250,272 430,262 620,255 S 800,250 860,246"/>
+            <circle id="compDot" cx="860" cy="42" r="7" fill="#b6e08a" opacity="0"/>
+            <circle id="youDot" cx="860" cy="246" r="6" fill="#a85a3f" opacity="0"/>
+            <text id="compEnd" class="chart-end-label" x="846" y="28" text-anchor="end" fill="#b6e08a" opacity="0">Más fotos → más ventas</text>
+            <text id="youEnd" class="chart-end-label" x="846" y="238" text-anchor="end" fill="#e9b98f" opacity="0">Pocas fotos → ventas estancadas</text>
+          </svg>
+        </div>
+        <p class="chart-note">// Mismo producto. La única variable es cuántas fotos pusiste a competir.</p>
+      </div>
+      <div class="lottery reveal d2">
+        <p>Si pruebas <em class="t-clay">5</em>, es lotería.<br>Si pruebas <em class="t-forest">100</em>, es <em class="serif i">estadística</em>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="generic">
+    <div class="wrap">
+      <div class="generic-grid">
+        <div class="reveal">
+          <span class="kicker">El problema real</span>
+          <h2 style="margin-top:16px">Herramientas genéricas <em>=</em> resultados <em>genéricos</em>.</h2>
+          <p class="lead">Las plataformas tradicionales de diseño o IA ilustrativa no están hechas para fotografía de producto comercial real. Vendí sí.</p>
+        </div>
+        <div class="tools reveal d1">
+          <div class="tool"><span class="xmark">✕</span><span class="tn">Canva</span><span class="tx">No está hecho para fotografía de producto.</span></div>
+          <div class="tool"><span class="xmark">✕</span><span class="tn">Midjourney</span><span class="tx">No entiende tu producto ni tu marca.</span></div>
+          <div class="tool"><span class="xmark">✕</span><span class="tn">ChatGPT</span><span class="tx">No sabe de fotografía comercial real.</span></div>
+          <div class="tool"><span class="xmark">✕</span><span class="tn">Sesión de fotos</span><span class="tx">Cara, lenta y se agota en una tanda.</span></div>
+          <div class="tool win"><span class="checkmark">✓</span><span class="tn">Vendí</span><span class="tx">Hecho para tu producto, tu marca y tu mercado.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="manifesto reveal">
+      <p class="m-txt">Mientras tú <em class="t-sage">perfeccionas</em> un diseño,<br>tu competencia ya probó <em class="t-butter">50</em>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRANSFORMACIÓN (antes / después) + garantía ============ -->
+<section class="cases" id="casos">
+  <div class="wrap">
+    <div class="cases-head reveal">
+      <span class="kicker center">La prueba es el producto</span>
+      <h2 style="margin-top:16px">Mirá la <em>transformación</em></h2>
+      <p class="lead" style="margin-top:14px">La misma foto cruda de celular, convertida en una imagen lista para vender.</p>
+    </div>
+
+    <div class="transform reveal d1">
+      <div class="tr-pair">
+        <div class="tr-card tr-before">
+          <span class="tr-tag before">Foto cruda</span>
+          <div class="photo before"><div class="floor"></div><div class="obj"></div></div>
+        </div>
+        <div class="tr-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="tr-card tr-after">
+          <span class="tr-tag after">Con Vendí</span>
+          <div class="rimg"><img src="/estilos/editorial-premium.jpg" alt="Resultado profesional con Vendí" loading="lazy"></div>
+        </div>
+      </div>
+      <div class="tr-pair">
+        <div class="tr-card tr-before">
+          <span class="tr-tag before">Foto cruda</span>
+          <div class="photo before box"><div class="floor"></div><div class="obj"></div></div>
+        </div>
+        <div class="tr-arrow"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="tr-card tr-after">
+          <span class="tr-tag after">Con Vendí</span>
+          <div class="rimg"><img src="/estilos/lifestyle.jpg" alt="Resultado profesional con Vendí" loading="lazy"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guarantee reveal d2">
+      <span class="guarantee-ic">🛡️</span>
+      <div class="guarantee-txt">
+        <b>Probá sin riesgo.</b>
+        <span>Arrancás con 60 créditos de regalo y 10 análisis con IA, sin tarjeta. Soporte directo del fundador, de verdad.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SOLUTION ============ -->
+<section class="solution" id="solucion">
+  <div class="wrap">
+    <div class="sol-head reveal">
+      <span class="kicker center">La solución</span>
+      <h2 class="sol-title">Conocé a <span class="brandmark v3d">Vendí</span></h2>
+      <p class="sol-sub reveal d1">Tres capítulos: cómo funciona, por qué es distinto y lo que vas a tener en tus manos.</p>
+    </div>
+
+    <!-- CAPÍTULO 1: ASÍ FUNCIONA -->
+    <div class="chapter">
+      <div class="chapter-head reveal">
+        <span class="ch-num">01</span>
+        <div class="ch-titles">
+          <span class="ch-kicker">Así funciona</span>
+          <h3 class="ch-title">De la foto al pack listo, en <em>3 pasos</em></h3>
+        </div>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-text">
+          <div class="step-num">01</div>
+          <h3>Sube <em>tu producto</em></h3>
+          <p>Cargas la foto básica desde tu celular y el sistema aísla el objeto automáticamente. Sin Photoshop, sin recortes manuales.</p>
+        </div>
+        <div class="step-visual">
+          <div class="appscr">
+            <div class="topbar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="url">app.vendi.app/productos</span></div>
+            <div class="body">
+              <div class="up-zone"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"/></svg></span>Arrastrá la foto de tu producto</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-text">
+          <div class="step-num">02</div>
+          <h3>Elige <em>estilos y referencias</em></h3>
+          <p>Elegís entre estilos profesionales, ángulos y escenarios. Sumás tus propias referencias visuales si querés. Cero prompts.</p>
+        </div>
+        <div class="step-visual">
+          <div class="appscr">
+            <div class="topbar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="url">app.vendi.app/estilo</span></div>
+            <div class="body">
+              <div class="style-grid">
+                <div class="style-chip real sel"><img src="/estilos/estudio-limpio.jpg" alt="Estudio limpio" loading="lazy"></div>
+                <div class="style-chip real"><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div>
+                <div class="style-chip real"><img src="/estilos/flat-lay.jpg" alt="Flat lay cenital" loading="lazy"></div>
+                <div class="style-chip real"><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div>
+                <div class="style-chip real"><img src="/estilos/macro-detalle.jpg" alt="Macro / detalle" loading="lazy"></div>
+                <div class="style-chip real"><img src="/estilos/calido-artesanal.jpg" alt="Cálido artesanal" loading="lazy"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-text">
+          <div class="step-num">03</div>
+          <h3>Descarga <em>tu pack listo</em></h3>
+          <p>Bajas tus imágenes optimizadas para cada canal: feed, story, ecommerce. Listas para subir a Instagram, Facebook Marketplace, Temu o tu tienda propia.</p>
+        </div>
+        <div class="step-visual">
+          <div class="appscr">
+            <div class="topbar"><span class="d"></span><span class="d"></span><span class="d"></span><span class="url">app.vendi.app/fabrica</span></div>
+            <div class="body">
+              <div class="out-grid">
+                <div class="rimg"><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div>
+                <div class="rimg"><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div>
+                <div class="rimg"><img src="/estilos/flat-lay.jpg" alt="Flat lay cenital" loading="lazy"></div>
+                <div class="rimg"><img src="/estilos/fondo-color.jpg" alt="Fondo de color" loading="lazy"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPÍTULO 2: POR QUÉ ES DISTINTO -->
+    <div class="chapter">
+      <div class="chapter-head reveal">
+        <span class="ch-num">02</span>
+        <div class="ch-titles">
+          <span class="ch-kicker">Por qué es distinto</span>
+          <h3 class="ch-title">No es otra <em>IA genérica</em></h3>
+        </div>
+      </div>
+      <div class="why-grid">
+        <div class="why a reveal">
+          <div class="wic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.5 5 5.5.8-4 3.9.9 5.5L12 21.5 7.1 18.2l.9-5.5-4-3.9L9.5 8z"/></svg></div>
+          <h3>Calidad de <em>estudio</em></h3>
+          <p>No escribís prompts ni peleás con la IA. Cada estilo está pensado por fotógrafos para que tu producto se vea profesional de verdad.</p>
+        </div>
+        <div class="why b reveal d1">
+          <div class="wic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 7a4 4 0 11-8 0 4 4 0 018 0zM12 11v6m-3-3h6"/></svg></div>
+          <h3>Créditos <em>sin vueltas</em></h3>
+          <p>Cada imagen usa créditos. Arrancás con 60 de regalo —más 10 análisis con IA de cortesía— y sumás más cuando los necesites. Sin mensualidades obligatorias.</p>
+        </div>
+        <div class="why c reveal d2">
+          <div class="wic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-7-10a7 7 0 0114 0c0 5.5-7 10-7 10z"/><circle cx="12" cy="11" r="2.5"/></svg></div>
+          <h3>Hecho para <em>LATAM</em></h3>
+          <p>Entiende fotografía de producto comercial real. Pensado para vender en Instagram, Facebook Marketplace, Temu, Amazon, TikTok o tu tienda propia.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPÍTULO 3: EL RESULTADO -->
+    <div class="chapter">
+      <div class="chapter-head reveal">
+        <span class="ch-num">03</span>
+        <div class="ch-titles">
+          <span class="ch-kicker">El resultado</span>
+          <h3 class="ch-title">Tu catálogo, <em>sin sesión de fotos</em></h3>
+        </div>
+      </div>
+      <div class="picker-head reveal">
+        <p class="picker-hint"><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M9 6l-6 6 6 6M21 12H4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Tocá una imagen para elegirla · arrastrá para ver más <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M15 6l6 6-6 6M3 12h17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
+        <span class="picker-status">Elegiste: <b id="pickName">Editorial premium</b></span>
+      </div>
+      <div class="picker-rail" id="pickerRail">
+        <button class="pick selected" data-name="Editorial premium"><div class="rimg"><span class="tag">Editorial premium</span><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Estudio limpio"><div class="rimg"><span class="tag">Estudio limpio</span><img src="/estilos/estudio-limpio.jpg" alt="Estudio limpio" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Lifestyle"><div class="rimg"><span class="tag">Lifestyle</span><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Flat lay cenital"><div class="rimg"><span class="tag">Flat lay cenital</span><img src="/estilos/flat-lay.jpg" alt="Flat lay cenital" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Knolling"><div class="rimg"><span class="tag">Knolling</span><img src="/estilos/knolling.jpg" alt="Knolling" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Producto flotando"><div class="rimg"><span class="tag">Producto flotando</span><img src="/estilos/producto-flotando.jpg" alt="Producto flotando" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Aire libre"><div class="rimg"><span class="tag">Aire libre</span><img src="/estilos/aire-libre.jpg" alt="Aire libre" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Macro / detalle"><div class="rimg"><span class="tag">Macro / detalle</span><img src="/estilos/macro-detalle.jpg" alt="Macro / detalle" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Fondo de color"><div class="rimg"><span class="tag">Fondo de color</span><img src="/estilos/fondo-color.jpg" alt="Fondo de color" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="pick" data-name="Cálido artesanal"><div class="rimg"><span class="tag">Cálido artesanal</span><img src="/estilos/calido-artesanal.jpg" alt="Cálido artesanal" loading="lazy"></div><span class="pick-check"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+      </div>
+      <div class="picker-progress"><i id="pickerBar"></i></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRECIOS ============ -->
+<section class="pricing" id="precios">
+  <style>
+    .amt-old{font-family:var(--font-display);font-weight:400;font-size:clamp(1.4rem,3vw,1.9rem);line-height:1;text-decoration:line-through;text-decoration-thickness:2px;color:rgba(240,244,231,.5);margin-right:2px}
+    .plan-save{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--forest);background:var(--butter);padding:5px 10px;border-radius:7px;align-self:center;margin-left:4px}
+    .plan-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;position:relative;z-index:1}
+    .plan-tag{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:rgba(240,244,231,.8);background:rgba(240,244,231,.08);border:1px solid rgba(240,244,231,.14);padding:7px 12px;border-radius:999px}
+    .plan-fine{margin-top:14px;text-align:center;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.03em;color:rgba(240,244,231,.55);position:relative;z-index:1}
+    .plans.single{display:block;max-width:540px;margin:0 auto}
+  </style>
+  <div class="wrap">
+    <div class="pricing-head reveal">
+      <span class="kicker center">Lifetime Pass</span>
+      <h2 style="margin-top:16px">Pagá una vez. Usalo <em class="serif i t-clay">para siempre</em>.</h2>
+      <p class="lead" style="margin-top:14px;max-width:580px;margin-left:auto;margin-right:auto">El Lifetime Pass es solo por el lanzamiento: los primeros en sumarse aseguran acceso de por vida con un único pago. Después, Vendí pasa a planes por suscripción mensual.</p>
+    </div>
+    <div class="tkt">
+      <div class="tkt-glow" aria-hidden="true"></div>
+      <div class="tkt-inner">
+        <div class="tkt-copy">
+          <span class="kicker">El regalo de lanzamiento</span>
+          <h3 class="tkt-h">Tu catálogo que vende,<br><em>listo esta tarde.</em></h3>
+          <p class="tkt-sub">Subís una foto, elegís un estilo y descargás imágenes que venden. Empezás con <strong>60 créditos de regalo</strong> y <strong>10 análisis con IA</strong> — sin sesión de fotos ni diseñador.</p>
+        </div>
+        <div class="tkt-props" aria-hidden="true">
+          <div class="tkt-card a"><div class="rimg"><img src="/estilos/editorial-premium.jpg" alt="" loading="lazy"></div></div>
+          <div class="tkt-card b"><div class="rimg"><img src="/estilos/lifestyle.jpg" alt="" loading="lazy"></div></div>
+          <div class="tkt-card c"><div class="rimg"><img src="/estilos/estudio-limpio.jpg" alt="" loading="lazy"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="plans single">
+      <div class="plan featured reveal d1">
+        <span class="plan-badge">🎁 Oferta de lanzamiento · por tiempo limitado</span>
+        <div class="plan-top">
+          <h3>Lifetime Pass</h3>
+          <p class="plan-sub">Acceso completo a Vendí, de por vida.</p>
+          <div class="plan-price">
+            <span class="amt-old">$27</span>
+            <span class="amt">$10</span>
+            <span class="per">USD · pago único</span>
+            <span class="plan-save">Ahorrás $17</span>
+          </div>
+          <div class="plan-tags">
+            <span class="plan-tag">⚡ Pago único</span>
+            <span class="plan-tag">♾️ Acceso de por vida</span>
+          </div>
+        </div>
+        <ul class="plan-feats">
+          <li>Todos los estilos profesionales curados</li>
+          <li>Sin marca de agua · alta resolución</li>
+          <li>Formatos por canal: feed, story, ecommerce</li>
+          <li>60 créditos de inicio incluidos <span class="byok">(generás tus imágenes con ellos)</span></li>
+          <li>10 análisis con IA de regalo <span class="byok">(bolsa aparte de tus créditos)</span></li>
+          <li>Mejoras y estilos nuevos, para siempre</li>
+        </ul>
+        <button class="pill lg" style="width:100%;justify-content:center" onclick="window.VendiQuiz&&window.VendiQuiz.buy&&window.VendiQuiz.buy()">Quiero mi Lifetime Pass
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <p class="plan-fine">Pago único · Sin mensualidades · Acceso de por vida</p>
+      </div>
+    </div>
+    <p class="pricing-foot reveal d2">Cada imagen usa créditos. Arrancás con 60 de regalo y sumás más packs cuando quieras, sin mensualidades.</p>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="faq" id="faq">
+  <style>
+    .faq{padding:clamp(50px,7vw,90px) 0}
+    .faq-head{text-align:center;max-width:680px;margin:0 auto clamp(36px,5vw,52px)}
+    .faq-head h2{margin-top:16px}
+    .faq-head h2 em{font-style:italic}
+    .faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+    .faq-item{
+      background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);
+      overflow:hidden;transition:border-color .25s,box-shadow .25s;
+    }
+    .faq-item.open{border-color:var(--border-strong);box-shadow:var(--shadow)}
+    .faq-q{
+      width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;
+      background:none;border:none;cursor:pointer;text-align:left;
+      padding:20px clamp(18px,2.4vw,26px);min-height:44px;
+      font-family:var(--font-display);font-weight:600;font-size:clamp(1.05rem,2vw,1.28rem);
+      letter-spacing:-.01em;line-height:1.25;color:var(--ink);
+    }
+    .faq-q:hover{color:var(--clay)}
+    .faq-q:focus-visible{outline:2px solid var(--ring);outline-offset:-2px;border-radius:var(--radius-sm)}
+    .faq-chev{
+      flex:0 0 auto;width:24px;height:24px;color:var(--sage-strong);
+      transition:transform .3s cubic-bezier(.2,.8,.2,1);
+    }
+    .faq-item.open .faq-chev{transform:rotate(180deg);color:var(--clay)}
+    .faq-a{
+      max-height:0;opacity:0;overflow:hidden;
+      transition:max-height .4s cubic-bezier(.2,.8,.2,1),opacity .3s ease;
+    }
+    .faq-item.open .faq-a{max-height:360px;opacity:1}
+    .faq-a-inner{
+      padding:0 clamp(18px,2.4vw,26px) 22px;
+      color:var(--ink-soft);font-size:1rem;line-height:1.6;max-width:62ch;
+    }
+    @media(prefers-reduced-motion:reduce){
+      .faq-chev,.faq-a,.faq-item{transition:none}
+    }
+  </style>
+  <div class="wrap">
+    <div class="faq-head reveal">
+      <span class="kicker center">Preguntas frecuentes</span>
+      <h2>Todo lo que <em class="serif i t-clay">querés saber</em></h2>
+    </div>
+    <div class="faq-list reveal d1">
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q1" aria-expanded="false" aria-controls="faq-a1">
+          ¿Qué es Vendí exactamente?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a1" role="region" aria-labelledby="faq-q1">
+          <div class="faq-a-inner">Una app que convierte la foto de tu producto —la que sacás con el celular— en imágenes profesionales listas para vender. Subís la foto, elegís un estilo y descargás. Sin sesión de fotos, sin Photoshop y sin escribir prompts.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q2" aria-expanded="false" aria-controls="faq-a2">
+          ¿Necesito saber de fotografía, diseño o IA?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a2" role="region" aria-labelledby="faq-q2">
+          <div class="faq-a-inner">No. Elegís entre estilos profesionales ya armados y la IA hace el resto. No configurás nada técnico ni peleás con prompts.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q3" aria-expanded="false" aria-controls="faq-a3">
+          ¿Qué tipo de productos funcionan?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a3" role="region" aria-labelledby="faq-q3">
+          <div class="faq-a-inner">Productos físicos: cosmética, accesorios, deco y hogar, joyería, alimentos, indumentaria y más. Si lo vendés con una foto, Vendí lo hace ver mejor.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q4" aria-expanded="false" aria-controls="faq-a4">
+          ¿Las imágenes llevan marca de agua?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a4" role="region" aria-labelledby="faq-q4">
+          <div class="faq-a-inner">No. Con el Lifetime Pass descargás en alta resolución y sin marca de agua, listas para publicar donde quieras.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q5" aria-expanded="false" aria-controls="faq-a5">
+          ¿Qué son los créditos y cuántas imágenes puedo generar?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a5" role="region" aria-labelledby="faq-q5">
+          <div class="faq-a-inner">Cada imagen que generás usa créditos. Arrancás con 60 créditos de regalo. Cuando se te terminan, sumás más con un pack — sin mensualidad obligatoria.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q6" aria-expanded="false" aria-controls="faq-a6">
+          ¿Y los &quot;10 análisis con IA&quot;?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a6" role="region" aria-labelledby="faq-q6">
+          <div class="faq-a-inner">Es una bolsa aparte de tus créditos de generación: la IA analiza tu producto y te sugiere los mejores estilos y encuadres. No te gasta créditos de imagen.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q7" aria-expanded="false" aria-controls="faq-a7">
+          ¿El pago es único o una suscripción?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a7" role="region" aria-labelledby="faq-q7">
+          <div class="faq-a-inner">El Lifetime Pass es un pago único: lo pagás una vez y tenés acceso de por vida, incluidas las mejoras y los estilos nuevos. Sin cobros mensuales.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q8" aria-expanded="false" aria-controls="faq-a8">
+          ¿Para qué canales sirven las imágenes?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a8" role="region" aria-labelledby="faq-q8">
+          <div class="faq-a-inner">Las descargás en los formatos de cada canal: feed, story y ecommerce. Listas para Instagram, Facebook Marketplace, Temu, TikTok, Amazon o tu tienda propia.</div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" id="faq-q9" aria-expanded="false" aria-controls="faq-a9">
+          ¿Necesito instalar algo?
+          <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="faq-a" id="faq-a9" role="region" aria-labelledby="faq-q9">
+          <div class="faq-a-inner">No. Vendí funciona desde el navegador, en compu o en celular. No instalás nada.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="final" id="cta">
+  <div class="final-in reveal">
+    <h2>Un solo pago.<br>Tu catálogo, <em>para siempre</em>.</h2>
+    <p>Sin sesión de fotos. Sin diseñador. Sin mensualidades.</p>
+    <div class="final-cta">
+      <button class="pill on-dark lg" onclick="window.VendiQuiz&&window.VendiQuiz.buy&&window.VendiQuiz.buy()">Quiero mi Lifetime Pass
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <a href="#precios"><button class="pill ghost on-dark-ghost lg">Ver qué incluye</button></a>
+    </div>
+    <p class="micro">🎁 Oferta de lanzamiento · $10 USD pago único · Acceso de por vida</p>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="foot-brand">
+        <a href="#" class="brand">Vend<b>í</b>.</a>
+        <p>Tu producto, en cualquier escenario, sin sesión de fotos.</p>
+        <div class="foot-social">
+          <a href="#" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg></a>
+          <a href="#" aria-label="TikTok"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3c.3 2.1 1.5 3.6 3.5 3.9v2.6c-1.3.1-2.5-.3-3.6-1v5.9c0 3.4-2.5 5.6-5.5 5.6-2.9 0-5-2.1-5-4.9 0-2.9 2.3-5 5.4-4.7v2.7c-.4-.1-.9-.2-1.3-.1-1.1.1-1.9 1-1.8 2.2.1 1.1 1 1.9 2.1 1.8 1.2 0 2-1 2-2.4V3h3.8z"/></svg></a>
+          <a href="#" aria-label="WhatsApp"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21l1.6-4.2A8 8 0 1112 20a8 8 0 01-4.2-1.2L3 21z"/><path d="M8.5 9.5c0 3 2 5 5 5l1-1.3-1.8-1-.8.8c-1 0-2-1-2-2l.8-.8-1-1.8-1.2.8z" fill="currentColor" stroke="none"/></svg></a>
+        </div>
+      </div>
+      <div class="foot-links">
+        <div class="foot-col">
+          <h4>Producto</h4>
+          <a href="#galeria">Ejemplos</a>
+          <a href="#solucion">Cómo funciona</a>
+          <a href="#precios">Precios</a>
+          <a href="#faq">Preguntas</a>
+          <a href="#casos">Casos de éxito</a>
+        </div>
+        <div class="foot-col">
+          <h4>Empresa</h4>
+          <a href="#">Sobre Vendí</a>
+          <a href="#">Contacto</a>
+          <a href="#">Soporte</a>
+        </div>
+        <div class="foot-col">
+          <h4>Legal</h4>
+          <a href="#">Términos</a>
+          <a href="#">Privacidad</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Vendí. Todos los derechos reservados.</span>
+      <span>Hecho para quienes venden en LATAM 🌱</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* scroll reveal */
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+},{threshold:.12, rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* tools strike-through trigger */
+const tio = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); tio.unobserve(e.target);} });
+},{threshold:.5});
+document.querySelectorAll('.tool').forEach(el=>tio.observe(el));
+
+/* chart draw-on animation */
+function prep(id){const p=document.getElementById(id);const len=p.getTotalLength();p.style.strokeDasharray=len;p.style.strokeDashoffset=len;return p;}
+const youLine=prep('youLine'), compLine=prep('compLine');
+const cio = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      youLine.style.transition='stroke-dashoffset 1.4s ease-out';
+      compLine.style.transition='stroke-dashoffset 1.9s ease-out .2s';
+      youLine.style.strokeDashoffset=0;
+      compLine.style.strokeDashoffset=0;
+      ['youArea','compArea'].forEach((a,i)=>{const el=document.getElementById(a);el.style.transition=`opacity 1s ease ${.8+i*.3}s`;el.style.opacity=1;});
+      [['youDot',1.2],['compDot',1.7],['youEnd',1.4],['compEnd',1.9]].forEach(([id,d])=>{const el=document.getElementById(id);el.style.transition=`opacity .5s ease ${d}s`;el.style.opacity=1;});
+      cio.disconnect();
+    }
+  });
+},{threshold:.4});
+const chart=document.querySelector('.chart-card'); if(chart) cio.observe(chart);
+
+/* flow animation: activar el loop antes/después al entrar en viewport (respeta reduced-motion) */
+const flowEl=document.getElementById('vendiFlow');
+if(flowEl){
+  const reduceMo=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduceMo){
+    flowEl.classList.add('reduced'); // CSS muestra el estado final sin animar
+  }else{
+    const fio=new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting){ flowEl.classList.add('animate'); fio.disconnect(); } });
+    },{threshold:.4});
+    fio.observe(flowEl);
+  }
+}
+
+/* nav: fondo al scroll + hamburger mobile */
+const navEl=document.querySelector('nav');
+const onScroll=()=>{navEl.classList.toggle('scrolled',window.scrollY>20)};
+onScroll();window.addEventListener('scroll',onScroll,{passive:true});
+const toggle=document.querySelector('.nav-toggle');
+const navLinks=document.querySelector('.nav-links');
+toggle.addEventListener('click',()=>{
+  const open=toggle.classList.toggle('open');
+  navLinks.classList.toggle('open',open);
+  toggle.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú');
+});
+navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{
+  toggle.classList.remove('open');navLinks.classList.remove('open');
+}));
+
+/* drag-to-scroll reutilizable para rieles horizontales */
+function makeDraggable(el){
+  if(!el)return;
+  let down=false,startX=0,startScroll=0;
+  el.addEventListener('pointerdown',e=>{
+    if(e.target.closest('a,button')&&el.dataset.allowClicks==='1'){}
+    down=true;el.dataset.moved='0';startX=e.clientX;startScroll=el.scrollLeft;el.classList.add('dragging');
+  });
+  el.addEventListener('pointermove',e=>{if(!down)return;const dx=e.clientX-startX;if(Math.abs(dx)>4)el.dataset.moved='1';el.scrollLeft=startScroll-dx;});
+  const end=()=>{if(!down)return;down=false;el.classList.remove('dragging');setTimeout(()=>el.dataset.moved='0',30);};
+  el.addEventListener('pointerup',end);
+  el.addEventListener('pointercancel',end);
+  el.addEventListener('pointerleave',end);
+  /* rueda vertical -> scroll horizontal */
+  el.addEventListener('wheel',e=>{
+    if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){el.scrollLeft+=e.deltaY;e.preventDefault();}
+  },{passive:false});
+}
+makeDraggable(document.querySelector('.hero-strip'));
+
+/* solución: capítulos verticales (revelar contenido al hacer scroll) */
+
+/* galería seleccionable + drag-to-scroll + progreso */
+const rail=document.getElementById('pickerRail');
+if(rail){
+  const picks=rail.querySelectorAll('.pick');
+  const pickName=document.getElementById('pickName');
+  const bar=document.getElementById('pickerBar');
+  picks.forEach(p=>p.addEventListener('click',e=>{
+    if(rail.dataset.moved==='1'){return;}
+    picks.forEach(x=>x.classList.toggle('selected',x===p));
+    if(pickName)pickName.textContent=p.dataset.name;
+  }));
+  /* progress bar */
+  const updateBar=()=>{
+    const max=rail.scrollWidth-rail.clientWidth;
+    const ratio=max>0?rail.scrollLeft/max:0;
+    const track=bar.parentElement.clientWidth;
+    const w=Math.max(track*0.18,30);
+    bar.style.width=w+'px';
+    bar.style.marginLeft=(ratio*(track-w))+'px';
+  };
+  rail.addEventListener('scroll',updateBar,{passive:true});
+  window.addEventListener('resize',updateBar);
+  updateBar();
+  /* drag to scroll */
+  let down=false,startX=0,startScroll=0;
+  rail.addEventListener('pointerdown',e=>{down=true;rail.dataset.moved='0';startX=e.clientX;startScroll=rail.scrollLeft;rail.classList.add('dragging');});
+  rail.addEventListener('pointermove',e=>{if(!down)return;const dx=e.clientX-startX;if(Math.abs(dx)>4)rail.dataset.moved='1';rail.scrollLeft=startScroll-dx;});
+  const endDrag=()=>{down=false;rail.classList.remove('dragging');setTimeout(()=>rail.dataset.moved='0',30);};
+  rail.addEventListener('pointerup',endDrag);
+  rail.addEventListener('pointercancel',endDrag);
+  rail.addEventListener('pointerleave',()=>{if(down)endDrag();});
+}
+
+</script>
+
+<!-- =====================================================================
+     QUIZ DE DIAGNÓSTICO v2 (Lifetime Pass) — Vendí
+     Funnel: 6 preguntas -> diagnóstico -> mecanismo -> prueba -> escasez
+     -> cupón raspable -> checkout Lifetime Pass. Vanilla JS, usa las
+     variables de color de la landing. window.VendiQuiz.open()/openCheckout()
+     ===================================================================== -->
+<style>
+.vq-overlay{
+  position:fixed;inset:0;z-index:2147483640;display:none;
+  align-items:center;justify-content:center;padding:clamp(14px,4vw,32px);
+  background:rgba(13,27,18,.55);backdrop-filter:blur(8px) saturate(1.1);
+  opacity:0;transition:opacity .35s ease;
+}
+.vq-overlay.open{display:flex;opacity:1}
+.vq-modal{
+  position:relative;width:100%;max-width:580px;max-height:calc(100vh - 28px);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--card,#faf6e8);color:var(--ink,#0d1b12);
+  border-radius:clamp(18px,3vw,26px);
+  box-shadow:0 50px 120px -30px rgba(15,31,22,.7);
+  transform:translateY(24px) scale(.98);opacity:0;
+  transition:transform .4s cubic-bezier(.2,.8,.2,1),opacity .4s;
+}
+.vq-overlay.open .vq-modal{transform:none;opacity:1}
+.vq-close{
+  position:absolute;top:14px;right:14px;z-index:6;width:36px;height:36px;border:none;
+  border-radius:999px;cursor:pointer;background:rgba(15,31,22,.06);color:var(--ink-soft,#283827);
+  font-size:15px;line-height:1;display:grid;place-items:center;transition:background .2s,transform .2s;
+}
+.vq-close:hover{background:rgba(15,31,22,.12);transform:rotate(90deg)}
+.vq-top{padding:clamp(22px,4vw,34px) clamp(22px,4vw,38px) 0}
+.vq-progress{height:5px;border-radius:999px;background:rgba(15,31,22,.08);overflow:hidden}
+.vq-progress i{display:block;height:100%;width:0;border-radius:999px;
+  background:linear-gradient(90deg,var(--sage-strong,#3d5a36),var(--clay,#a85a3f));
+  transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.vq-meta{margin-top:12px;font-family:var(--font-mono,monospace);font-size:11.5px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--mute,#5a6852);
+  display:flex;align-items:center;justify-content:space-between}
+.vq-meta b{font-family:var(--font-display,serif);font-style:italic;font-weight:500;
+  font-size:1.05rem;color:var(--clay,#a85a3f);letter-spacing:0}
+.vq-stage{position:relative;flex:1;overflow-y:auto;padding:clamp(18px,3vw,26px) clamp(22px,4vw,38px) clamp(22px,4vw,34px);scrollbar-width:thin}
+.vq-step{animation:vqIn .45s cubic-bezier(.2,.8,.2,1)}
+.vq-step.out{animation:vqOut .3s ease forwards}
+@keyframes vqIn{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes vqOut{from{opacity:1}to{opacity:0;transform:translateX(-22px)}}
+.vq-kicker{font-family:var(--font-mono,monospace);font-size:11.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--clay,#a85a3f);font-weight:500;display:inline-flex;align-items:center;gap:9px;margin-bottom:14px}
+.vq-kicker::before{content:"";width:22px;height:1.5px;background:var(--clay,#a85a3f)}
+.vq-q{font-family:var(--font-display,serif);font-weight:600;letter-spacing:-.02em;
+  font-size:clamp(1.55rem,4.4vw,2.15rem);line-height:1.14;color:var(--ink,#0d1b12)}
+.vq-q em{font-style:italic;color:var(--clay,#a85a3f)}
+.vq-hint{margin-top:10px;font-size:.95rem;color:var(--mute,#5a6852)}
+.vq-opts{margin-top:clamp(18px,3vw,26px);display:flex;flex-direction:column;gap:10px}
+.vq-opt{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;cursor:pointer;
+  background:rgba(255,255,255,.55);border:1.5px solid var(--border,rgba(15,31,22,.1));
+  border-radius:15px;padding:13px 16px;font:inherit;color:var(--ink-soft,#283827);position:relative;overflow:hidden;
+  transition:border-color .2s,background .2s,transform .15s,box-shadow .2s;
+}
+.vq-opt:hover{border-color:var(--sage-strong,#3d5a36);background:#fff;transform:translateY(-1px);box-shadow:0 10px 24px -16px rgba(15,31,22,.5)}
+.vq-opt.sel{border-color:var(--forest,#0f1f16);background:#fff;box-shadow:0 12px 28px -16px rgba(15,31,22,.55)}
+.vq-opt::after{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:0;background:var(--clay,#a85a3f);border-radius:0 4px 4px 0;transition:height .28s cubic-bezier(.2,.8,.2,1)}
+.vq-opt.sel::after{height:58%}
+.vq-badge{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  font-family:var(--font-mono,monospace);font-size:12px;font-weight:600;
+  background:rgba(61,90,54,.12);color:var(--sage-strong,#3d5a36);transition:background .2s,color .2s}
+.vq-opt:hover .vq-badge,.vq-opt.sel .vq-badge{background:var(--forest,#0f1f16);color:var(--cream,#f0f4e7)}
+.vq-opt .vq-emoji{font-size:1.25rem;flex:0 0 auto}
+.vq-opt .vq-otext{font-size:1.04rem;font-weight:600;line-height:1.3;color:var(--ink,#0d1b12)}
+.vq-opt .vq-tile{flex:0 0 auto;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:1.35rem;line-height:1;background:rgba(61,90,54,.1);transition:background .25s,transform .25s}
+.vq-opt:hover .vq-tile{background:rgba(61,90,54,.18);transform:scale(1.06)}
+.vq-opt.sel .vq-tile{background:var(--forest,#0f1f16);transform:scale(1.06)}
+.vq-opt .vq-check{margin-left:auto;flex:0 0 auto;width:22px;height:22px;border-radius:999px;
+  border:2px solid var(--border-strong,rgba(15,31,22,.16));display:grid;place-items:center;
+  transition:background .2s,border-color .2s}
+.vq-opt.sel .vq-check{background:var(--forest,#0f1f16);border-color:var(--forest,#0f1f16)}
+.vq-opt .vq-check svg{opacity:0;transition:opacity .2s}
+.vq-opt.sel .vq-check svg{opacity:1}
+.vq-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:22px}
+.vq-back{background:none;border:none;cursor:pointer;font:inherit;font-weight:500;
+  color:var(--mute,#5a6852);display:inline-flex;align-items:center;gap:6px;padding:8px 4px;transition:color .2s}
+.vq-back:hover{color:var(--ink,#0d1b12)}
+.vq-back[hidden]{visibility:hidden}
+.vq-next{
+  display:inline-flex;align-items:center;gap:9px;background:var(--pill-bg,#0f1f16);color:var(--pill-fg,#f0f4e7);
+  border:none;border-radius:999px;cursor:pointer;font:inherit;font-weight:600;font-size:1rem;
+  padding:14px 26px;transition:transform .2s,box-shadow .2s,opacity .2s;box-shadow:0 12px 30px -12px rgba(15,31,22,.6);
+}
+.vq-next:hover{transform:translateY(-2px)}
+.vq-next:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* ---- pantalla de diagnóstico ---- */
+.vq-diag-head{text-align:center}
+.vq-diag-head .vq-kicker{justify-content:center}
+.vq-diag-title{font-family:var(--font-display,serif);font-weight:600;letter-spacing:-.02em;
+  font-size:clamp(1.6rem,4.6vw,2.3rem);line-height:1.06;color:var(--ink,#0d1b12)}
+.vq-diag-title em{font-style:italic;color:var(--clay,#a85a3f)}
+.vq-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:22px 0}
+.vq-stat{background:var(--forest,#0f1f16);border-radius:16px;padding:20px 18px;text-align:center;position:relative;overflow:hidden}
+.vq-stat::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 0%,rgba(201,166,64,.16),transparent 60%)}
+.vq-stat .vn{position:relative;font-family:var(--font-display,serif);font-weight:500;letter-spacing:-.02em;
+  font-size:clamp(2rem,7vw,2.8rem);line-height:1;color:var(--butter,#c9a640)}
+.vq-stat .vl{position:relative;margin-top:8px;font-family:var(--font-mono,monospace);font-size:10.5px;
+  letter-spacing:.12em;text-transform:uppercase;color:rgba(240,244,231,.7);line-height:1.4}
+.vq-diag-body{font-size:1.04rem;line-height:1.6;color:var(--ink-soft,#283827);text-align:center}
+.vq-diag-body strong{color:var(--ink,#0d1b12)}
+.vq-flip{margin-top:18px;background:rgba(61,90,54,.1);border:1px solid rgba(61,90,54,.18);
+  border-radius:16px;padding:18px 20px;text-align:center}
+.vq-flip p{font-family:var(--font-display,serif);font-style:italic;font-size:clamp(1.1rem,2.6vw,1.35rem);
+  line-height:1.4;color:var(--sage-strong,#3d5a36)}
+.vq-flip p b{font-style:normal;font-weight:600;color:var(--clay,#a85a3f)}
+
+/* ---- hook visual antes/después ---- */
+.vq-ba{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:clamp(8px,2vw,16px);margin:22px 0 4px}
+.vq-ba-card{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 24px 50px -24px rgba(15,31,22,.5);border:5px solid var(--card,#faf6e8)}
+.vq-ba-card .photo{border-radius:0;aspect-ratio:4/5}
+.vq-ba-tag{position:absolute;top:9px;left:9px;z-index:6;font-family:var(--font-mono,monospace);
+  font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;padding:5px 9px;border-radius:7px}
+.vq-ba-tag.before{background:rgba(40,56,39,.78);color:#c6d6b2}
+.vq-ba-tag.after{background:var(--butter,#c9a640);color:var(--forest,#0f1f16)}
+.vq-ba-arrow{width:38px;height:38px;flex:0 0 auto;border-radius:999px;background:var(--forest,#0f1f16);
+  color:var(--cream,#f0f4e7);display:grid;place-items:center;box-shadow:0 10px 22px -8px rgba(15,31,22,.6);
+  animation:vqArrow 1.8s ease-in-out infinite}
+@keyframes vqArrow{0%,100%{transform:translateX(0)}50%{transform:translateX(3px)}}
+
+/* ---- guardar diagnóstico (email opcional) ---- */
+.vq-cta{width:100%;justify-content:center;font-size:1.05rem;padding:16px 26px;margin-top:6px}
+.vq-save{width:100%;margin-top:12px;background:none;border:none;cursor:pointer;font:inherit;
+  font-weight:500;font-size:.92rem;color:var(--mute,#5a6852);padding:8px;border-radius:10px;transition:color .2s,background .2s}
+.vq-save:hover{color:var(--ink,#0d1b12);background:rgba(15,31,22,.04)}
+.vq-save-send{width:100%;justify-content:center;display:inline-flex;align-items:center;
+  background:rgba(61,90,54,.12);color:var(--sage-strong,#3d5a36);border:1.5px solid rgba(61,90,54,.22);
+  border-radius:13px;cursor:pointer;font:inherit;font-weight:600;font-size:.98rem;padding:13px 20px;transition:background .2s}
+.vq-save-send:hover{background:rgba(61,90,54,.18)}
+
+/* ---- captura de contacto ---- */
+.vq-capture{margin-top:22px;display:flex;flex-direction:column;gap:11px}
+.vq-input{width:100%;box-sizing:border-box;font:inherit;font-size:1rem;color:var(--ink,#0d1b12);
+  background:#fff;border:1.5px solid var(--border,rgba(15,31,22,.1));border-radius:13px;padding:14px 16px;outline:none;transition:border-color .2s}
+.vq-input:focus{border-color:var(--forest,#0f1f16)}
+.vq-input::placeholder{color:var(--mute,#5a6852)}
+.vq-cta{width:100%;justify-content:center;font-size:1.05rem;padding:16px 26px}
+.vq-micro{text-align:center;font-family:var(--font-mono,monospace);font-size:11px;letter-spacing:.04em;color:var(--mute,#5a6852);margin-top:2px}
+.vq-err{color:var(--clay,#a85a3f);font-size:.85rem;font-weight:500;text-align:center;min-height:1em;margin-top:-4px}
+
+/* ---- éxito ---- */
+.vq-success{text-align:center;padding:14px 0}
+.vq-success .vq-ok{width:74px;height:74px;border-radius:999px;margin:0 auto 20px;display:grid;place-items:center;
+  background:rgba(61,90,54,.14);color:var(--sage-strong,#3d5a36);animation:vqPop .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes vqPop{from{transform:scale(0)}to{transform:scale(1)}}
+.vq-success h3{font-family:var(--font-display,serif);font-weight:600;font-size:clamp(1.6rem,4.4vw,2.1rem);color:var(--ink,#0d1b12);line-height:1.1}
+.vq-success p{margin-top:12px;color:var(--ink-soft,#283827);font-size:1.04rem;line-height:1.55}
+.vq-success .vq-next{margin-top:24px}
+
+/* ---- secuencia de venta post-diagnóstico ---- */
+.vq-diag-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0 2px}
+.vq-diag-strip .photo{border-radius:10px;aspect-ratio:1;border:3px solid var(--card,#faf6e8)}
+.vq-diag-cap{font-family:var(--font-mono,monospace);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute,#5a6852);text-align:center;margin-top:8px}
+.vq-mech{display:flex;flex-direction:column;gap:13px;margin:22px 0 26px}
+.vq-mech-row{display:flex;gap:14px;align-items:flex-start;text-align:left}
+.vq-mech-n{flex:0 0 auto;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--forest,#0f1f16);color:var(--cream,#f0f4e7);font-family:var(--font-display,serif);font-weight:600;font-size:1.05rem}
+.vq-mech-row b{font-family:var(--font-display,serif);font-weight:600;font-size:1.12rem;color:var(--ink,#0d1b12)}
+.vq-mech-row p{font-size:.93rem;color:var(--mute,#5a6852);line-height:1.45;margin-top:3px}
+.vq-proof{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0 16px}
+.vq-proof-card{position:relative;border-radius:14px;overflow:hidden;border:4px solid var(--card,#faf6e8);box-shadow:0 16px 34px -18px rgba(15,31,22,.5)}
+.vq-proof-card .photo,.vq-proof-card .rimg{border-radius:0;aspect-ratio:9/16}
+.vq-proof-stat{position:absolute;left:6px;right:6px;bottom:6px;z-index:6;text-align:center;background:rgba(201,166,64,.92);color:var(--forest,#0f1f16);font-family:var(--font-mono,monospace);font-size:9.5px;font-weight:600;padding:4px 5px;border-radius:7px;line-height:1.2}
+.vq-proof-quote{font-family:var(--font-display,serif);font-style:italic;font-size:1.12rem;line-height:1.35;color:var(--ink-soft,#283827);text-align:center;margin:6px 0 22px}
+.vq-scarce{list-style:none;margin:18px 0 24px;display:grid;gap:11px;text-align:left}
+.vq-scarce li{display:flex;gap:11px;font-size:.97rem;color:var(--ink-soft,#283827);align-items:flex-start;line-height:1.4}
+.vq-scarce li::before{content:"";flex:0 0 auto;width:18px;height:18px;margin-top:1px;border-radius:999px;background:rgba(61,90,54,.13) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233d5a36' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E") center/12px no-repeat}
+.vq-gift-head{margin-bottom:4px}
+.ticket.tk-modal{min-height:420px;box-shadow:0 30px 70px -30px rgba(15,31,22,.5)}
+.ticket.tk-modal .notch{background:var(--card,#faf6e8)}
+
+/* KPIs + mini-gráfico del diagnóstico */
+.vq-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:20px 0 12px}
+.vq-hero-kpi{position:relative;overflow:hidden;background:var(--forest,#0f1f16);border-radius:18px;padding:22px 20px;text-align:center;margin:20px 0 9px}
+.vq-hero-kpi::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 85% 75% at 50% 0%,rgba(168,90,63,.4),transparent 62%)}
+.vq-hero-kpi .vk-n{position:relative;font-family:var(--font-display,serif);font-weight:600;letter-spacing:-.03em;font-size:clamp(2.9rem,12vw,4.3rem);line-height:.9;color:#f0a888}
+.vq-hero-kpi .vk-l{position:relative;margin-top:9px;font-family:var(--font-mono,monospace);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(240,244,231,.78)}
+.vq-kpis2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 0 12px}
+.vq-kpi{background:var(--forest,#0f1f16);border-radius:14px;padding:15px 8px;text-align:center;position:relative;overflow:hidden}
+.vq-kpi::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 0%,rgba(126,154,117,.18),transparent 60%)}
+.vq-kpi.hot::before{background:radial-gradient(ellipse 80% 70% at 50% 0%,rgba(168,90,63,.36),transparent 62%)}
+.vq-kpi .vk-n{position:relative;font-family:var(--font-display,serif);font-weight:600;letter-spacing:-.02em;font-size:clamp(1.45rem,5.6vw,2.05rem);line-height:1;color:var(--butter,#c9a640)}
+.vq-kpi.hot .vk-n{color:#f0a888}
+.vq-kpi .vk-l{position:relative;margin-top:7px;font-family:var(--font-mono,monospace);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:rgba(240,244,231,.72);line-height:1.35}
+.vq-chart{background:rgba(15,31,22,.05);border:1px solid var(--border,rgba(15,31,22,.1));border-radius:14px;padding:15px 17px;margin:4px 0 8px}
+.vq-chart-cap{font-family:var(--font-mono,monospace);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute,#5a6852);margin-bottom:11px}
+.vq-bar-row{display:flex;align-items:center;gap:11px;margin-top:9px}
+.vq-bar-lbl{flex:0 0 72px;font-size:.85rem;font-weight:600;color:var(--ink-soft,#283827)}
+.vq-bar{position:relative;flex:1;height:26px;background:rgba(15,31,22,.06);border-radius:8px;overflow:hidden}
+.vq-bar-fill{position:absolute;left:0;top:0;height:100%;width:0;border-radius:8px;transition:width 1s cubic-bezier(.2,.8,.2,1)}
+.vq-bar-fill.hoy{background:linear-gradient(90deg,#a85a3f,#c47a5a)}
+.vq-bar-fill.ven{background:linear-gradient(90deg,#3d5a36,#7e9a75)}
+.vq-bar b{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-family:var(--font-mono,monospace);font-size:11px;font-weight:600;color:var(--ink,#0d1b12);z-index:2}
+.vq-foot-note{font-size:.74rem;color:var(--mute,#5a6852);text-align:center;margin:2px 0 4px;line-height:1.4}
+/* caja de email clara */
+.vq-mail{margin-top:16px;background:rgba(201,166,64,.1);border:1.5px solid rgba(201,166,64,.34);border-radius:16px;padding:15px 16px}
+.vq-mail-txt{display:flex;flex-direction:column;gap:2px;margin-bottom:11px;text-align:left}
+.vq-mail-txt b{font-family:var(--font-display,serif);font-weight:600;font-size:1.06rem;color:var(--ink,#0d1b12)}
+.vq-mail-txt span{font-size:.87rem;color:var(--mute,#5a6852);line-height:1.4}
+.vq-mail-row{display:flex;gap:8px}
+.vq-mail-row .vq-input{flex:1;margin:0}
+.vq-mail-send{flex:0 0 auto;border:none;cursor:pointer;font:inherit;font-weight:600;background:var(--forest,#0f1f16);color:var(--cream,#f0f4e7);border-radius:13px;padding:0 22px;transition:background .2s}
+.vq-mail-send:hover{background:#16291d}
+/* ===== CUPÓN RASPABLE ===== */
+.coupon{position:relative;max-width:420px;margin:0 auto;background:linear-gradient(135deg,#0f1f16,#16241d);border-radius:22px;padding:7px;box-shadow:0 40px 90px -30px rgba(15,31,22,.6)}
+.coupon-inner{position:relative;border:2px dashed rgba(201,166,64,.55);border-radius:16px;padding:30px clamp(16px,4vw,26px) clamp(20px,4vw,26px);text-align:center}
+.coupon-tag{position:absolute;top:0;left:50%;transform:translateX(-50%);background:var(--butter,#c9a640);color:var(--forest,#0f1f16);font-family:var(--font-mono,monospace);font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;padding:5px 16px;border-radius:0 0 10px 10px;white-space:nowrap}
+.coupon-stage{position:relative;min-height:150px;border-radius:12px;overflow:hidden;margin-top:6px;display:grid;place-items:center;background:rgba(240,244,231,.04)}
+.coupon-reveal{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:16px 14px}
+.cp-k{font-family:var(--font-mono,monospace);font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--butter,#c9a640);font-weight:500}
+.cp-price{display:flex;align-items:baseline;gap:11px;margin-top:6px}
+.cp-old{font-family:var(--font-display,serif);font-size:1.7rem;color:rgba(240,244,231,.5);text-decoration:line-through;text-decoration-thickness:2px}
+.cp-now{font-family:var(--font-display,serif);font-weight:600;font-size:clamp(3rem,12vw,4.4rem);line-height:1;color:var(--cream,#f0f4e7);letter-spacing:-.03em}
+.cp-cur{font-family:var(--font-mono,monospace);font-size:13px;color:rgba(240,244,231,.6);align-self:flex-end;margin-bottom:10px}
+.cp-once{font-family:var(--font-mono,monospace);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(240,244,231,.65)}
+.coupon-foil{position:absolute;inset:0;z-index:3;width:100%;height:100%;cursor:grab;touch-action:none;border-radius:12px}
+.coupon-foil:active{cursor:grabbing}
+.coupon-hint{position:absolute;z-index:4;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--font-mono,monospace);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:rgba(15,31,22,.6);font-weight:600;pointer-events:none;display:flex;align-items:center;gap:7px;animation:cpPulse 1.5s ease-in-out infinite}
+.coupon-hint .ic{font-size:1.25rem}
+@keyframes cpPulse{0%,100%{opacity:.55}50%{opacity:1}}
+.cp-cta{display:block;margin-top:18px}
+/* ===== reveal del cupón: solo LIFETIME PASS ===== */
+.coupon-stage{min-height:172px}
+.cp-pass{font-family:var(--font-display,serif);font-weight:600;font-style:italic;font-size:clamp(2.2rem,9vw,3.2rem);line-height:1;color:var(--cream,#f0f4e7);letter-spacing:-.01em}
+.cp-tap{display:inline-flex;align-items:center;gap:7px;margin-top:16px;font-family:var(--font-mono,monospace);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;color:var(--butter,#c9a640);opacity:0;transform:translateY(5px);transition:opacity .5s ease .25s,transform .5s ease .25s}
+.coupon-stage.revealed{cursor:pointer}
+.coupon-stage.revealed .cp-tap{opacity:1;transform:none;animation:cpTap 1.9s ease-in-out 1.1s infinite}
+.coupon-stage.revealed:hover .cp-pass{color:#fff}
+@keyframes cpTap{0%,100%{opacity:.65}50%{opacity:1}}
+/* ===== panel de checkout (CTA) con fondo nublado ===== */
+.vq-checkout{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:clamp(14px,4vw,32px);background:rgba(8,16,11,.5);backdrop-filter:blur(14px) saturate(1.1);-webkit-backdrop-filter:blur(14px) saturate(1.1);opacity:0;transition:opacity .35s ease}
+.vq-checkout.open{opacity:1}
+.vq-checkout-card{position:relative;width:100%;max-width:980px;max-height:calc(100vh - 28px);overflow-y:auto;background:var(--forest,#0f1f16);border-radius:28px;padding:clamp(26px,4vw,52px);box-shadow:0 50px 120px -30px rgba(0,0,0,.75);transform:translateY(26px) scale(.96);opacity:0;transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .42s}
+.vq-checkout-card::before{content:"";position:absolute;inset:0;border-radius:28px;pointer-events:none;background:radial-gradient(ellipse 55% 70% at 8% 8%,rgba(126,154,117,.18),transparent 60%),radial-gradient(ellipse 60% 80% at 96% 100%,rgba(201,166,64,.14),transparent 60%)}
+.co-grid{position:relative;z-index:2;display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(28px,4vw,56px);align-items:center}
+.co-copy{display:flex;flex-direction:column;gap:clamp(16px,2.2vw,26px)}
+.co-kicker{font-family:var(--font-mono,monospace);font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--butter,#c9a640);font-weight:500;display:inline-flex;align-items:center;gap:10px}
+.co-kicker::before{content:"";width:24px;height:1.5px;background:var(--butter,#c9a640)}
+.co-h2{font-family:var(--font-display,serif);font-weight:600;letter-spacing:-.02em;line-height:1.02;font-size:clamp(2rem,3.6vw,3.05rem);color:var(--cream,#f0f4e7);margin:6px 0 0}
+.co-h2 em{font-style:italic;color:var(--butter,#c9a640)}
+.co-sub{margin-top:2px;font-family:var(--font-display,serif);font-style:italic;font-size:clamp(1.02rem,1.4vw,1.2rem);color:rgba(240,244,231,.82);max-width:400px;line-height:1.5}
+.co-props{position:relative;display:flex;align-items:flex-end;padding-bottom:14px;margin-top:2px}
+.co-props::before{content:"";position:absolute;left:14px;right:46px;bottom:2px;height:22px;background:radial-gradient(ellipse 58% 100% at 50% 0,rgba(0,0,0,.55),transparent 72%);filter:blur(9px)}
+.co-prop{position:relative;width:104px;flex:0 0 auto;border-radius:12px;overflow:hidden;border:5px solid var(--card,#faf6e8);box-shadow:0 24px 40px -20px rgba(0,0,0,.7);transform-origin:bottom center}
+.co-prop .photo{border-radius:0;aspect-ratio:4/5}
+.co-prop:nth-child(1){transform:rotate(-8deg) translateY(7px);z-index:1}
+.co-prop:nth-child(2){transform:rotate(-1deg);z-index:3;width:116px;margin-left:-18px}
+.co-prop:nth-child(3){transform:rotate(7deg) translateY(9px);z-index:2;margin-left:-18px}
+.co-ticket{position:relative;z-index:2;background:linear-gradient(150deg,#faf6e8,#f0e7cf);border-radius:22px;padding:clamp(22px,2.6vw,32px);box-shadow:0 40px 90px -30px rgba(0,0,0,.6);text-align:left}
+.vq-checkout.open .vq-checkout-card{transform:none;opacity:1}
+.vq-checkout-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border:none;border-radius:999px;cursor:pointer;background:rgba(240,244,231,.1);color:var(--cream,#f0f4e7);font-size:14px;display:grid;place-items:center;transition:background .2s,transform .2s;z-index:5}
+.vq-checkout-close:hover{background:rgba(240,244,231,.2);transform:rotate(90deg)}
+.co-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(201,166,64,.2);color:var(--sage-strong,#3d5a36);font-family:var(--font-mono,monospace);font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;padding:7px 14px;border-radius:999px}
+.co-name{display:block;margin-top:16px;font-family:var(--font-mono,monospace);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--clay,#a85a3f);font-weight:500}
+.co-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 11px;margin:8px 0 2px}
+.co-old{font-family:var(--font-display,serif);font-size:clamp(1.4rem,5vw,1.9rem);color:var(--mute,#5a6852);text-decoration:line-through;text-decoration-thickness:2px}
+.co-now{font-family:var(--font-display,serif);font-weight:600;font-size:clamp(3.2rem,5vw,4.6rem);color:var(--clay,#a85a3f);line-height:.9;letter-spacing:-.03em}
+.co-cur{font-family:var(--font-mono,monospace);font-size:12px;color:var(--mute,#5a6852);align-self:flex-end;margin-bottom:10px;margin-right:4px}
+.co-save{align-self:center;white-space:nowrap;font-family:var(--font-sans,sans-serif);font-weight:700;font-size:.82rem;color:var(--forest,#0f1f16);background:var(--butter,#c9a640);padding:6px 12px;border-radius:999px;box-shadow:0 8px 20px -8px rgba(201,166,64,.7);transform:rotate(-3deg)}
+.co-tags{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+.co-tag{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono,monospace);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:9px 14px;border-radius:999px;background:var(--forest,#0f1f16);color:var(--cream,#f0f4e7)}
+.co-tag svg{color:var(--butter,#c9a640);flex:0 0 auto}
+.co-feats{list-style:none;margin:20px 0 22px;padding:0;display:grid;gap:10px;text-align:left}
+.co-feats li{display:flex;align-items:flex-start;gap:10px;font-size:.95rem;color:var(--ink-soft,#283827);line-height:1.35}
+.co-feats li svg{flex:0 0 auto;margin-top:2px;color:var(--sage-strong,#3d5a36)}
+.co-cta{width:100%;justify-content:center}
+.co-fine{margin-top:13px;text-align:center;font-family:var(--font-mono,monospace);font-size:10.5px;letter-spacing:.03em;color:var(--mute,#5a6852);line-height:1.5}
+@media(max-width:760px){.co-grid{grid-template-columns:1fr;gap:24px}.co-sub{max-width:none}.co-props{justify-content:center}.co-h2{font-size:clamp(1.9rem,8vw,2.6rem)}}
+@media(prefers-reduced-motion:reduce){.vq-checkout,.vq-checkout-card{transition:none}.coupon-stage.revealed .cp-tap{animation:none}}
+@media(prefers-reduced-motion:reduce){.coupon-hint{animation:none}}
+
+@media(max-width:560px){
+  .vq-stats{grid-template-columns:1fr}
+  .vq-opt .vq-otext{font-size:.98rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .vq-step,.vq-step.out{animation:none}
+  .vq-overlay,.vq-modal,.vq-progress i{transition:none}
+}
+</style>
+<div class="vq-overlay" id="vqOverlay" aria-hidden="true">
+  <div class="vq-modal" role="dialog" aria-modal="true" aria-label="Diagnóstico Vendí">
+    <button class="vq-close" id="vqClose" aria-label="Cerrar">✕</button>
+    <div class="vq-top">
+      <div class="vq-progress"><i id="vqBar"></i></div>
+      <div class="vq-meta"><span id="vqStepTxt">Empecemos</span><b id="vqStepNum"></b></div>
+    </div>
+    <div class="vq-stage" id="vqStage"></div>
+  </div>
+</div>
+<script>
+(function(){
+  // Dominio de la app (cross-domain: la landing es estática en otro dominio).
+  const APP_URL = 'https://vendiapp.vercel.app'; // TODO: confirmar dominio canónico de la app (ej. app.vendi.app cuando esté el DNS)
+  const MP_PAYMENT_LINK = 'https://www.mercadopago.com.pe/checkout/v1/redirect?pref_id=3480421938-38862917-86bf-4d22-85a9-d50c61ecacf9';  // TEST (solo para probar el flujo, NO cobra real). Reemplazar por el init_point PRODUCTIVO cuando esten las credenciales de produccion.
+  // Acción de COMPRA: si hay link de Mercado Pago, va directo al pago; si no, al registro de la app.
+  function buy(){
+    window.location.href = MP_PAYMENT_LINK ? MP_PAYMENT_LINK : (APP_URL + '/signup');
+  }
+  // Captura de leads en Supabase. La anon/publishable key es PÚBLICA (va embebida en estático, está OK):
+  // la tabla `leads` tiene RLS insert-only (insert anónimo permitido, lectura bloqueada).
+  const SUPABASE_URL = 'https://njmxxdaxzzzlloweudgv.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable__rXQpR2MErjd1Y3GzDCkDw_COMWnZ6h';
+  const QUESTIONS = [
+    {
+      id:'rubro', kicker:'Tu negocio',
+      q:'¿Qué tipo de producto vendes?',
+      hint:'Para mostrarte ejemplos de tu rubro.',
+      options:[
+        {e:'💄', t:'Cosmética / skincare', v:'cosmetica'},
+        {e:'👗', t:'Moda y accesorios', v:'moda'},
+        {e:'🍫', t:'Alimentos / gastronomía', v:'alimentos'},
+        {e:'🕯️', t:'Deco y hogar', v:'deco'},
+        {e:'💍', t:'Joyería / bijou', v:'joyeria'},
+        {e:'📦', t:'Otra cosa', v:'otro'}
+      ]
+    },
+    {
+      id:'metodo', kicker:'Cómo lo hacés hoy',
+      q:'¿Cómo consigues las fotos de tus productos <em>hoy</em>?',
+      options:[
+        {e:'📱', t:'Las saco con el celular como puedo', v:'celular', pain:3},
+        {e:'📸', t:'Pago sesiones de fotos', v:'sesion', pain:2},
+        {e:'🎨', t:'Las armo en Canva / apps de diseño', v:'canva', pain:3},
+        {e:'🤖', t:'Uso IA (ChatGPT, Midjourney…)', v:'ia', pain:2},
+        {e:'😶', t:'Casi no publico… me da no sé qué', v:'evito', pain:4}
+      ]
+    },
+    {
+      id:'tiempo', kicker:'Tu tiempo',
+      q:'¿Cuánto te lleva dejar <em>una</em> foto lista para publicar?',
+      options:[
+        {e:'⚡', t:'Menos de 15 minutos', v:'r15', min:12},
+        {e:'⏳', t:'Entre 30 min y 1 hora', v:'r60', min:45},
+        {e:'🥵', t:'Más de una hora', v:'r90', min:95},
+        {e:'📆', t:'Días (espero al fotógrafo/diseñador)', v:'rdays', min:240}
+      ]
+    },
+    {
+      id:'volumen', kicker:'Tu ritmo',
+      q:'¿Cuántas fotos nuevas publicas por <em>semana</em>?',
+      options:[
+        {e:'😴', t:'Una o ninguna', v:'v1', pw:1, low:true},
+        {e:'🙂', t:'Entre 2 y 5', v:'v5', pw:3.5},
+        {e:'🔥', t:'Entre 6 y 15', v:'v15', pw:10},
+        {e:'🚀', t:'Más de 15', v:'v30', pw:20}
+      ]
+    },
+    {
+      id:'gasto', kicker:'Tu plata',
+      q:'¿Cuánto gastas por <em>mes</em> en fotos o diseño?',
+      hint:'Sesiones, freelancers, apps, todo sumado.',
+      options:[
+        {e:'🆓', t:'$0, lo hago yo a pulmón', v:'g0', m:0, diy:true},
+        {e:'🪙', t:'Menos de $50', v:'g50', m:30},
+        {e:'💵', t:'Entre $50 y $200', v:'g200', m:120},
+        {e:'💸', t:'Más de $200', v:'g200p', m:320}
+      ]
+    },
+    {
+      id:'canales', kicker:'Dónde vendés', type:'multi',
+      q:'¿En qué canales necesitas que luzcan bien?',
+      hint:'Elige todos los que uses.',
+      options:[
+        {e:'📷', t:'Instagram', v:'ig'},
+        {e:'🛍️', t:'Shopify / web propia', v:'shopify'},
+        {e:'🔵', t:'Facebook Marketplace', v:'fbmp'},
+        {e:'🛒', t:'Temu', v:'temu'},
+        {e:'🎵', t:'TikTok', v:'tiktok'},
+        {e:'💬', t:'WhatsApp / catálogo', v:'wpp'}
+      ]
+    }
+  ];
+
+  const RUBRO_LABEL = {cosmetica:'cosmética',moda:'moda',alimentos:'alimentos',deco:'deco',joyeria:'joyería',otro:'tus productos'};
+
+  const overlay=document.getElementById('vqOverlay');
+  const stage=document.getElementById('vqStage');
+  const bar=document.getElementById('vqBar');
+  const stepNum=document.getElementById('vqStepNum');
+  const stepTxt=document.getElementById('vqStepTxt');
+  const closeBtn=document.getElementById('vqClose');
+
+  let idx=0; const answers={}; let autoOpened=false;
+  const total=QUESTIONS.length;
+  const pad=n=>String(n).padStart(2,'0');
+
+  function setProgress(step){
+    const pct=Math.min(100,Math.round((step/(total+1))*100));
+    bar.style.width=pct+'%';
+    if(step>total){stepNum.textContent='✓';stepTxt.textContent='Diagnóstico Vendí';}
+    else{stepNum.textContent=pad(step)+' / '+pad(total);stepTxt.textContent='Diagnóstico Vendí';}
+  }
+
+  function transition(html){
+    const old=stage.firstElementChild;
+    if(old){old.classList.add('out');setTimeout(()=>{stage.innerHTML=html;},220);}
+    else{stage.innerHTML=html;}
+  }
+
+  function renderQuestion(){
+    const Q=QUESTIONS[idx];
+    setProgress(idx+1);
+    const multi=Q.type==='multi';
+    const chosen=answers[Q.id]||(multi?[]:null);
+    const opts=Q.options.map((o,i)=>{
+      const letter=String.fromCharCode(65+i);
+      const sel=multi?chosen.includes(o.v):chosen===o.v;
+      return `<button class="vq-opt${sel?' sel':''}" data-v="${o.v}">
+        
+        <span class="vq-tile">${o.e}</span>
+        <span class="vq-otext">${o.t}</span>
+        <span class="vq-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#f0f4e7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </button>`;
+    }).join('');
+    const html=`<div class="vq-step">
+      <span class="vq-kicker">${Q.kicker}</span>
+      <h2 class="vq-q">${Q.q}</h2>
+      ${Q.hint?`<p class="vq-hint">${Q.hint}</p>`:''}
+      <div class="vq-opts">${opts}</div>
+      <div class="vq-foot">
+        <button class="vq-back" ${idx===0?'hidden':''}>← Atrás</button>
+        ${multi?`<button class="vq-next" id="vqMultiNext" ${chosen.length?'':'disabled'}>Continuar
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`:'<span></span>'}
+      </div>
+    </div>`;
+    transition(html);
+    setTimeout(()=>bindQuestion(Q,multi),old()?230:0);
+    function old(){return stage.firstElementChild&&stage.firstElementChild.classList.contains('out');}
+  }
+
+  function bindQuestion(Q,multi){
+    const step=stage.querySelector('.vq-step'); if(!step)return;
+    step.querySelectorAll('.vq-opt').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const v=btn.dataset.v;
+        if(multi){
+          let arr=answers[Q.id]||[];
+          if(arr.includes(v))arr=arr.filter(x=>x!==v);else arr=[...arr,v];
+          answers[Q.id]=arr;
+          btn.classList.toggle('sel');
+          const nx=step.querySelector('#vqMultiNext'); if(nx)nx.disabled=!arr.length;
+        }else{
+          answers[Q.id]=v;
+          step.querySelectorAll('.vq-opt').forEach(b=>b.classList.remove('sel'));
+          btn.classList.add('sel');
+          setTimeout(advance,300);
+        }
+      });
+    });
+    const back=step.querySelector('.vq-back');
+    if(back)back.addEventListener('click',()=>{idx=Math.max(0,idx-1);renderQuestion();});
+    const mn=step.querySelector('#vqMultiNext');
+    if(mn)mn.addEventListener('click',advance);
+  }
+
+  function advance(){ if(idx<total-1){idx++;renderQuestion();} else {renderDiagnosis();} }
+
+  function opt(qid,v){return (QUESTIONS.find(q=>q.id===qid).options.find(o=>o.v===v))||{};}
+
+  function compute(){
+    const min=opt('tiempo',answers.tiempo).min||30;
+    const pw=opt('volumen',answers.volumen).pw||3.5;
+    const m=opt('gasto',answers.gasto).m||0;
+    const diy=!!opt('gasto',answers.gasto).diy;
+    const low=!!opt('volumen',answers.volumen).low;
+    const hoursMonth=Math.max(1,Math.round((min*pw*4.3)/60));
+    const hoursYear=hoursMonth*12;
+    const daysYear=Math.max(1,Math.round((hoursMonth*12)/8)); // jornadas de 8h
+    const RATE=6; // valor conservador de la hora (USD)
+    const timeMoneyYear=hoursYear*RATE;
+    const yearSpend=m*12;
+    const totalYear=timeMoneyYear+yearSpend; // tiempo valuado + lo que ya gasta
+    const vendiHours=Math.max(1,Math.round(hoursMonth*0.08)); // con Vendí
+    return {hoursMonth,hoursYear,daysYear,yearSpend,timeMoneyYear,totalYear,vendiHours,diy,low,rubro:answers.rubro||'otro'};
+  }
+
+  function countUp(el,to,suffix,prefix){
+    const dur=900,t0=performance.now();
+    function tick(now){
+      const p=Math.min(1,(now-t0)/dur);
+      const e=1-Math.pow(1-p,3);
+      el.textContent=(prefix||'')+Math.round(to*e)+(suffix||'');
+      if(p<1)requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // mapa de rubro -> forma/escena de la cajetilla (mismas clases que la landing)
+  const RUBRO_SCENE={
+    cosmetica:{before:'tube',after:'cr tube'}, moda:{before:'box',after:'sg box'},
+    alimentos:{before:'box',after:'cl box'}, deco:{before:'',after:'dk'},
+    joyeria:{before:'tube',after:'cr'}, otro:{before:'',after:'sg'}
+  };
+
+  function renderDiagnosis(){
+    setProgress(total+1);
+    const d=compute();
+    const rl=RUBRO_LABEL[d.rubro]||'tus productos';
+    const sc=RUBRO_SCENE[d.rubro]||RUBRO_SCENE.otro;
+
+    let diagLine;
+    if(d.low){
+      diagLine=`Estás publicando poco — y en redes, <strong>lo que no se ve, no se vende</strong>. Cada semana sin fotos nuevas es alcance que se lleva tu competencia.`;
+    }else if(d.diy){
+      diagLine=`No gastas plata, pero pagas con <strong>tu tiempo</strong>: el único recurso que no recuperas. Y aun así, tus fotos no siempre representan tu marca.`;
+    }else{
+      diagLine=`Estás gastando plata <strong>y</strong> tiempo en fotos de ${rl} que igual no siempre venden como deberían.`;
+    }
+
+    // hook visual: antes -> después con las cajetillas de la landing
+    const visual=`<div class="vq-ba">
+      <div class="vq-ba-card">
+        <span class="vq-ba-tag before">Tu foto hoy</span>
+        <div class="photo before ${sc.before}"><div class="floor"></div><div class="obj"></div></div>
+      </div>
+      <div class="vq-ba-arrow">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="vq-ba-card">
+        <span class="vq-ba-tag after">Con Vendí</span>
+        <div class="photo ${sc.after}"><div class="floor"></div><div class="obj"></div></div>
+      </div>
+    </div>`;
+
+    const html=`<div class="vq-step">
+      <div class="vq-diag-head">
+        <span class="vq-kicker">Tu diagnóstico</span>
+        <h2 class="vq-diag-title">Esto te está costando vender <em>${rl}</em></h2>
+      </div>
+      ${visual}
+      <p class="vq-diag-body">${diagLine}</p>
+      <div class="vq-hero-kpi"><div class="vk-n" id="vqN3">$0</div><div class="vk-l">te cuesta al año en fotos*</div></div>
+      <div class="vq-kpis2">
+        <div class="vq-kpi"><div class="vk-n" id="vqN1">0</div><div class="vk-l">horas/mes en fotos</div></div>
+        <div class="vq-kpi"><div class="vk-n" id="vqN2">0</div><div class="vk-l">jornadas/año perdidas</div></div>
+        <div class="vq-kpi-removed" hidden></div>
+      </div>
+      <div class="vq-chart">
+        <div class="vq-chart-cap">Horas al mes en fotos de producto</div>
+        <div class="vq-bar-row"><span class="vq-bar-lbl">Hoy</span><div class="vq-bar"><i class="vq-bar-fill hoy" id="vqBarHoy"></i><b id="vqBarHoyV">0h</b></div></div>
+        <div class="vq-bar-row"><span class="vq-bar-lbl">Con Vendí</span><div class="vq-bar"><i class="vq-bar-fill ven" id="vqBarVen"></i><b>${d.vendiHours}h</b></div></div>
+      </div>
+      <p class="vq-foot-note">*Tu tiempo valuado a $6/h${d.diy?'':' + lo que ya gastas'}. Estimado conservador.</p>
+      <button class="vq-next vq-cta" id="vqGo">Quiero recuperar ese tiempo
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="vq-mail">
+        <div class="vq-mail-txt"><b>📩 Guárdame el diagnóstico</b><span>Te lo enviamos junto con tu cupón de regalo.</span></div>
+        <div class="vq-mail-row">
+          <input class="vq-input" id="vqEmail" type="email" inputmode="email" placeholder="tucorreo@ejemplo.com">
+          <button class="vq-mail-send" id="vqSubmit">Enviar</button>
+        </div>
+        <div class="vq-err" id="vqErr"></div>
+      </div>
+      <div class="vq-foot"><button class="vq-back">← Atrás</button><span></span></div>
+    </div>`;
+    transition(html);
+    setTimeout(()=>{
+      const n1=document.getElementById('vqN1'); if(n1)countUp(n1,d.hoursMonth,'','');
+      const n2=document.getElementById('vqN2'); if(n2)countUp(n2,d.daysYear,'','');
+      const n3=document.getElementById('vqN3'); if(n3)countUp(n3,d.totalYear,'','$');
+      const bh=document.getElementById('vqBarHoy'), bv=document.getElementById('vqBarVen'), bhv=document.getElementById('vqBarHoyV');
+      if(bhv)countUp(bhv,d.hoursMonth,'h','');
+      requestAnimationFrame(()=>{ if(bh)bh.style.width='100%'; if(bv)bv.style.width=Math.max(7,Math.round(d.vendiHours/Math.max(d.hoursMonth,1)*100))+'%'; });
+
+      const go=document.getElementById('vqGo');
+      if(go)go.addEventListener('click',()=>{ saveLead(false); renderMechanism(); });
+      const sub=document.getElementById('vqSubmit'); if(sub)sub.addEventListener('click',vqSubmit);
+      const back=document.querySelector('.vq-step .vq-back');
+      if(back)back.addEventListener('click',()=>{idx=total-1;renderQuestion();});
+    },240);
+  }
+
+  function setSaleMeta(label){ bar.style.width='100%'; stepNum.textContent='✓'; stepTxt.textContent=label; }
+
+  function renderMechanism(){
+    setSaleMeta('Cómo funciona');
+    const html=`<div class="vq-step">
+      <span class="vq-kicker">Más fácil de lo que crees</span>
+      <h2 class="vq-q">Foto → estilo → <em>lista para vender</em>.</h2>
+      <div class="vq-mech">
+        <div class="vq-mech-row"><span class="vq-mech-n">1</span><div><b>Subes una foto</b><p>La misma que ya tienes en el celular. Vendí recorta tu producto solo.</p></div></div>
+        <div class="vq-mech-row"><span class="vq-mech-n">2</span><div><b>Eliges un estilo</b><p>Estilos profesionales listos. Sin prompts, sin Photoshop, sin diseñador.</p></div></div>
+        <div class="vq-mech-row"><span class="vq-mech-n">3</span><div><b>Descargas y vendes</b><p>Tus fotos listas para Instagram, Facebook Marketplace y Temu en 5 minutos.</p></div></div>
+      </div>
+      <button class="vq-next vq-cta" id="vqMore">Quiero ver resultados
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>`;
+    transition(html);
+    setTimeout(()=>{const b=document.getElementById('vqMore');if(b)b.addEventListener('click',renderProof);},240);
+  }
+
+  function renderProof(){
+    setSaleMeta('Resultados');
+    const d=compute(); const sc=RUBRO_SCENE[d.rubro]||RUBRO_SCENE.otro;
+    const html=`<div class="vq-step">
+      <span class="vq-kicker">Resultados reales</span>
+      <h2 class="vq-q">Mismos productos. <em>Otro nivel de fotos.</em></h2>
+      <div class="vq-proof">
+        <div class="vq-proof-card"><div class="rimg r-st"><img src="/estilos/editorial-premium.jpg" alt="Editorial premium" loading="lazy"></div><span class="vq-proof-stat">Editorial</span></div>
+        <div class="vq-proof-card"><div class="rimg r-st"><img src="/estilos/lifestyle.jpg" alt="Lifestyle" loading="lazy"></div><span class="vq-proof-stat">Lifestyle</span></div>
+        <div class="vq-proof-card"><div class="rimg r-st"><img src="/estilos/fondo-color.jpg" alt="Fondo de color" loading="lazy"></div><span class="vq-proof-stat">Fondo de color</span></div>
+      </div>
+      <p class="vq-proof-quote">Tu mismo producto, en estilos profesionales listos para vender.</p>
+      <button class="vq-next vq-cta" id="vqScarce">Quiero esos resultados
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>`;
+    transition(html);
+    setTimeout(()=>{const b=document.getElementById('vqScarce');if(b)b.addEventListener('click',renderScarcity);},240);
+  }
+
+  function renderScarcity(){
+    setSaleMeta('La oferta');
+    const html=`<div class="vq-step">
+      <span class="vq-kicker">Una sola vez</span>
+      <h2 class="vq-q">Paga una vez. <em>Úsalo para siempre.</em></h2>
+      <div class="vq-flip"><p>La mayoría paga por fotos <b>todos los meses, para siempre</b>. Con Vendí pagas una sola vez y listo.</p></div>
+      <ul class="vq-scarce">
+        <li>Un solo pago, sin mensualidades</li>
+        <li>Acceso de por vida, con todas las mejoras incluidas</li>
+        <li>Precio especial de lanzamiento, por tiempo limitado</li>
+      </ul>
+      <button class="vq-next vq-cta" id="vqReveal">Ver mi cupón 🎟️
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>`;
+    transition(html);
+    setTimeout(()=>{const b=document.getElementById('vqReveal');if(b)b.addEventListener('click',renderGift);},240);
+  }
+
+  function renderGift(){
+    setSaleMeta('Tu cupón');
+    const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const html=`<div class="vq-step">
+      <div class="vq-gift-head">
+        <span class="vq-kicker" style="justify-content:center">Lo lograste</span>
+        <h2 class="vq-q" style="text-align:center">Tu cupón está <em>listo para raspar</em>.</h2>
+      </div>
+      <div style="margin-top:16px">
+        <div class="coupon" id="vqCoupon">
+          <div class="coupon-inner">
+            <span class="coupon-tag">Cupón de regalo</span>
+            <div class="coupon-stage" id="vqCpStage">
+              <div class="coupon-reveal">
+                <span class="cp-pass">Lifetime Pass</span>
+                <span class="cp-tap" id="vqCpTap">Tocá para abrir
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+              </div>
+              <span class="coupon-hint" id="vqHint"><span class="ic">🪙</span> Raspa aquí</span>
+              <canvas class="coupon-foil" id="vqFoil"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    transition(html);
+    setTimeout(()=>{
+      const foil=document.getElementById('vqFoil');
+      const hint=document.getElementById('vqHint');
+      const st=document.getElementById('vqCpStage');
+      const reveal=()=>{ if(st){ st.classList.add('revealed'); st.addEventListener('click',openCheckout); } };
+      if(!foil){ reveal(); return; }
+      if(reduce){ foil.style.display='none'; if(hint)hint.style.display='none'; reveal(); return; }
+      initScratch(foil, hint, reveal);
+    },320);
+  }
+
+  // cupón raspable: foil sobre canvas, se borra al arrastrar y se revela al ~50%
+  function initScratch(canvas, hintEl, onReveal){
+    const stage=canvas.parentElement;
+    const ctx=canvas.getContext('2d');
+    const dpr=Math.min(2, window.devicePixelRatio||1);
+    let revealed=false, drawing=false;
+    function paint(){
+      const w=canvas.width, h=canvas.height;
+      const g=ctx.createLinearGradient(0,0,w,h);
+      g.addColorStop(0,'#cdb87f'); g.addColorStop(.5,'#ece0b4'); g.addColorStop(1,'#bd9f59');
+      ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+      ctx.strokeStyle='rgba(15,31,22,.06)'; ctx.lineWidth=Math.max(1,dpr);
+      for(let x=-h; x<w; x+=15*dpr){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+h,h); ctx.stroke(); }
+    }
+    function size(){
+      const r=stage.getBoundingClientRect();
+      if(r.width<2){ requestAnimationFrame(size); return; }
+      canvas.width=Math.round(r.width*dpr); canvas.height=Math.round(r.height*dpr);
+      canvas.style.width=r.width+'px'; canvas.style.height=r.height+'px';
+      paint();
+    }
+    function erase(x,y){
+      ctx.globalCompositeOperation='destination-out';
+      ctx.beginPath(); ctx.arc(x*dpr, y*dpr, Math.max(18, canvas.width*0.07), 0, Math.PI*2); ctx.fill();
+    }
+    function pos(e){ const r=canvas.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; }
+    function cleared(){
+      const w=canvas.width,h=canvas.height; if(!w||!h)return 0;
+      const data=ctx.getImageData(0,0,w,h).data; let c=0,n=0;
+      for(let i=3;i<data.length;i+=64){ n++; if(data[i]===0)c++; }
+      return n?c/n:0;
+    }
+    function done(){
+      if(revealed)return; revealed=true;
+      canvas.style.transition='opacity .45s ease'; canvas.style.opacity='0';
+      if(hintEl)hintEl.style.display='none';
+      setTimeout(()=>{ canvas.remove(); onReveal&&onReveal(); },460);
+    }
+    canvas.addEventListener('pointerdown',e=>{ drawing=true; if(hintEl)hintEl.style.display='none'; const [x,y]=pos(e); erase(x,y); try{canvas.setPointerCapture(e.pointerId);}catch(_){} });
+    canvas.addEventListener('pointermove',e=>{ if(!drawing)return; const [x,y]=pos(e); erase(x,y); });
+    const end=()=>{ if(!drawing)return; drawing=false; if(cleared()>.5)done(); };
+    canvas.addEventListener('pointerup',end);
+    canvas.addEventListener('pointercancel',end);
+    canvas.addEventListener('pointerleave',end);
+    size();
+    window.addEventListener('resize',size,{passive:true});
+  }
+
+  function openCheckout(){
+    if(document.getElementById('vqCheckout'))return;
+    saveLead(false);
+    const wrap=document.createElement('div');
+    wrap.className='vq-checkout'; wrap.id='vqCheckout';
+    wrap.innerHTML=`
+      <div class="vq-checkout-card co-full" role="dialog" aria-modal="true" aria-label="Tu Lifetime Pass">
+        <button class="vq-checkout-close" id="vqCoClose" aria-label="Cerrar">✕</button>
+        <div class="co-grid">
+          <div class="co-copy">
+            <span class="co-kicker">El regalo de lanzamiento</span>
+            <h2 class="co-h2">Tu catálogo que vende,<br><em>listo esta tarde.</em></h2>
+            <p class="co-sub">Sin sesión de fotos. Sin diseñador. Subís una foto, elegís un estilo y descargás imágenes que venden.</p>
+            <div class="co-props" aria-hidden="true">
+              <div class="co-prop"><div class="rimg"><img src="/estilos/editorial-premium.jpg" alt="" loading="lazy"></div></div>
+              <div class="co-prop"><div class="rimg"><img src="/estilos/lifestyle.jpg" alt="" loading="lazy"></div></div>
+              <div class="co-prop"><div class="rimg"><img src="/estilos/fondo-color.jpg" alt="" loading="lazy"></div></div>
+            </div>
+          </div>
+          <div class="co-ticket">
+        <span class="co-badge">🎁 Oferta de lanzamiento</span>
+        <span class="co-name">Lifetime Pass</span>
+        <div class="co-price">
+          <span class="co-old">$27</span>
+          <span class="co-now">$10</span>
+          <span class="co-cur">USD</span>
+          <span class="co-save">Ahorrás $17</span>
+        </div>
+        <div class="co-tags">
+          <span class="co-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5V4a1 1 0 011-1h7.5L21 12.5l-8.5 8.5L3 11.5z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/></svg> Pago único</span>
+          <span class="co-tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8a4 4 0 100 8c2.2 0 3.4-2 5-4s2.8-4 5-4a4 4 0 110 8c-2.2 0-3.4-2-5-4S9.2 8 7 8z"/></svg> Acceso de por vida</span>
+        </div>
+        <ul class="co-feats">
+          <li>${ck()} 60 créditos de inicio incluidos</li>
+          <li>${ck()} 10 análisis con IA de regalo</li>
+          <li>${ck()} Todos los estilos profesionales curados</li>
+          <li>${ck()} Sin marca de agua · alta resolución</li>
+          <li>${ck()} Formatos por canal: feed, story, ecommerce</li>
+          <li>${ck()} Mejoras y estilos nuevos, para siempre</li>
+        </ul>
+        <button class="pill lg co-cta" id="vqCoCta">Quiero mi Lifetime Pass
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <p class="co-fine">Incluye 60 créditos + 10 análisis con IA para empezar. Sumás más cuando los necesites.</p>
+          </div>
+        </div>
+      </div>`;
+    function ck(){return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';}
+    document.body.appendChild(wrap);
+    requestAnimationFrame(()=>wrap.classList.add('open')); setTimeout(()=>wrap.classList.add('open'),60);
+    const closeCo=()=>{ wrap.classList.remove('open'); setTimeout(()=>wrap.remove(),360); };
+    wrap.querySelector('#vqCoClose').addEventListener('click',closeCo);
+    wrap.addEventListener('click',e=>{ if(e.target===wrap)closeCo(); });
+    const escCo=(e)=>{ if(e.key==='Escape'){ closeCo(); document.removeEventListener('keydown',escCo); } };
+    document.addEventListener('keydown',escCo);
+    const cta=wrap.querySelector('#vqCoCta');
+    // CTA de COMPRA del checkout card: va al pago (Mercado Pago si MP_PAYMENT_LINK existe;
+    // si no, fallback al registro de la app /signup → arranca con 60 créditos de regalo).
+    if(cta)cta.addEventListener('click',()=>{ closeCo(); buy(); });
+  }
+
+  function goToLanding(){
+    close();
+    setTimeout(()=>{ const p=document.getElementById('producto');
+      if(p)p.scrollIntoView({behavior:'smooth',block:'start'}); }, 380);
+  }
+
+  function saveLead(withEmail){
+    const email=withEmail?((document.getElementById('vqEmail')||{}).value||''):'';
+    const diagnostico=compute();
+    const lead={...answers, email, diagnostico, ts:Date.now()};
+    console.log('LEAD VENDÍ →', lead);
+    // Persistir el lead en Supabase (tabla `leads`, RLS insert-only) vía REST.
+    // keepalive:true → el request sobrevive a la navegación a /signup del CTA de conversión.
+    // Fire-and-forget: un lead perdido por red NO debe romper el flujo del usuario.
+    try{
+      fetch(SUPABASE_URL + '/rest/v1/leads', {
+        method:'POST',
+        keepalive:true,
+        headers:{
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          email: email || null,
+          answers: answers,
+          diagnostico: diagnostico,
+          source: 'landing-quiz',
+          user_agent: navigator.userAgent
+        })
+      }).catch(function(err){ console.warn('No se pudo guardar el lead en Supabase:', err); });
+    }catch(_){ /* fetch no disponible: ignorar, no romper el flujo */ }
+    return lead;
+  }
+
+  function vqSubmit(){
+    const email=(document.getElementById('vqEmail')||{}).value||'';
+    const err=document.getElementById('vqErr');
+    if(!/.+@.+\..+/.test(email)){
+      if(err)err.textContent='Escribe un email válido para enviarte el diagnóstico.';
+      return;
+    }
+    saveLead(true);
+    renderSuccess();
+  }
+
+  function renderSuccess(){
+    setProgress(total+1);
+    const html=`<div class="vq-step"><div class="vq-success">
+      <div class="vq-ok"><svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <h3>Te lo enviamos 📩</h3>
+      <p>Revisa tu correo en un rato. Ahora sigamos: te falta ver tu cupón de regalo.</p>
+      <button class="vq-next" id="vqGo2">Seguir
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div></div>`;
+    transition(html);
+    setTimeout(()=>{
+      const go=document.getElementById('vqGo2');
+      if(go)go.addEventListener('click',renderMechanism);
+    },240);
+  }
+
+  function open(){ if(overlay.classList.contains('open'))return; overlay.style.display='flex';
+    requestAnimationFrame(()=>overlay.classList.add('open'));setTimeout(()=>overlay.classList.add('open'),60); overlay.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden'; if(!stage.firstElementChild){idx=0;renderQuestion();} }
+  function close(){ overlay.classList.remove('open'); overlay.setAttribute('aria-hidden','true');
+    document.body.style.overflow=''; setTimeout(()=>{overlay.style.display='none';},360); }
+
+  closeBtn.addEventListener('click',close);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open'))close();});
+
+  // Enganchar los CTAs principales para abrir el quiz (nav + hero).
+  // El CTA final y la tarjeta de precios van directo al checkout (openCheckout).
+  function wire(){
+    const sels=[]; // ruteo manual: nav/hero van al checkout o a anclas
+    if(!sels.length) return;
+    document.querySelectorAll(sels.join(',')).forEach(btn=>{
+      const a=btn.closest('a');
+      (a||btn).addEventListener('click',e=>{e.preventDefault();open();});
+    });
+  }
+  if(document.readyState!=='loading')wire();else document.addEventListener('DOMContentLoaded',wire);
+
+  // Auto-abrir al entrar: el quiz es la primera pantalla (vienen del ad de Meta).
+  // Si preferís que NO se abra solo y solo dispare al tocar un CTA, borrá estas 2 líneas.
+  if(document.readyState!=='loading')open();
+  else document.addEventListener('DOMContentLoaded',open);
+
+  // API global por si quieres abrirlo desde otro botón: window.VendiQuiz.open()
+  // buy() = acción de compra (pago directo). openCheckout() = abre el checkout card del quiz.
+  window.VendiQuiz={open,close,openCheckout,buy};
+})();
+</script>
+<!-- ===== FIN QUIZ v2 ===== -->
+
+
+
+<script>
+/* Ruteo robusto: cualquier ancla #seccion cierra el quiz (si está abierto),
+   restaura el scroll del body y hace scroll suave a la sección. */
+document.addEventListener('click',function(e){
+  var link=e.target.closest('a[href^="#"]');
+  if(!link) return;
+  var id=link.getAttribute('href').slice(1);
+  if(!id) return;
+  var target=document.getElementById(id);
+  if(!target) return;
+  e.preventDefault();
+  try{ if(window.VendiQuiz && window.VendiQuiz.close) window.VendiQuiz.close(); }catch(_){}
+  document.body.style.overflow='';
+  setTimeout(function(){ target.scrollIntoView({behavior:'smooth',block:'start'}); }, 60);
+});
+
+/* FAQ acordeon: cerrar-otros-al-abrir */
+(function(){
+  var items=document.querySelectorAll('.faq-item');
+  if(!items.length) return;
+  items.forEach(function(item){
+    var btn=item.querySelector('.faq-q');
+    if(!btn) return;
+    btn.addEventListener('click',function(){
+      var willOpen=!item.classList.contains('open');
+      items.forEach(function(other){
+        if(other!==item){
+          other.classList.remove('open');
+          var b=other.querySelector('.faq-q');
+          if(b) b.setAttribute('aria-expanded','false');
+        }
+      });
+      item.classList.toggle('open',willOpen);
+      btn.setAttribute('aria-expanded',willOpen?'true':'false');
+    });
+  });
+})();
+</script>
+</body>
+</html>

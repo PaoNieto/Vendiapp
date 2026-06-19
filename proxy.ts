@@ -51,6 +51,18 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  // Root `/`: landing pública para anónimos, dashboard para logueados.
+  // La landing es un HTML autocontenido en `public/landing.html`. Hacemos
+  // rewrite (no redirect) para que la URL quede en `/` y se sirva el archivo
+  // estático nativo (sus scripts/fuentes corren tal cual). Por eso este
+  // componente de `app/page.tsx` ya nunca se renderiza para `/`.
+  if (pathname === "/") {
+    if (userId) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return NextResponse.rewrite(new URL("/landing.html", request.url));
+  }
+
   // Sin sesión en ruta protegida → al login, conservando el destino.
   if (!userId && !isPublicRoute(request)) {
     const loginUrl = new URL("/login", request.url);
@@ -65,7 +77,7 @@ export const config = {
   matcher: [
     // Corre en todas las rutas de app salvo assets estáticos / internos de Next.
     // (Las API routes hacen su propia validación con auth() en server.)
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|html)$).*)",
     // Siempre corre en las rutas de API y en el handshake interno de Clerk.
     "/(api|trpc)(.*)",
     "/__clerk/(.*)",
