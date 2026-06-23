@@ -34,8 +34,9 @@ Nunca asumas de conocimiento viejo: si algo cambió, gana lo de estas fuentes. T
 ## Estado actual de Vendí (resumen — detalle en VENDI_DOC.md + memoria)
 - **Modelo:** CRÉDITOS (no BYOK). Key de Google del lado server. Generación **server-side**.
 - **IA:** 100% **Gemini** (Director + generación + análisis), por REST. **NO Anthropic/Claude.**
-- **Cobro:** **Mercado Pago** (Perú, soles), packs de **pago único 30/75/200** + Lifetime Pass (primeros 30). **Esperando verificación de cuenta MP.** **NO Culqi** (descartado), **NO Stripe**, **NO Yape**.
-- **Stack:** Next.js 16 (App Router), React 19, Supabase (Auth+Postgres+Storage), Tailwind v4, sharp.
+- **Cobro:** **Mercado Pago — EN PRODUCCIÓN** (Checkout Pro + webhook idempotente, desde 2026-06-18). Packs de **pago único** + Lifetime Pass (primeros 30, S/ 37.90). **NO Culqi**, **NO Stripe**, **NO Yape** (todos descartados).
+- **Auth:** **Clerk** (login/signup/verificación, live desde 2026-06-13). Supabase = DB con RLS vivo vía el token de Clerk.
+- **Stack:** Next.js 16 (App Router, `middleware`=`proxy.ts`), React 19, Supabase (Postgres+Storage), Tailwind v4, sharp.
 - **Diseño:** **Cuaderno v2** (cream/forest/butter/clay, Instrument Serif). NO mint/teal.
 - **Identidad de marca** (useNegocio) ya viaja al Director y personaliza las imágenes.
 
