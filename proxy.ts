@@ -39,6 +39,12 @@ const isPublicRoute = createRouteMatcher([
   "/recuperar/(.*)",
   // Destino del boton "Comenzar" de la landing: sin sesion va al pago, no al login.
   "/comenzar",
+  // Webhook de Mercado Pago: MP lo llama server-to-server SIN sesión Clerk. Si
+  // no es público, el proxy lo redirige 302 a /login → MP cree que entregó OK,
+  // no reintenta y el pago aprobado NUNCA acredita créditos. La ruta valida la
+  // firma x-signature por su cuenta, así que exponerla acá es seguro.
+  "/api/webhooks/mercadopago",
+  "/api/webhooks/(.*)",
 ]);
 
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
