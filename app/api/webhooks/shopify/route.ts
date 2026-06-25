@@ -49,22 +49,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Firma invalida" }, { status: 401 });
   }
 
-  // --- 2. Defensa extra: topic y (opcional) shop domain ---
+  // --- 2. Defensa extra: solo el topic. NO validamos el shop-domain: Shopify
+  // estampa el myshopifyDomain interno (mm1qu0-y3...), no el dominio principal
+  // (vendilatam.com / vendi-9497), y ese nombre no se puede elegir. Ademas la
+  // firma HMAC ya garantiza autenticidad (solo la tienda con el secret puede
+  // firmar), asi que chequear el dominio no agrega seguridad real.
   const topic = req.headers.get("x-shopify-topic");
   if (topic !== "orders/paid") {
     // Otros topics: 200 e ignorar (responder 200 evita reintentos inutiles).
     return NextResponse.json({ ignored: true, topic }, { status: 200 });
-  }
-  const expectedShop = process.env.SHOPIFY_SHOP_DOMAIN;
-  const shopDomain = req.headers.get("x-shopify-shop-domain");
-  if (expectedShop && shopDomain && shopDomain !== expectedShop) {
-    console.warn(
-      "[shopify-webhook] Shop domain inesperado:",
-      shopDomain,
-      "esperaba",
-      expectedShop,
-    );
-    return NextResponse.json({ ignored: true }, { status: 200 });
   }
 
   // --- 3. Parsear el Order (ya con firma validada) ---
