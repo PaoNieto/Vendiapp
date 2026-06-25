@@ -733,6 +733,19 @@ function DashboardContent({
                 ? products.getById(gen.project_id)
                 : undefined;
               const projectName = product?.name ?? "Sin producto";
+              // La generación se ve dentro del detalle de su versión
+              // (`/fabrica/[versionId]`). Si no tiene version_id mandamos a la
+              // Fábrica (inbox) en vez de a una ruta inexistente — antes
+              // apuntaba a `/proyectos/{id}`, que no existe y tiraba 404.
+              const genHref = gen.version_id
+                ? `/fabrica/${gen.version_id}`
+                : "/fabrica";
+              // Cover real de la generación: primera imagen asociada a este
+              // `gen.id`. Sin esto la card siempre pintaba el placeholder verde
+              // (la prop `thumbnailUrl` nunca se pasaba) → "imágenes sin verse".
+              const thumbnailUrl = generations.state.images.find(
+                (i) => i.generation_id === gen.id,
+              )?.image_url;
               return (
                 <GenerationCard
                   key={gen.id}
@@ -742,7 +755,8 @@ function DashboardContent({
                   status={gen.status}
                   variations={gen.variations_requested}
                   relativeTime={formatRelativeTime(gen.created_at)}
-                  href={`/proyectos/${gen.id}`}
+                  thumbnailUrl={thumbnailUrl}
+                  href={genHref}
                 />
               );
             })}
