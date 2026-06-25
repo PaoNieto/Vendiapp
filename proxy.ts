@@ -39,6 +39,11 @@ const isPublicRoute = createRouteMatcher([
   "/recuperar/(.*)",
   // Destino del boton "Comenzar" de la landing: sin sesion va al pago, no al login.
   "/comenzar",
+  // Webhooks de sistemas externos (Mercado Pago, Shopify): los invoca un server
+  // externo SIN sesion Clerk. Cada ruta valida su PROPIA firma HMAC, asi que
+  // exponerlas es seguro. Sin esto, el proxy las redirige a /login (307) y la
+  // notificacion de pago nunca llega al handler -> los creditos NO se acreditan.
+  "/api/webhooks/(.*)",
 ]);
 
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
