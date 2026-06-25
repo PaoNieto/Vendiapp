@@ -50,8 +50,9 @@ export type Product = {
   perks?: string[];
 };
 
-// Precio del Lifetime Pass en soles (confirmado por Paolo, 2026-06-16).
-const LIFETIME_PASS_PRICE_PEN = 37.9;
+// Precio del Lifetime Pass en soles. Alineado a S/39 para que coincida con el
+// precio en Shopify (vendi-9497.myshopify.com), 2026-06-25.
+const LIFETIME_PASS_PRICE_PEN = 39.0;
 
 export const PRODUCTS: Record<string, Product> = {
   "lifetime-pass": {
