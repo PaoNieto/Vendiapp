@@ -2,25 +2,29 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 /**
- * Destino del boton "Comenzar" de la landing. La landing es estatica y vive en
- * otro dominio, asi que NO puede saber si el visitante tiene sesion. Por eso el
- * boton apunta aca (al dominio de la app, donde vive la cookie de Clerk) y este
- * route decide:
- *  - con sesion (usuario registrado y logueado) -> /dashboard
- *  - sin sesion -> link de pago (Mercado Pago)
+ * Destino de los CTA de compra de la landing ("Comenzar", "Quiero mi Lifetime
+ * Pass", etc.). La landing es estatica y vive en otro dominio, asi que NO puede
+ * saber si el visitante tiene sesion. Por eso apunta aca (al dominio de la app,
+ * donde vive la cookie de Clerk) y este route decide:
+ *  - con sesion  -> /upgrade  (checkout real por-usuario)
+ *  - sin sesion  -> /signup?redirect_url=/upgrade  (registro rapido y, al
+ *                   terminar, cae en el checkout real)
  *
- * El link de pago es configurable por env `MP_PAYMENT_LINK`. El fallback es el
- * link actual de la landing (preference de PRUEBA). Para produccion: setear
- * MP_PAYMENT_LINK en Vercel con el init_point productivo.
+ * IMPORTANTE — por que NO hay link estatico de Mercado Pago:
+ * un pref_id estatico NO lleva `external_reference` por usuario. Cobraria de
+ * verdad pero el webhook NO sabria a quien acreditarle los creditos -> el
+ * cliente paga y queda sin nada. El UNICO cobro valido es el per-usuario de
+ * /api/checkout: crea la Preference con external_reference = id Clerk, cobra de
+ * verdad y el webhook (/api/webhooks/mercadopago) acredita los creditos. Por eso
+ * todo el cobro pasa primero por auth y termina en /upgrade.
+ *
+ * Se usa `redirect_url` (NO `from`): es el query param que el <SignUp> de Clerk
+ * lee nativamente para el redirect post-registro (precede a fallbackRedirectUrl).
  */
-const PAYMENT_LINK =
-  process.env.MP_PAYMENT_LINK ??
-  "https://www.mercadopago.com.pe/checkout/v1/redirect?pref_id=3480421938-38862917-86bf-4d22-85a9-d50c61ecacf9";
-
 export async function GET(request: Request) {
   const { userId } = await auth();
-  if (userId) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-  return NextResponse.redirect(PAYMENT_LINK);
+  const dest = userId
+    ? "/upgrade"
+    : `/signup?redirect_url=${encodeURIComponent("/upgrade")}`;
+  return NextResponse.redirect(new URL(dest, request.url));
 }
