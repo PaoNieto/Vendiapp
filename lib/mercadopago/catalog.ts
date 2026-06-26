@@ -12,8 +12,9 @@ import "server-only";
  * Hoy hay 4 productos, todos pago único:
  *   - lifetime-pass: PASE FUNDADOR (primeros 30 fundadores). 60 créditos +
  *     perks de fundador (los perks son marketing, NO afectan la acreditación).
+ *     ⚠️ Vive SOLO en la landing, NO en la vitrina de la app (ver listProducts).
  *   - pack-inicial / pack-pro / pack-negocio: RECARGA PURA de créditos de
- *     generación, sin perks. `kind: "pack"`.
+ *     generación, sin perks. `kind: "pack"`. Estos SÍ se muestran en /upgrade.
  *
  * La vitrina de /upgrade se renderiza desde acá (listProducts), así no hay
  * precios duplicados en el cliente: la card y el cobro leen la misma fuente.
@@ -116,7 +117,16 @@ export function getProduct(id: string): Product | null {
   return PRODUCTS[id] ?? null;
 }
 
-/** Lista los productos en orden de vitrina (para renderizar /upgrade). */
+/**
+ * Lista los productos para la VITRINA de /upgrade (dentro de la app), en orden.
+ *
+ * Excluye el Pase Fundador (kind "lifetime"): esa oferta vive SOLO en la landing,
+ * no en la app (decisión de Paolo, 2026-06-26). El producto sigue en PRODUCTS y
+ * `getProduct()` lo resuelve igual, así el cobro per-usuario (/api/checkout) y el
+ * webhook de Shopify lo siguen acreditando cuando se compra desde la landing.
+ */
 export function listProducts(): Product[] {
-  return Object.values(PRODUCTS).sort((a, b) => a.order - b.order);
+  return Object.values(PRODUCTS)
+    .filter((p) => p.kind !== "lifetime")
+    .sort((a, b) => a.order - b.order);
 }
