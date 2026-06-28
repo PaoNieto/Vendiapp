@@ -94,11 +94,16 @@ export async function POST(req: Request) {
   }
 
   // --- 3. Acreditar idempotente (registro + grant en una transacción) ---
+  // Lifetime (Pase Fundador): la RPC además marca plan='founder' y acredita los
+  // créditos de análisis. is_lifetime y analysis_credits salen del catálogo
+  // server-side, NUNCA del evento.
   const admin = createAdminClient();
   const { data: result, error } = await admin.rpc("process_mp_payment", {
     p_mp_payment_id: String(payment.id),
     p_clerk_user_id: clerkUserId,
     p_credits: product.credits,
+    p_is_lifetime: product.kind === "lifetime",
+    p_analysis_credits: product.analysisCredits ?? 0,
     p_raw: payment as unknown as Record<string, unknown>,
   });
   if (error) {

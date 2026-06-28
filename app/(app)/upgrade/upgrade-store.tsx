@@ -14,7 +14,16 @@ import type { Product } from "@/lib/mercadopago/catalog";
  * el `initPoint` (URL de Checkout Pro) al que redirigimos. La acreditación de
  * créditos la confirma el webhook /api/webhooks/mercadopago — NUNCA acá.
  */
-export function UpgradeStore({ products }: { products: Product[] }) {
+export function UpgradeStore({
+  products,
+  title = "Sumá créditos",
+  subtitle = "1 crédito = 1 imagen generada. Todos los pagos son únicos y los créditos no vencen.",
+}: {
+  products: Product[];
+  /** Encabezado de la vitrina. Permite reusar el componente para la página del Pase Fundador. */
+  title?: string;
+  subtitle?: string;
+}) {
   const { stats } = useCreditos();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +62,10 @@ export function UpgradeStore({ products }: { products: Product[] }) {
             Tenés {stats.balance} {stats.balance === 1 ? "crédito" : "créditos"}
           </span>
           <h1 className="mt-4 font-display text-3xl italic text-foreground sm:text-4xl">
-            Sumá créditos
+            {title}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            1 crédito = 1 imagen generada. Todos los pagos son únicos y los
-            créditos no vencen.
+            {subtitle}
           </p>
         </div>
 
