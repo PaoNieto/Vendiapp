@@ -39,6 +39,12 @@ export type Product = {
   description: string;
   /** Créditos de GENERACIÓN que acredita grant_credits al aprobarse el pago. */
   credits: number;
+  /**
+   * Créditos de ANÁLISIS IA que acredita grant_analysis_credits al aprobarse el
+   * pago (bolsa aparte de los de generación). Opcional: hoy solo el Lifetime los
+   * da. El webhook los resuelve de acá, NUNCA del evento.
+   */
+  analysisCredits?: number;
   /** Precio en soles (PEN). Mercado Pago Perú cobra en moneda local. */
   priceSoles: number;
   /** Orden en la vitrina (menor primero). Solo UI. */
@@ -62,14 +68,16 @@ export const PRODUCTS: Record<string, Product> = {
     name: "Pase Fundador",
     title: "Vendí — Pase Fundador (de por vida)",
     description:
-      "60 créditos de generación + soporte y perks de fundador. Pago único.",
+      "60 créditos de generación + 10 análisis con IA + perks de fundador. Pago único.",
     credits: 60,
+    analysisCredits: 10,
     priceSoles: LIFETIME_PASS_PRICE_PEN,
     order: 0,
     badge: "Primeros 30 fundadores",
     highlight: true,
     perks: [
       "60 créditos de generación",
+      "10 análisis con IA",
       "Soporte constante",
       "Insignia de Fundador",
       "Acceso anticipado a lo nuevo",
@@ -120,10 +128,11 @@ export function getProduct(id: string): Product | null {
 /**
  * Lista los productos para la VITRINA de /upgrade (dentro de la app), en orden.
  *
- * Excluye el Pase Fundador (kind "lifetime"): esa oferta vive SOLO en la landing,
- * no en la app (decisión de Paolo, 2026-06-26). El producto sigue en PRODUCTS y
- * `getProduct()` lo resuelve igual, así el cobro per-usuario (/api/checkout) y el
- * webhook de Shopify lo siguen acreditando cuando se compra desde la landing.
+ * Excluye el Pase Fundador (kind "lifetime"): NO va en la vitrina de packs. Se
+ * vende en su propia página `/upgrade/fundador` (a la que llega el CTA del
+ * Lifetime de la landing vía `/comenzar?producto=lifetime-pass`). El producto
+ * sigue en PRODUCTS y `getProduct()` lo resuelve igual, así el cobro per-usuario
+ * (/api/checkout → webhook process_mp_payment) lo acredita con plan founder.
  */
 export function listProducts(): Product[] {
   return Object.values(PRODUCTS)
