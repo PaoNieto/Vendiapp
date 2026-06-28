@@ -54,10 +54,17 @@ const isPublicRoute = createRouteMatcher([
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
 const isAuthFormRoute = createRouteMatcher(["/login", "/signup"]);
 
-// Única página de la app que un usuario logueado-pero-sin-pagar SÍ puede ver:
-// la vitrina de packs, que es el checkout pegado a su cuenta (ahí paga y la app
-// se desbloquea sola). Exenta del paywall para no hacer loop de redirects.
-const isPaywallExempt = createRouteMatcher(["/upgrade", "/upgrade/(.*)"]);
+// Páginas que un usuario logueado-pero-sin-pagar SÍ puede ver (exentas del
+// paywall para no hacer loop de redirects):
+//  - /fundador: PAYWALL standalone del Lifetime Pass (destino de la landing vía
+//    /comenzar?producto=lifetime-pass). Es donde paga pegado a su cuenta; al no
+//    ser pública igual exige sesión (sin sesión, el proxy manda a /login).
+//  - /upgrade(/*): la vitrina de packs interna (checkout pegado a su cuenta).
+const isPaywallExempt = createRouteMatcher([
+  "/fundador",
+  "/upgrade",
+  "/upgrade/(.*)",
+]);
 
 // A dónde mandamos al usuario logueado que todavía NO pagó: a la LANDING (el
 // pitch + precios), no a la grilla pelada de la app. La landing vende; su botón

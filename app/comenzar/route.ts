@@ -18,9 +18,11 @@ import { userHasPaidAccess } from "@/lib/auth/paid-access";
  *  - logueado que pago   -> /dashboard (ya es cliente, derecho a usar la app).
  *
  * <destino> depende del query `?producto`:
- *   - `producto=lifetime-pass` -> /upgrade/fundador (vende SOLO el Pase Fundador,
- *     S/39, 60 creditos + 10 analisis + plan founder). Es el destino de TODOS los
- *     CTA de compra de la landing, que vende la app via el Lifetime.
+ *   - `producto=lifetime-pass` -> /fundador (PAYWALL standalone que vende SOLO el
+ *     Pase Fundador, S/39, 60 creditos + 10 analisis + plan founder). Es el
+ *     destino de TODOS los CTA de compra de la landing, que vende la app via el
+ *     Lifetime. Vive FUERA del route group (app): sin sidebar ni nav, encierra al
+ *     usuario sin pagar (o paga o cierra sesion).
  *   - sin `producto` (o cualquier otro) -> /upgrade (la vitrina de packs interna).
  *
  * NO volver a un link estatico de Mercado Pago: un pref_id fijo (a) era de PRUEBA
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
   // Destino del checkout segun el producto pedido. Hoy el unico producto con
   // pagina propia es el Lifetime; el resto cae en la vitrina de packs.
   const producto = new URL(request.url).searchParams.get("producto");
-  const destino = producto === "lifetime-pass" ? "/upgrade/fundador" : "/upgrade";
+  const destino = producto === "lifetime-pass" ? "/fundador" : "/upgrade";
 
   if (!userId) {
     const signup = new URL("/signup", request.url);

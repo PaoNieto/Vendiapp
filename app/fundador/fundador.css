@@ -1,0 +1,417 @@
+/* ============================================================
+   /fundador — PAYWALL STANDALONE (Lifetime Pass)
+   Estilos AUTOCONTENIDOS portados 1:1 de la landing (landing.html):
+   paleta verde-oscuro + dorado, tipografías Fraunces / Hanken / DM Mono.
+   TODO va scopeado bajo .fundador-page para no filtrarse al design
+   system del app shell (Cuaderno v2) ni recibir nada de globals.css.
+   ============================================================ */
+
+.fundador-page {
+  /* ---- paleta (idéntica a :root de la landing) ---- */
+  --bg: #b7ca91;
+  --fg: #0d1b12;
+  --card: #faf6e8;
+  --pill-bg: #0f1f16;
+  --pill-fg: #f0f4e7;
+  --ink: #0d1b12;
+  --ink-soft: #283827;
+  --mute: #5a6852;
+  --mute-on-bg: #3d4b37;
+  --sage: #7e9a75;
+  --sage-strong: #3d5a36;
+  --butter: #c9a640;
+  --clay: #a85a3f;
+  --muted-bg: rgba(15, 31, 22, 0.05);
+  --border: rgba(15, 31, 22, 0.1);
+  --border-strong: rgba(15, 31, 22, 0.16);
+  --ring: #0f1f16;
+  --forest: #0f1f16;
+  --cream: #f0f4e7;
+
+  /* next/font expone --font-fraunces / --font-hanken / --font-dm-mono
+     en el wrapper; acá los remapeamos a los nombres de la landing. */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-hanken), system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+  --font-brand: var(--font-fraunces), Georgia, serif;
+
+  --radius: 22px;
+  --shadow: 0 30px 70px -28px rgba(15, 31, 22, 0.45);
+  --shadow-lg: 0 50px 110px -34px rgba(15, 31, 22, 0.55);
+
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+
+  font-family: var(--font-sans);
+  color: var(--ink);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+
+  background: #b7ca91;
+  background-image:
+    radial-gradient(ellipse 70% 80% at 88% 8%, #d6cd7c 0%, transparent 55%),
+    radial-gradient(ellipse 110% 120% at 30% 80%, #a6c198 0%, #b7ca91 70%, #b7ca91 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* grain overlay (como body::before de la landing) */
+.fundador-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- top bar: marca + cerrar sesión (único control extra) ---- */
+.fundador-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px clamp(20px, 5vw, 64px);
+}
+.fundador-brand {
+  font-family: var(--font-brand);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.7rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.fundador-signout {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--mute-on-bg);
+  border-radius: 999px;
+  transition: color 0.2s, background 0.2s;
+}
+.fundador-signout:hover {
+  color: var(--ink);
+  background: var(--muted-bg);
+}
+
+/* ---- contenido centrado ---- */
+.fundador-main {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: clamp(24px, 5vw, 56px) clamp(20px, 5vw, 64px) clamp(40px, 6vw, 72px);
+}
+.fundador-page .plans.single {
+  display: block;
+  width: 100%;
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+/* ============ BOTONES (pill) ============ */
+.fundador-page .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--pill-bg);
+  color: var(--pill-fg);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 1.02rem;
+  padding: 16px 30px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s,
+    background 0.25s;
+  box-shadow: 0 14px 34px -12px rgba(15, 31, 22, 0.6);
+}
+.fundador-page .pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 46px -14px rgba(15, 31, 22, 0.7);
+  background: #16291d;
+}
+.fundador-page .pill svg {
+  transition: transform 0.25s;
+}
+.fundador-page .pill:hover svg {
+  transform: translateX(3px);
+}
+.fundador-page .pill.lg {
+  padding: 19px 38px;
+  font-size: 1.1rem;
+}
+.fundador-page .pill:disabled {
+  opacity: 0.65;
+  cursor: progress;
+  transform: none;
+}
+.fundador-page .pill:disabled:hover {
+  transform: none;
+  background: var(--cream);
+}
+
+/* ============ TARJETA (plan featured) ============ */
+.fundador-page h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+.fundador-page .plan {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(28px, 3vw, 38px);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.fundador-page .plan.featured {
+  background: var(--forest);
+  border-color: var(--forest);
+  box-shadow: var(--shadow-lg);
+}
+.fundador-page .plan.featured::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 0%,
+    rgba(201, 166, 64, 0.16),
+    transparent 60%
+  );
+  pointer-events: none;
+}
+.fundador-page .plan-badge {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  background: var(--butter);
+  color: var(--forest);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px 16px;
+  border-radius: 999px;
+  box-shadow: 0 10px 22px -8px rgba(15, 31, 22, 0.5);
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fundador-page .plan-top {
+  position: relative;
+  z-index: 1;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+.fundador-page .plan.featured .plan-top {
+  border-color: rgba(240, 244, 231, 0.14);
+}
+.fundador-page .plan-top h3 {
+  font-size: 1.7rem;
+  color: var(--ink);
+}
+.fundador-page .plan.featured .plan-top h3 {
+  color: var(--cream);
+}
+.fundador-page .plan-sub {
+  font-size: 0.94rem;
+  color: var(--mute);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+.fundador-page .plan.featured .plan-sub {
+  color: rgba(240, 244, 231, 0.7);
+}
+
+/* ---- precio ---- */
+.fundador-page .plan-price {
+  margin-top: 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fundador-page .amt-old {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  line-height: 1;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  color: rgba(240, 244, 231, 0.5);
+  margin-right: 2px;
+}
+.fundador-page .plan-price .amt {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2.6rem, 5vw, 3.4rem);
+  line-height: 1;
+  color: var(--butter);
+  letter-spacing: -0.03em;
+}
+.fundador-page .plan-price .per {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: rgba(240, 244, 231, 0.55);
+}
+.fundador-page .plan-save {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--forest);
+  background: var(--butter);
+  padding: 5px 10px;
+  border-radius: 7px;
+  align-self: center;
+  margin-left: 4px;
+}
+
+/* ---- pills informativos ---- */
+.fundador-page .plan-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  position: relative;
+  z-index: 1;
+}
+.fundador-page .plan-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(240, 244, 231, 0.8);
+  background: rgba(240, 244, 231, 0.08);
+  border: 1px solid rgba(240, 244, 231, 0.14);
+  padding: 7px 12px;
+  border-radius: 999px;
+}
+
+/* ---- beneficios ---- */
+.fundador-page .plan-feats {
+  list-style: none;
+  margin: 24px 0 28px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+.fundador-page .plan-feats li {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  font-size: 0.97rem;
+  color: rgba(240, 244, 231, 0.86);
+  line-height: 1.4;
+}
+.fundador-page .plan-feats li::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: rgba(201, 166, 64, 0.2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c9a640' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E")
+    center / 12px no-repeat;
+}
+.fundador-page .plan-feats .byok {
+  display: block;
+  font-size: 0.82rem;
+  color: rgba(240, 244, 231, 0.5);
+  margin-top: 2px;
+}
+
+/* ---- CTA + pie ---- */
+.fundador-page .plan.featured .pill {
+  background: var(--cream);
+  color: var(--forest);
+}
+.fundador-page .plan.featured .pill:hover {
+  background: #fff;
+}
+.fundador-cta {
+  width: 100%;
+  justify-content: center;
+}
+.fundador-error {
+  margin-top: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: #f0bfb0;
+}
+.fundador-page .plan-fine {
+  margin-top: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: rgba(240, 244, 231, 0.55);
+  position: relative;
+  z-index: 1;
+}
+
+/* spinner del CTA */
+.fundador-spin {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 31, 22, 0.25);
+  border-top-color: var(--forest);
+  animation: fundador-spin 0.7s linear infinite;
+}
+@keyframes fundador-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fundador-page .pill,
+  .fundador-page .plan {
+    transition: none;
+  }
+  .fundador-spin {
+    animation-duration: 1.4s;
+  }
+}
