@@ -314,7 +314,7 @@
   /* Body gradient en dark — casi-negro + NEBULOSA VERDE marcada y centrada. */
   --bg-gradient:
     radial-gradient(
-      ellipse 80% 70% at 50% 40%,
+      ellipse 60% 55% at 50% 40%,
       rgba(70, 199, 141, 0.3) 0%,
       rgba(70, 199, 141, 0.12) 40%,
       transparent 72%
@@ -672,7 +672,7 @@
   [data-theme="dark"] .dashboard-shell {
     background:
       radial-gradient(
-        ellipse 80% 70% at 50% 40%,
+        ellipse 60% 55% at 50% 40%,
         rgba(70, 199, 141, 0.3) 0%,
         rgba(70, 199, 141, 0.12) 40%,
         transparent 72%
@@ -683,5 +683,25 @@
         var(--vd-bg-b) 65%,
         var(--vd-bg-a) 100%
       );
+  }
+  /* Desktop: el sidebar (220px) ocupa la izquierda; corremos el centro de la
+     nebulosa +110px (mitad del sidebar) para que quede centrada en el ÁREA DE
+     CONTENIDO, no en el shell completo. En mobile no hay sidebar → queda 50%. */
+  @media (min-width: 64rem) {
+    [data-theme="dark"] .dashboard-shell {
+      background:
+        radial-gradient(
+          ellipse 60% 55% at calc(50% + 110px) 40%,
+          rgba(70, 199, 141, 0.3) 0%,
+          rgba(70, 199, 141, 0.12) 40%,
+          transparent 72%
+        ),
+        radial-gradient(
+          ellipse 120% 130% at 30% 80%,
+          #0b0e0c 0%,
+          var(--vd-bg-b) 65%,
+          var(--vd-bg-a) 100%
+        );
+    }
   }
 }
