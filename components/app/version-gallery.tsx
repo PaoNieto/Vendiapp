@@ -12,7 +12,9 @@
  *  1. Seteos (read-only): formato, referencias, estilo de la versión.
  *  2. Prompt original (read-only): cómo se creó esta imagen.
  *  3. Prompt estricto (editable): personalización del usuario para una
- *     regeneración al 100% de control. "Regenerar" queda disabled (próximamente).
+ *     regeneración al 100% de control. "Regenerar" dispara
+ *     POST /api/generations/regenerate (1 crédito) usando ese texto como prompt
+ *     autoritativo (pisa estilo + referencias).
  */
 
 import Image from "next/image";
@@ -209,17 +211,60 @@ function ImageDetailDialog({
 }) {
   const { setImagePrompt, toggleFavorite, markDownloaded } = useGenerations();
 
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
+
   // Prompt base/original — read-only. Lectura segura del metadata (contrato Bujía).
   const basePrompt =
     image && typeof image.metadata?.base_prompt === "string"
       ? image.metadata.base_prompt
       : image?.strict_prompt || "";
 
+  const strictText = image?.strict_prompt.trim() ?? "";
+  const canRegenerate = strictText.length > 0 && !isRegenerating;
+
+  async function handleRegenerate() {
+    if (!image || !canRegenerate) return;
+    setRegenError(null);
+    setIsRegenerating(true);
+    try {
+      const res = await fetch("/api/generations/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageId: image.id, strictPrompt: strictText }),
+      });
+      if (res.status === 402) {
+        setRegenError("insufficient_credits");
+        return;
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { message?: string; error?: string }
+          | null;
+        setRegenError(
+          data?.message ?? data?.error ?? "No se pudo regenerar. Intentá de nuevo.",
+        );
+        return;
+      }
+      // Éxito: recargamos para traer la nueva variación del server (mismo patrón
+      // que "Más variaciones").
+      window.location.reload();
+    } catch {
+      setRegenError("No se pudo conectar. Revisá tu internet e intentá de nuevo.");
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
+
   return (
     <Dialog
       open={image !== null}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) {
+          // Limpiamos el error al cerrar para que no quede pegado al abrir otra imagen.
+          setRegenError(null);
+          onClose();
+        }
       }}
     >
       <DialogContent className="max-h-[90vh] max-w-3xl gap-0 overflow-y-auto p-0 sm:max-w-3xl lg:max-w-4xl">
@@ -351,7 +396,7 @@ function ImageDetailDialog({
                     Prompt estricto
                   </span>
                   <span
-                    title="La IA priorizará este texto sobre el estilo y las referencias en una regeneración."
+                    title="La IA cumple tu prompt de forma prioritaria (≈99.9% de fidelidad), por encima del estilo y las referencias, y sin inventar."
                     className="inline-flex h-[16px] w-[16px] cursor-help items-center justify-center rounded-full bg-sage-strong/15 text-sage-strong"
                   >
                     <Info className="h-2.5 w-2.5" strokeWidth={2.2} />
@@ -365,19 +410,45 @@ function ImageDetailDialog({
                   className="min-h-[92px] resize-none rounded-[10px] border-border bg-card/70 px-3 py-2 font-mono text-[11.5px] leading-[1.6]"
                 />
                 <p className="text-[11px] leading-[1.5] text-mute">
-                  La IA priorizará este texto sobre el estilo y las referencias
-                  en una regeneración.
+                  La IA va a cumplir tu especificación de forma prioritaria
+                  (≈99.9% de fidelidad), por encima del estilo y las
+                  referencias, y sin inventar detalles que no pediste.
                 </p>
 
                 <button
                   type="button"
+                  onClick={handleRegenerate}
+                  disabled={!canRegenerate}
                   className="mt-0.5 inline-flex w-full min-h-[40px] items-center justify-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled
-                  title="Próximamente — regeneración por imagen"
+                  title={
+                    strictText.length === 0
+                      ? "Escribí un prompt estricto para regenerar"
+                      : "Regenerar esta imagen con tu prompt (usa 1 crédito)"
+                  }
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Regenerar (próximamente)
+                  <RefreshCw
+                    className={cn("h-3.5 w-3.5", isRegenerating && "animate-spin")}
+                  />
+                  {isRegenerating ? "Regenerando…" : "Regenerar (1 crédito)"}
                 </button>
+
+                {regenError ? (
+                  <p className="text-[11px] leading-[1.5] text-destructive">
+                    {regenError === "insufficient_credits" ? (
+                      <>
+                        Te quedaste sin créditos.{" "}
+                        <a
+                          href="/upgrade"
+                          className="font-semibold underline hover:text-destructive/80"
+                        >
+                          Comprar créditos →
+                        </a>
+                      </>
+                    ) : (
+                      regenError
+                    )}
+                  </p>
+                ) : null}
               </section>
             </div>
           </div>

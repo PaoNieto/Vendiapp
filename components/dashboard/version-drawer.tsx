@@ -24,9 +24,10 @@
  *   texto descriptivo, on revela el textarea editable. El estado del switch
  *   es derivado de `strict_prompt !== ""` para no duplicar estado.
  *
- * Acciones placeholder:
+ * Acciones:
  *  - Descargar imagen: TODO(fabrica) — sin endpoint todavía.
- *  - Regenerar por imagen: TODO(fabrica) — endpoint de regen por imagen.
+ *  - Regenerar por imagen: POST /api/generations/regenerate (prompt estricto,
+ *    1 crédito). Requiere strict_prompt no-vacío.
  */
 
 import Image from "next/image";
@@ -323,9 +324,10 @@ function ImagesGrid({
  *   pierde data porque off solo oculta el textarea. Para "activar" desde off
  *   levantamos un override local.
  *
- * Acciones placeholder:
+ * Acciones:
  *  - Descargar: TODO(fabrica) — conectar handler real cuando exista endpoint.
- *  - Regenerar con este prompt: TODO(fabrica) — endpoint de regen por imagen.
+ *  - Regenerar con este prompt: POST /api/generations/regenerate (1 crédito),
+ *    habilitado solo con strict_prompt no-vacío.
  */
 function ImageTile({
   image,
@@ -341,6 +343,43 @@ function ImageTile({
   // un prompt nuevo). Una vez activo, ya es prompt.length > 0 → on derivado.
   const [localOn, setLocalOn] = useState(false);
   const promptOn = image.strict_prompt.trim().length > 0 || localOn;
+
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
+  const strictText = image.strict_prompt.trim();
+  const canRegenerate = strictText.length > 0 && !isRegenerating;
+
+  async function handleRegenerate() {
+    if (!canRegenerate) return;
+    setRegenError(null);
+    setIsRegenerating(true);
+    try {
+      const res = await fetch("/api/generations/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageId: image.id, strictPrompt: strictText }),
+      });
+      if (res.status === 402) {
+        setRegenError("insufficient_credits");
+        return;
+      }
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { message?: string; error?: string }
+          | null;
+        setRegenError(
+          data?.message ?? data?.error ?? "No se pudo regenerar. Intentá de nuevo.",
+        );
+        return;
+      }
+      // Éxito: recargamos para traer la nueva variación del server.
+      window.location.reload();
+    } catch {
+      setRegenError("No se pudo conectar. Revisá tu internet e intentá de nuevo.");
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
 
   function handleToggle() {
     if (promptOn) {
@@ -429,8 +468,8 @@ function ImageTile({
           <div className="flex items-center gap-1.5">
             <span className="eyebrow">Prompt estricto</span>
             <span
-              title="La IA priorizará este texto sobre el estilo y las referencias"
-              aria-label="La IA priorizará este texto sobre el estilo y las referencias"
+              title="La IA cumple tu prompt de forma prioritaria (≈99.9% de fidelidad), por encima del estilo y las referencias, y sin inventar."
+              aria-label="La IA cumple tu prompt de forma prioritaria, por encima del estilo y las referencias, sin inventar."
               className="inline-flex h-[16px] w-[16px] cursor-help items-center justify-center rounded-full bg-foreground/[0.06] text-muted-foreground transition-colors hover:bg-foreground/[0.12] hover:text-foreground"
             >
               <Info className="h-2.5 w-2.5" strokeWidth={2.2} />
@@ -460,17 +499,49 @@ function ImageTile({
           </p>
         )}
 
+        {/* Aclaración de fidelidad (solo cuando el prompt está activo). */}
+        {promptOn ? (
+          <p className="text-[11px] leading-[1.5] text-muted-foreground">
+            La IA cumple tu especificación de forma prioritaria (≈99.9% de
+            fidelidad), por encima del estilo y las referencias, sin inventar.
+          </p>
+        ) : null}
+
         {/* Fila 3: botón Regenerar — ancho completo */}
         <button
           type="button"
+          onClick={handleRegenerate}
+          disabled={!canRegenerate}
           className="inline-flex w-full min-h-[34px] items-center justify-center gap-1.5 rounded-md border border-border bg-transparent px-3 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          disabled
-          aria-disabled
-          title="Próximamente — la regeneración por imagen se conecta con Gemini en la siguiente fase"
+          title={
+            strictText.length === 0
+              ? "Escribí un prompt estricto para regenerar"
+              : "Regenerar esta imagen con tu prompt (usa 1 crédito)"
+          }
         >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Regenerar
+          <RefreshCw
+            className={cn("h-3.5 w-3.5", isRegenerating && "animate-spin")}
+          />
+          {isRegenerating ? "Regenerando…" : "Regenerar (1 crédito)"}
         </button>
+
+        {regenError ? (
+          <p className="text-[11px] leading-[1.5] text-destructive">
+            {regenError === "insufficient_credits" ? (
+              <>
+                Te quedaste sin créditos.{" "}
+                <a
+                  href="/upgrade"
+                  className="font-semibold underline hover:text-destructive/80"
+                >
+                  Comprar créditos →
+                </a>
+              </>
+            ) : (
+              regenError
+            )}
+          </p>
+        ) : null}
       </div>
     </motion.figure>
   );
