@@ -311,12 +311,13 @@
   --clay: var(--vd-clay);
   --butter: var(--vd-butter);
 
-  /* Body gradient en dark — casi-negro + glow dorado LEVE centrado (visionOS). */
+  /* Body gradient en dark — casi-negro + NEBULOSA VERDE marcada y centrada. */
   --bg-gradient:
     radial-gradient(
-      ellipse 60% 55% at 50% 45%,
-      rgba(233, 198, 95, 0.05) 0%,
-      transparent 60%
+      ellipse 80% 70% at 50% 40%,
+      rgba(70, 199, 141, 0.3) 0%,
+      rgba(70, 199, 141, 0.12) 40%,
+      transparent 72%
     ),
     radial-gradient(
       ellipse 120% 130% at 30% 80%,
@@ -605,24 +606,17 @@
   }
 
   /*
-    CTA verde premium (Natural OS) — SOLO dark. Reemplaza el fill champagne del
-    botón primario por el jade luminoso con glow suave. En light el botón sigue
-    forest (bg-primary), intacto. Compone sobre .bg-primary por especificidad
-    ([data-theme] + clase). El glow va por `filter: drop-shadow` a propósito:
-    NO toca `box-shadow`, así el focus-ring de Tailwind sigue visible (a11y).
+    CTA champagne con BRILLO — SOLO dark. Paolo pidió sacar el VERDE de los
+    botones pero mantener el brillo: NO tocamos el fill (queda bg-primary
+    champagne) y sólo sumamos un halo cálido dorado vía `filter: drop-shadow`
+    (no toca `box-shadow`, así el focus-ring de Tailwind sigue visible = a11y).
+    En light el botón sigue forest (bg-primary), intacto.
   */
   [data-theme="dark"] .cta-emerald {
-    background: linear-gradient(
-      180deg,
-      var(--vd-emerald-strong),
-      var(--vd-emerald)
-    );
-    color: #04160e;
-    filter: drop-shadow(0 6px 16px var(--vd-emerald-glow));
+    filter: drop-shadow(0 6px 16px rgba(233, 214, 171, 0.4));
   }
   [data-theme="dark"] .cta-emerald:hover {
-    background: linear-gradient(180deg, #74e0b1, var(--vd-emerald-strong));
-    filter: drop-shadow(0 9px 22px var(--vd-emerald-glow));
+    filter: drop-shadow(0 9px 24px rgba(233, 214, 171, 0.52));
   }
 
   /*
@@ -678,9 +672,10 @@
   [data-theme="dark"] .dashboard-shell {
     background:
       radial-gradient(
-        ellipse 60% 55% at 50% 45%,
-        rgba(233, 198, 95, 0.05) 0%,
-        transparent 60%
+        ellipse 80% 70% at 50% 40%,
+        rgba(70, 199, 141, 0.3) 0%,
+        rgba(70, 199, 141, 0.12) 40%,
+        transparent 72%
       ),
       radial-gradient(
         ellipse 120% 130% at 30% 80%,

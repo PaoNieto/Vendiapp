@@ -46,7 +46,7 @@ const sizeClasses: Record<PillButtonSize, string> = {
 };
 
 const baseClasses =
-  "cta-emerald inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground font-medium transition-all duration-150 ease-out shadow-[0_4px_12px_rgba(15,40,24,0.18)] hover:bg-primary/90 hover:shadow-[0_6px_16px_rgba(15,40,24,0.24)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-[color:var(--vd-emerald)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50 disabled:pointer-events-none";
+  "cta-emerald inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground font-medium transition-all duration-150 ease-out shadow-[0_4px_12px_rgba(15,40,24,0.18)] hover:bg-primary/90 hover:shadow-[0_6px_16px_rgba(15,40,24,0.24)] active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-[color:var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50 disabled:pointer-events-none";
 
 /**
  * PillButton
