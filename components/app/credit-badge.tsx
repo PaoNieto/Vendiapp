@@ -32,7 +32,7 @@ export function CreditBadge({
           className="inline-flex items-center gap-1.5 rounded-full bg-pill-bg/10 px-3 py-1.5 text-sm font-semibold text-foreground"
           title="Créditos ilimitados"
         >
-          <Coins className="h-4 w-4" aria-hidden />
+          <Coins className="h-4 w-4 dark:text-gold" aria-hidden />
           {loading ? "…" : "∞"}
           <span className="hidden sm:inline font-normal text-muted-foreground">
             ilimitado
@@ -55,7 +55,7 @@ export function CreditBadge({
         )}
         title={`${balance} créditos disponibles`}
       >
-        <Coins className="h-4 w-4" aria-hidden />
+        <Coins className={cn("h-4 w-4", !empty && !low && "dark:text-gold")} aria-hidden />
         {loading ? "…" : balance}
         <span className="hidden sm:inline font-normal text-muted-foreground">
           {balance === 1 ? "crédito" : "créditos"}

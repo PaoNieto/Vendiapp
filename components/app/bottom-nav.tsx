@@ -29,7 +29,7 @@ export function BottomNav() {
               className={cn(
                 "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-colors",
                 active
-                  ? "text-primary"
+                  ? "text-primary dark:text-gold"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

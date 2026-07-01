@@ -62,7 +62,7 @@ export function Sidebar() {
         href="/dashboard"
         className="px-2.5 font-display text-[30px] italic leading-none text-foreground"
       >
-        Vendí<span className="text-sage-strong">.</span>
+        Vendí<span className="text-sage-strong dark:text-gold dark:[text-shadow:0_0_16px_rgba(233,198,95,0.4)]">.</span>
       </Link>
 
       {/* Eyebrow "ESPACIO" — micro-label sobre la nav. */}
@@ -139,7 +139,7 @@ export function Sidebar() {
 
         <div className="eyebrow mt-3">Créditos</div>
         <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Coins className="h-4 w-4 text-sage-strong" aria-hidden />
+          <Coins className="h-4 w-4 text-sage-strong dark:text-gold" aria-hidden />
           {creditosLoading
             ? "…"
             : stats.unlimited
@@ -150,7 +150,7 @@ export function Sidebar() {
         {!stats.unlimited ? (
           <Link
             href="/upgrade"
-            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong transition-colors hover:text-foreground"
+            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong dark:text-gold transition-colors hover:text-foreground"
           >
             Comprar más <span aria-hidden>→</span>
           </Link>

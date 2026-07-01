@@ -51,6 +51,7 @@
   --color-sage-strong: var(--vd-sage-strong);
   --color-clay: var(--vd-clay);
   --color-butter: var(--vd-butter);
+  --color-gold: var(--vd-gold);
   --color-card-cream: var(--vd-card-cream);
   --color-sidebar-bg: var(--vd-sidebar-bg);
   --color-bg-a: var(--vd-bg-a);
@@ -164,6 +165,7 @@
   --vd-sage-strong: #3d5a36;
   --vd-clay: #a85a3f;
   --vd-butter: #c9a640;
+  --vd-gold: #b0872b; /* dorado legible sobre crema — reservado, hoy solo se usa en dark */
   --vd-card-cream: #faf6e8;
   --vd-sidebar-bg: #c6d6b2;
 
@@ -221,62 +223,62 @@
   visual glass; cambian los colores base a la versión nocturna del Cuaderno.
 */
 [data-theme="dark"] {
-  --background: #11241b; /* deep forest mid */
-  --foreground: #f0e8cb; /* warm cream texto */
+  --background: #0a130e; /* deep near-black forest */
+  --foreground: #eee5c9; /* warm cream */
 
-  /* CARD = dark green lifted, SÓLIDO en dark también. */
-  --card: #19271f;
-  --card-foreground: #f0e8cb;
+  --card: #111d16; /* forest lifted */
+  --card-foreground: #eee5c9;
+  --popover: #111d16;
+  --popover-foreground: #eee5c9;
 
-  --popover: #19271f;
-  --popover-foreground: #f0e8cb;
+  /* Pill principal = CHAMPAGNE cálido (dorado suave premium), texto forest. */
+  --primary: #e7d6ab;
+  --primary-foreground: #0b1712;
 
-  /* Pill invertida: fondo cream, texto deep forest. */
-  --primary: #f0e8cb;
-  --primary-foreground: #0d1b12;
+  --secondary: rgba(231, 214, 171, 0.06);
+  --secondary-foreground: #eee5c9;
 
-  /* Secondary = sutil overlay cream-ink mix. */
-  --secondary: rgba(240, 232, 203, 0.06);
-  --secondary-foreground: #f0e8cb;
+  --muted: rgba(238, 229, 201, 0.05);
+  --muted-foreground: #9aa587;
 
-  --muted: rgba(240, 232, 203, 0.05);
-  --muted-foreground: #a3ac8e;
+  /* Accent = sage claro — mantiene semántica VERDE (links, delta+). */
+  --accent: #bcd3a4;
+  --accent-foreground: #0b1712;
 
-  /* Accent en dark = sage claro (--vd-sage-strong de dark). */
-  --accent: #b2cc9c;
-  --accent-foreground: #0d1b12;
-
-  /* Destructive = clay más luminoso. */
   --destructive: #e48564;
-  --success: #b2cc9c;
-  --warning: #e5c463;
+  --success: #bcd3a4;
+  --warning: #e8c766;
 
-  --border: rgba(240, 232, 203, 0.1);
-  --input: rgba(240, 232, 203, 0.1);
-  --ring: #f0e8cb;
+  --border: rgba(238, 229, 201, 0.1);
+  --input: rgba(238, 229, 201, 0.1);
+  --ring: #e7d6ab; /* focus ring champagne */
 
-  /* GLASS dark — sigue disponible para landing. */
-  --glass: rgba(25, 39, 31, 0.72);
-  --glass-border: rgba(240, 232, 203, 0.1);
+  /* GLASS luminoso — edge dorado tenue. */
+  --glass: rgba(17, 29, 22, 0.66);
+  --glass-border: rgba(231, 214, 171, 0.16);
 
   /* Cuaderno tokens FUENTE en dark (prefijo --vd-*). */
-  --vd-ink: #f0e8cb;
-  --vd-ink-soft: #cfc8a8;
-  --vd-mute: #a3ac8e;
-  --vd-mute-on-bg: #a2ac8c;
-  --vd-pill-bg: #f0e8cb;
-  --vd-pill-fg: #0d1b12;
+  --vd-ink: #eee5c9;
+  --vd-ink-soft: #d0c8a6;
+  --vd-mute: #9aa587;
+  --vd-mute-on-bg: #9fab8b;
+  --vd-pill-bg: #e7d6ab;
+  --vd-pill-fg: #0b1712;
   --vd-sage: #9db590;
-  --vd-sage-strong: #b2cc9c;
+  --vd-sage-strong: #bcd3a4;
   --vd-clay: #e48564;
-  --vd-butter: #e5c463;
-  --vd-card-cream: #19271f;
-  --vd-sidebar-bg: #070f0b;
+  --vd-butter: #e8c766;
+  --vd-gold: #e9c65f; /* joya dorada saturada — SOLO acentos de texto/edge */
+  --vd-card-cream: #111d16;
+  --vd-sidebar-bg: #080f0b;
 
-  /* Bg gradient en dark — deep forest. */
-  --vd-bg-a: #0b1812;
-  --vd-bg-b: #11241b;
-  --vd-bg-c: #23341c;
+  /* Bg gradient dark — forest profundo + AMBIENT glow dorado top-right (visionOS). */
+  --vd-bg-a: #08110c;
+  --vd-bg-b: #0a130e;
+  --vd-bg-c: #22200f; /* hotspot cálido gold-brown */
+
+  /* Esquina más generosa en dark (Apple continuous-corner). */
+  --radius: 1rem;
 
   --delta-positive: var(--vd-sage-strong);
   --delta-negative: var(--vd-clay);
@@ -297,14 +299,15 @@
   --clay: var(--vd-clay);
   --butter: var(--vd-butter);
 
-  /* Body gradient en dark — deep forest con hint butter top-right. */
+  /* Body gradient en dark — forest profundo + AMBIENT glow dorado top-right (visionOS). */
   --bg-gradient:
-    radial-gradient(ellipse 70% 80% at 88% 8%, #23341c 0%, transparent 60%),
+    radial-gradient(ellipse 55% 65% at 85% 4%, rgba(233, 198, 95, 0.1) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 80% at 88% 8%, #22200f 0%, transparent 55%),
     radial-gradient(
-      ellipse 110% 120% at 30% 80%,
-      #0b1812 0%,
-      #11241b 70%,
-      #11241b 100%
+      ellipse 120% 130% at 25% 85%,
+      #0d1913 0%,
+      #0a130e 65%,
+      #08110c 100%
     );
 }
 
@@ -450,30 +453,32 @@
   [data-theme="dark"] .glass-card {
     background: linear-gradient(
       180deg,
-      rgba(31, 46, 37, 0.8),
-      rgba(22, 34, 27, 0.7)
+      rgba(20, 34, 27, 0.82),
+      rgba(14, 25, 20, 0.72)
     );
-    -webkit-backdrop-filter: blur(22px) saturate(130%);
-    backdrop-filter: blur(22px) saturate(130%);
-    border: 1px solid rgba(240, 232, 203, 0.14);
+    -webkit-backdrop-filter: blur(26px) saturate(135%);
+    backdrop-filter: blur(26px) saturate(135%);
+    border: 1px solid rgba(231, 214, 171, 0.14);
+    border-radius: 18px;
     box-shadow:
-      inset 0 1px 0 rgba(240, 232, 203, 0.08),
-      0 2px 4px rgba(0, 0, 0, 0.4),
-      0 18px 44px -20px rgba(0, 0, 0, 0.72);
+      inset 0 1px 0 rgba(233, 214, 171, 0.12),
+      0 2px 6px rgba(0, 0, 0, 0.45),
+      0 28px 64px -24px rgba(0, 0, 0, 0.8);
   }
 
   [data-theme="dark"] .glass-card-compact {
     background: linear-gradient(
       180deg,
-      rgba(31, 46, 37, 0.78),
-      rgba(22, 34, 27, 0.68)
+      rgba(20, 34, 27, 0.82),
+      rgba(14, 25, 20, 0.72)
     );
-    -webkit-backdrop-filter: blur(18px) saturate(125%);
-    backdrop-filter: blur(18px) saturate(125%);
-    border: 1px solid rgba(240, 232, 203, 0.12);
+    -webkit-backdrop-filter: blur(20px) saturate(130%);
+    backdrop-filter: blur(20px) saturate(130%);
+    border: 1px solid rgba(231, 214, 171, 0.11);
+    border-radius: 16px;
     box-shadow:
-      inset 0 1px 0 rgba(240, 232, 203, 0.06),
-      0 12px 30px -16px rgba(0, 0, 0, 0.62);
+      inset 0 1px 0 rgba(233, 214, 171, 0.09),
+      0 16px 40px -18px rgba(0, 0, 0, 0.7);
   }
 
   [data-theme="dark"] .glass,
@@ -481,9 +486,9 @@
     background: var(--glass);
     border: 1px solid var(--glass-border);
     box-shadow:
-      inset 0 1px 0 rgba(240, 232, 203, 0.08),
+      inset 0 1px 0 rgba(233, 214, 171, 0.1),
       0 1px 2px rgba(0, 0, 0, 0.4),
-      0 18px 36px -16px rgba(0, 0, 0, 0.6);
+      0 22px 44px -18px rgba(0, 0, 0, 0.7);
   }
 
   [data-theme="dark"] .glass-interactive:hover,
@@ -491,8 +496,9 @@
   [data-theme="dark"] .glass-card-compact.glass-interactive:hover {
     transform: translateY(-2px);
     box-shadow:
-      0 1px 0 rgba(240, 232, 203, 0.06),
-      0 22px 44px -16px rgba(0, 0, 0, 0.72);
+      0 1px 0 rgba(233, 214, 171, 0.08),
+      0 26px 52px -18px rgba(0, 0, 0, 0.8),
+      0 0 32px -8px rgba(233, 198, 95, 0.18);
   }
 
   /*
@@ -565,5 +571,26 @@
   .dashboard-content {
     position: relative;
     z-index: 1;
+  }
+
+  /* Ambient glow dorado sobre el shell del app SOLO en dark (visionOS). */
+  [data-theme="dark"] .dashboard-shell {
+    background:
+      radial-gradient(
+        ellipse 55% 60% at 85% 5%,
+        rgba(233, 198, 95, 0.1) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 70% 80% at 88% 8%,
+        var(--vd-bg-c) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 120% 130% at 25% 85%,
+        #0d1913 0%,
+        var(--vd-bg-b) 65%,
+        var(--vd-bg-a) 100%
+      );
   }
 }
