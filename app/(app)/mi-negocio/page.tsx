@@ -53,7 +53,7 @@ export default function MiNegocioPage() {
         <div className="flex items-center gap-3">
           <Briefcase className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
-            Mi Negocio
+            Mi <span className="text-gold-glossy">Negocio</span>
           </h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">

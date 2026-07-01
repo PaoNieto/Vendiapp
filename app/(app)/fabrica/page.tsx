@@ -138,7 +138,8 @@ function FabricaContent() {
   return (
     <>
       <Topbar
-        title="Fábrica"
+        title="La"
+        titleAccent="Fábrica"
         subtitle="Tus versiones en marcha y entregadas."
         right={
           <>

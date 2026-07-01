@@ -71,7 +71,7 @@ export function Topbar({
           {title}
           {titleAccent ? (
             <>
-              {" "}
+              {title ? " " : null}
               <span className="text-gold-glossy">{titleAccent}</span>
             </>
           ) : null}
