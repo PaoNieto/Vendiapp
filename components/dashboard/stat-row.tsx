@@ -27,14 +27,14 @@ export function StatRow({ label, value, divider, className }: StatRowProps) {
         <span className="eyebrow">{label}</span>
         <span
           className={cn(
-            "text-2xl font-medium text-green-dark leading-none",
-            !isPlaceholder && "numeric-tabular",
+            "text-2xl font-semibold text-foreground leading-none",
+            !isPlaceholder && "card-value",
           )}
         >
           {value}
         </span>
       </div>
-      {divider && <hr className="border-t border-white/40 m-0" />}
+      {divider && <hr className="border-t border-border m-0" />}
     </div>
   );
 }

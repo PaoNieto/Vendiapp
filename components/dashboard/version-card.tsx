@@ -96,7 +96,7 @@ export function VersionCard({
       whileHover={{ x: 2 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
-        "group relative glass-card-compact overflow-hidden hover:shadow-[0_18px_40px_rgba(15,40,24,0.18),inset_0_1px_0_rgba(255,255,255,0.6)]",
+        "group relative glass-card-compact glass-interactive overflow-hidden",
         className,
       )}
     >
@@ -131,19 +131,19 @@ export function VersionCard({
             truncate/line-clamp funcionen dentro del flex container. */}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 pr-2">
           <span
-            className="truncate text-base font-medium text-green-dark"
+            className="truncate text-base font-semibold tracking-[-0.01em] text-foreground"
             title={name}
           >
             {name}
           </span>
 
           {description ? (
-            <p className="line-clamp-1 text-xs text-green-text">
+            <p className="line-clamp-1 text-xs text-ink-soft">
               {description}
             </p>
           ) : null}
 
-          <span className="truncate text-xs text-green-text">
+          <span className="card-caption mt-0.5 truncate">
             {metricsParts.join(" · ")}
           </span>
 

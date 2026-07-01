@@ -223,12 +223,12 @@
   visual glass; cambian los colores base a la versión nocturna del Cuaderno.
 */
 [data-theme="dark"] {
-  --background: #0a130e; /* deep near-black forest */
+  --background: #080a09; /* casi-negro, tinte forest mínimo */
   --foreground: #eee5c9; /* warm cream */
 
-  --card: #111d16; /* forest lifted */
+  --card: #101310; /* charcoal lifted, apenas forest */
   --card-foreground: #eee5c9;
-  --popover: #111d16;
+  --popover: #101310;
   --popover-foreground: #eee5c9;
 
   /* Pill principal = CHAMPAGNE cálido (dorado suave premium), texto forest. */
@@ -254,7 +254,7 @@
   --ring: #e7d6ab; /* focus ring champagne */
 
   /* GLASS luminoso — edge dorado tenue. */
-  --glass: rgba(17, 29, 22, 0.66);
+  --glass: rgba(20, 22, 19, 0.68);
   --glass-border: rgba(231, 214, 171, 0.16);
 
   /* Cuaderno tokens FUENTE en dark (prefijo --vd-*). */
@@ -269,13 +269,13 @@
   --vd-clay: #e48564;
   --vd-butter: #e8c766;
   --vd-gold: #e9c65f; /* joya dorada saturada — SOLO acentos de texto/edge */
-  --vd-card-cream: #111d16;
-  --vd-sidebar-bg: #080f0b;
+  --vd-card-cream: #101310;
+  --vd-sidebar-bg: #060806;
 
-  /* Bg gradient dark — forest profundo + AMBIENT glow dorado top-right (visionOS). */
-  --vd-bg-a: #08110c;
-  --vd-bg-b: #0a130e;
-  --vd-bg-c: #22200f; /* hotspot cálido gold-brown */
+  /* Bg gradient dark — casi-negro + AMBIENT glow dorado LEVE al centro. */
+  --vd-bg-a: #050706;
+  --vd-bg-b: #080a09;
+  --vd-bg-c: #1a180d; /* hotspot cálido tenue (uso residual) */
 
   /* Esquina más generosa en dark (Apple continuous-corner). */
   --radius: 1rem;
@@ -299,15 +299,18 @@
   --clay: var(--vd-clay);
   --butter: var(--vd-butter);
 
-  /* Body gradient en dark — forest profundo + AMBIENT glow dorado top-right (visionOS). */
+  /* Body gradient en dark — casi-negro + glow dorado LEVE centrado (visionOS). */
   --bg-gradient:
-    radial-gradient(ellipse 55% 65% at 85% 4%, rgba(233, 198, 95, 0.1) 0%, transparent 55%),
-    radial-gradient(ellipse 70% 80% at 88% 8%, #22200f 0%, transparent 55%),
     radial-gradient(
-      ellipse 120% 130% at 25% 85%,
-      #0d1913 0%,
-      #0a130e 65%,
-      #08110c 100%
+      ellipse 60% 55% at 50% 45%,
+      rgba(233, 198, 95, 0.05) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 120% 130% at 30% 80%,
+      #0b0e0c 0%,
+      #080a09 65%,
+      #050706 100%
     );
 }
 
@@ -450,35 +453,54 @@
      Mismo principio en oscuro: dark-green translúcido + blur, highlight cream
      tenue arriba, sombra negra profunda. El cream del foreground (#f0e8cb)
      contrasta fuerte sobre el verde oscuro translúcido. */
+  /*
+    iOS 18 "material" en dark: superficie charcoal con sheen (top un pelo más
+    claro que bottom), doble borde (specular hairline arriba + shadow-line
+    abajo), micro inner-glow dorado apenas perceptible en el borde superior y
+    sombras EN CAPAS (contacto corto + media + ambiental larga y suave).
+  */
   [data-theme="dark"] .glass-card {
     background: linear-gradient(
       180deg,
-      rgba(20, 34, 27, 0.82),
-      rgba(14, 25, 20, 0.72)
+      rgba(30, 34, 28, 0.86),
+      rgba(14, 17, 14, 0.8)
     );
-    -webkit-backdrop-filter: blur(26px) saturate(135%);
-    backdrop-filter: blur(26px) saturate(135%);
-    border: 1px solid rgba(231, 214, 171, 0.14);
-    border-radius: 18px;
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    backdrop-filter: blur(28px) saturate(140%);
+    border: 1px solid rgba(231, 214, 171, 0.1);
+    border-radius: 20px;
     box-shadow:
-      inset 0 1px 0 rgba(233, 214, 171, 0.12),
-      0 2px 6px rgba(0, 0, 0, 0.45),
-      0 28px 64px -24px rgba(0, 0, 0, 0.8);
+      /* specular top hairline — nítido y luminoso */
+      inset 0 1px 0 rgba(242, 226, 184, 0.16),
+      /* micro inner-glow dorado en el borde superior (visionOS) */
+      inset 0 1px 14px -7px rgba(233, 198, 95, 0.1),
+      /* shadow-line inferior — cierra el doble borde */
+      inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+      /* contacto corto y nítido */
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      /* profundidad media */
+      0 6px 16px -8px rgba(0, 0, 0, 0.55),
+      /* ambiental larga y suave */
+      0 30px 68px -26px rgba(0, 0, 0, 0.82);
   }
 
   [data-theme="dark"] .glass-card-compact {
     background: linear-gradient(
       180deg,
-      rgba(20, 34, 27, 0.82),
-      rgba(14, 25, 20, 0.72)
+      rgba(30, 34, 28, 0.86),
+      rgba(14, 17, 14, 0.8)
     );
-    -webkit-backdrop-filter: blur(20px) saturate(130%);
-    backdrop-filter: blur(20px) saturate(130%);
-    border: 1px solid rgba(231, 214, 171, 0.11);
-    border-radius: 16px;
+    -webkit-backdrop-filter: blur(22px) saturate(138%);
+    backdrop-filter: blur(22px) saturate(138%);
+    border: 1px solid rgba(231, 214, 171, 0.09);
+    border-radius: 18px;
     box-shadow:
-      inset 0 1px 0 rgba(233, 214, 171, 0.09),
-      0 16px 40px -18px rgba(0, 0, 0, 0.7);
+      inset 0 1px 0 rgba(242, 226, 184, 0.14),
+      inset 0 1px 12px -7px rgba(233, 198, 95, 0.08),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.36),
+      0 1px 2px rgba(0, 0, 0, 0.45),
+      0 4px 12px -6px rgba(0, 0, 0, 0.5),
+      0 20px 50px -22px rgba(0, 0, 0, 0.76);
   }
 
   [data-theme="dark"] .glass,
@@ -496,9 +518,11 @@
   [data-theme="dark"] .glass-card-compact.glass-interactive:hover {
     transform: translateY(-2px);
     box-shadow:
-      0 1px 0 rgba(233, 214, 171, 0.08),
-      0 26px 52px -18px rgba(0, 0, 0, 0.8),
-      0 0 32px -8px rgba(233, 198, 95, 0.18);
+      inset 0 1px 0 rgba(242, 226, 184, 0.2),
+      inset 0 1px 14px -7px rgba(233, 198, 95, 0.16),
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 30px 60px -20px rgba(0, 0, 0, 0.85),
+      0 0 40px -10px rgba(233, 198, 95, 0.22);
   }
 
   /*
@@ -521,6 +545,27 @@
 
   /* Tabular nums — números grandes alineados en columnas (Resumen). */
   .numeric-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+    iOS 18 — jerarquía tipográfica DENTRO de las cards.
+    .card-value   → números grandes: tabular + tracking ajustado. No fija color
+                    ni size (los pone el consumidor con text-*), sólo compone.
+    .card-caption → caption terciario: 12px, tier mute, medium, tabular. Un
+                    escalón por debajo del título — reemplaza el patrón repetido
+                    `text-xs text-mute` para que TODAS las cards tengan el mismo
+                    tier de opacidad en el pie.
+  */
+  .card-value {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .card-caption {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    color: var(--vd-mute);
     font-variant-numeric: tabular-nums;
   }
 
@@ -573,22 +618,17 @@
     z-index: 1;
   }
 
-  /* Ambient glow dorado sobre el shell del app SOLO en dark (visionOS). */
+  /* Glow dorado LEVE y CENTRADO sobre el shell del app SOLO en dark (visionOS). */
   [data-theme="dark"] .dashboard-shell {
     background:
       radial-gradient(
-        ellipse 55% 60% at 85% 5%,
-        rgba(233, 198, 95, 0.1) 0%,
-        transparent 55%
+        ellipse 60% 55% at 50% 45%,
+        rgba(233, 198, 95, 0.05) 0%,
+        transparent 60%
       ),
       radial-gradient(
-        ellipse 70% 80% at 88% 8%,
-        var(--vd-bg-c) 0%,
-        transparent 55%
-      ),
-      radial-gradient(
-        ellipse 120% 130% at 25% 85%,
-        #0d1913 0%,
+        ellipse 120% 130% at 30% 80%,
+        #0b0e0c 0%,
         var(--vd-bg-b) 65%,
         var(--vd-bg-a) 100%
       );
