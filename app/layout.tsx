@@ -31,7 +31,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#a3c994",
+  themeColor: "#08110c",
 };
 
 /**
@@ -43,11 +43,12 @@ export const viewport: Viewport = {
 const themeInitScript = `(function () {
   try {
     var stored = localStorage.getItem('vendi-theme');
-    var preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    var theme = stored === 'light' || stored === 'dark' ? stored : preferred;
+    // Dark es el DEFAULT de marca (nebulosa verde). Solo respetamos 'light' si
+    // el usuario lo eligió explícitamente; sin preferencia guardada → dark.
+    var theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
   } catch (e) {
-    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.setAttribute('data-theme', 'dark');
   }
 })();`;
 
