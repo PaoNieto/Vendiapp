@@ -28,7 +28,8 @@ export default function EstiloPage() {
   return (
     <StationShell
       number="03"
-      title="Estilos profesionales"
+      title="Estilos"
+      titleAccent="profesionales"
       description="Elegí un estilo de fotografía de producto. Define la luz, la composición y el mood. Funciona solo, con tus referencias, o ambos."
       prevHref="/referencias"
       prevLabel="Volver a Referencias"

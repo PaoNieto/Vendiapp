@@ -319,7 +319,8 @@ export default function AnalisisPage() {
   return (
     <>
       <Topbar
-        title="Análisis con IA"
+        title="Análisis con"
+        titleAccent="IA"
         subtitle={topbarSubtitle}
         right={
           <>

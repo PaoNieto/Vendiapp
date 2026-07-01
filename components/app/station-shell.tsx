@@ -5,6 +5,12 @@ import { PillButton } from "@/components/dashboard";
 type StationShellProps = {
   number: string;
   title: string;
+  /**
+   * Palabra "clave" opcional que se pinta después del título en dorado glossy
+   * (`.text-gold-glossy`) para el two-tone estilo "Estilo Visual". Aditivo /
+   * no-breaking. El dorado sólo aplica en dark (regla de marca).
+   */
+  titleAccent?: string;
   description: string;
   children: React.ReactNode;
   prevHref?: string;
@@ -20,6 +26,7 @@ type StationShellProps = {
 export function StationShell({
   number,
   title,
+  titleAccent,
   description,
   children,
   prevHref,
@@ -38,6 +45,12 @@ export function StationShell({
           </span>
           <h1 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
             {title}
+            {titleAccent ? (
+              <>
+                {" "}
+                <span className="text-gold-glossy">{titleAccent}</span>
+              </>
+            ) : null}
           </h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{description}</p>

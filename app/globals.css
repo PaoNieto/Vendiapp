@@ -272,6 +272,18 @@
   --vd-card-cream: #101310;
   --vd-sidebar-bg: #060806;
 
+  /*
+    Verde premium (Natural OS) — acento VIVO de INTERACCIÓN sobre near-black.
+    Jade luminoso que POP-ea sobre #080a09. Sólo dark: en light el acento de
+    selección/hover sigue siendo el forest sage-strong (no se toca).
+    Regla: verde = interacción (selected/active/hover/CTA); dorado = joya
+    (títulos, monedas, punto de marca).
+  */
+  --vd-emerald: #46c78d;
+  --vd-emerald-strong: #63d6a3;
+  --vd-emerald-soft: rgba(70, 199, 141, 0.14);
+  --vd-emerald-glow: rgba(70, 199, 141, 0.34);
+
   /* Bg gradient dark — casi-negro + AMBIENT glow dorado LEVE al centro. */
   --vd-bg-a: #050706;
   --vd-bg-b: #080a09;
@@ -518,11 +530,13 @@
   [data-theme="dark"] .glass-card-compact.glass-interactive:hover {
     transform: translateY(-2px);
     box-shadow:
-      inset 0 1px 0 rgba(242, 226, 184, 0.2),
-      inset 0 1px 14px -7px rgba(233, 198, 95, 0.16),
+      /* edge verde premium — hairline esmeralda de interacción */
+      inset 0 0 0 1px rgba(70, 199, 141, 0.45),
+      inset 0 1px 0 rgba(242, 226, 184, 0.18),
       0 1px 2px rgba(0, 0, 0, 0.5),
       0 30px 60px -20px rgba(0, 0, 0, 0.85),
-      0 0 40px -10px rgba(233, 198, 95, 0.22);
+      /* glow verde ambiental al levantar */
+      0 0 44px -10px var(--vd-emerald-glow);
   }
 
   /*
@@ -567,6 +581,48 @@
     font-weight: 500;
     color: var(--vd-mute);
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+    Gold glossy — palabra "joya" en títulos con leve brillo. Gradiente dorado
+    clip-text + glow MUY sutil (joya, no neón). SOLO dark (regla de marca:
+    dorado nunca en light). En light la palabra hereda el color normal del
+    título — la clase no hace nada, así que el two-tone no degrada el claro.
+  */
+  [data-theme="dark"] .text-gold-glossy {
+    background: linear-gradient(
+      175deg,
+      #f6e3ad 0%,
+      #eccf77 40%,
+      #e9c65f 62%,
+      #cda23f 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    text-shadow: 0 0 18px rgba(233, 198, 95, 0.18);
+  }
+
+  /*
+    CTA verde premium (Natural OS) — SOLO dark. Reemplaza el fill champagne del
+    botón primario por el jade luminoso con glow suave. En light el botón sigue
+    forest (bg-primary), intacto. Compone sobre .bg-primary por especificidad
+    ([data-theme] + clase). El glow va por `filter: drop-shadow` a propósito:
+    NO toca `box-shadow`, así el focus-ring de Tailwind sigue visible (a11y).
+  */
+  [data-theme="dark"] .cta-emerald {
+    background: linear-gradient(
+      180deg,
+      var(--vd-emerald-strong),
+      var(--vd-emerald)
+    );
+    color: #04160e;
+    filter: drop-shadow(0 6px 16px var(--vd-emerald-glow));
+  }
+  [data-theme="dark"] .cta-emerald:hover {
+    background: linear-gradient(180deg, #74e0b1, var(--vd-emerald-strong));
+    filter: drop-shadow(0 9px 22px var(--vd-emerald-glow));
   }
 
   /*

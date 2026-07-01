@@ -25,6 +25,13 @@ export type TopbarProps = {
   eyebrow?: string;
   /** Título principal — se renderiza en serif italic 38px. */
   title: string;
+  /**
+   * Palabra/frase "clave" opcional que se renderiza DESPUÉS del título en
+   * dorado glossy (`.text-gold-glossy`) para el juego de dos tonos estilo
+   * "Estilo Visual". Aditivo: si no se pasa, el título va monótono. En light
+   * la palabra hereda el color del título (el dorado es sólo dark, por marca).
+   */
+  titleAccent?: string;
   /** Subtítulo / breadcrumb debajo del título. */
   subtitle?: string;
   /** Slot derecha — típicamente CTA + Avatar. */
@@ -36,6 +43,7 @@ export type TopbarProps = {
 export function Topbar({
   eyebrow,
   title,
+  titleAccent,
   subtitle,
   right,
   className,
@@ -61,6 +69,12 @@ export function Topbar({
         */}
         <h1 className="text-[32px] leading-[1.05] text-foreground sm:text-[38px]">
           {title}
+          {titleAccent ? (
+            <>
+              {" "}
+              <span className="text-gold-glossy">{titleAccent}</span>
+            </>
+          ) : null}
         </h1>
         {subtitle && (
           <p className="mt-1.5 max-w-xl text-sm font-medium text-mute-on-bg">
