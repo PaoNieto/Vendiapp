@@ -41,6 +41,14 @@ export type GenerateOnServerInput = {
   userPrompt?: string;
   styleFragment?: string;
   brand?: BrandContext;
+  /**
+   * Prompt ESTRICTO del usuario (regeneración por imagen). Cuando viene
+   * no-vacío, es AUTORITATIVO: se saltea El Director, se ignora el estilo y las
+   * referencias visuales, y el texto del usuario pasa a ser el core del prompt
+   * (la identidad del producto se sigue blindando). El objetivo es cumplir su
+   * especificación al ~99.9% sin que el modelo la reinterprete ni alucine.
+   */
+  strictPrompt?: string;
 };
 
 export type GeneratedImageBuffer = {
@@ -78,13 +86,20 @@ export async function generateOnServer(
     input;
   const variations = Math.max(1, input.variations);
 
-  // 1. Imágenes (producto + refs) → inlineData base64 (server-safe).
+  // Modo ESTRICTO: si el usuario mandó un prompt propio, manda él. Se saltea El
+  // Director y se IGNORAN las referencias visuales (su texto pisa el estilo).
+  // Solo mandamos las fotos del producto para blindar su identidad.
+  const strictPrompt = input.strictPrompt?.trim();
+  const isStrict = !!strictPrompt && strictPrompt.length > 0;
+
+  // 1. Imágenes → inlineData base64 (server-safe). En estricto, sin refs.
+  const effectiveReferenceImages = isStrict ? [] : referenceImages;
   let productParts: GeminiPart[];
   let referenceParts: GeminiPart[];
   try {
     [productParts, referenceParts] = await Promise.all([
       urlsToParts(productImages),
-      urlsToParts(referenceImages),
+      urlsToParts(effectiveReferenceImages),
     ]);
   } catch (err) {
     return {
@@ -100,30 +115,36 @@ export async function generateOnServer(
   }
 
   // 2. El Director (best-effort). Si falla, fallback a userPrompt/genérico.
+  //    En modo ESTRICTO no corre: el texto del usuario ES el prompt base.
   let basePrompt: string;
-  try {
-    basePrompt = await enrichPromptServer({
-      apiKey,
-      productImages,
-      referenceImages,
-      ratio,
-      userPrompt,
-      brand,
-    });
-  } catch {
-    basePrompt =
-      userPrompt && userPrompt.trim().length > 0
-        ? userPrompt
-        : `Generate a professional commercial product photo, ${ratio} aspect ratio.`;
+  if (isStrict) {
+    basePrompt = strictPrompt!;
+  } else {
+    try {
+      basePrompt = await enrichPromptServer({
+        apiKey,
+        productImages,
+        referenceImages,
+        ratio,
+        userPrompt,
+        brand,
+      });
+    } catch {
+      basePrompt =
+        userPrompt && userPrompt.trim().length > 0
+          ? userPrompt
+          : `Generate a professional commercial product photo, ${ratio} aspect ratio.`;
+    }
   }
 
-  // 3. Armado del prompt final (mismo patrón que el browser).
+  // 3. Armado del prompt final (mismo patrón que el browser). En estricto se
+  //    dropea el estilo (el prompt del usuario lo pisa).
   const stylePart =
-    styleFragment && styleFragment.trim().length > 0
+    !isStrict && styleFragment && styleFragment.trim().length > 0
       ? `\n\nStyle direction: ${styleFragment.trim()}`
       : "";
   const productCount = productImages.length;
-  const refCount = referenceImages.length;
+  const refCount = effectiveReferenceImages.length;
   // El prompt se adapta a si hay o no referencias de estilo. Sin refs, no
   // mencionamos imagenes inexistentes (confunde al modelo): solo describimos el
   // producto y blindamos su identidad.
@@ -137,7 +158,20 @@ export async function generateOnServer(
       ? `\n\nPRESERVE EXACTLY THE PRODUCT SHOWN IN THE FIRST REFERENCE IMAGE: same shape, same colors, same packaging, same label text, same proportions. THE STYLE REFERENCES CONTRIBUTE AESTHETIC ONLY — THEY MUST NEVER REPLACE OR ALTER THE PRODUCT ITSELF.`
       : `\n\nPRESERVE EXACTLY THE PRODUCT SHOWN IN THE ATTACHED IMAGE(S): same shape, same colors, same packaging, same label text, same proportions. Only the scene, lighting and styling may change — THE PRODUCT ITSELF MUST NEVER BE REPLACED OR ALTERED.`;
 
-  const finalPrompt = `${rolePrefix}
+  // En estricto, el texto del usuario es una ESPECIFICACIÓN autoritativa: hay
+  // que cumplirla al pie de la letra, sin reinterpretar ni agregar cosas que no
+  // pidió (anti-alucinación), completando solo detalles menores no especificados.
+  const finalPrompt = isStrict
+    ? `${rolePrefix}
+
+USER SPECIFICATION — AUTHORITATIVE. Follow it EXACTLY and completely. Do NOT reinterpret, soften, or add elements, objects, text, or brands that were not requested. Only fill in unspecified minor details with neutral, sensible choices. This specification takes absolute priority over any style or aesthetic default:
+
+${basePrompt}
+
+${ratioInstruction}
+
+Produce one photorealistic, studio-grade commercial image that satisfies the user specification above as literally as possible.${identityGuard}`
+    : `${rolePrefix}
 
 ${basePrompt}${stylePart}
 
@@ -159,7 +193,12 @@ Produce one photorealistic, studio-grade commercial image.${identityGuard}`;
       apiKey,
       model: GEMINI_IMAGE_MODEL,
       contents,
-      generationConfig: { responseModalities: ["IMAGE"] },
+      // En estricto bajamos la temperatura: menos "creatividad" = más apego
+      // literal a la especificación del usuario y menos alucinación.
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        ...(isStrict ? { temperature: 0.2 } : {}),
+      },
     });
     if (!result.ok) throw result.error;
     return extractImageBase64(result.response);
