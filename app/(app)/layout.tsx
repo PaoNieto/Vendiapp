@@ -1,6 +1,7 @@
 import { AppProviders } from "@/components/app/app-providers";
 import { BottomNav } from "@/components/app/bottom-nav";
 import { Sidebar } from "@/components/app/sidebar";
+import { WelcomeTour } from "@/components/app/welcome-tour";
 import { AppBackground } from "@/components/dashboard";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 
@@ -28,6 +29,9 @@ export default async function AppLayout({
           <main className="flex flex-1 flex-col pb-24 lg:pb-0">{children}</main>
         </div>
         <BottomNav />
+        {/* Recorrido explicativo de primera vez (self-gated por localStorage);
+            reabrible desde "¿Cómo funciona?" en el sidebar. */}
+        <WelcomeTour />
       </AppBackground>
     </AppProviders>
   );

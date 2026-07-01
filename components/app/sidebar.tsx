@@ -10,6 +10,7 @@ import {
   ScanSearch,
   Settings,
   LogOut,
+  HelpCircle,
 } from "lucide-react";
 import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -105,6 +106,16 @@ export function Sidebar() {
           icon={Settings}
           active={isActive(pathname, "/ajustes")}
         />
+        {/* Reabre el recorrido explicativo (WelcomeTour escucha este evento).
+            No es una ruta: es un botón estilado como los items de nav. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("vendi:open-tour"))}
+          className="flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13.5px] font-medium text-foreground transition-colors hover:bg-foreground/5"
+        >
+          <HelpCircle className="h-[18px] w-[18px] opacity-75" strokeWidth={1.6} />
+          <span>¿Cómo funciona?</span>
+        </button>
       </nav>
 
       {/* Spacer flex — empuja Plan + ThemeToggle al fondo. */}
