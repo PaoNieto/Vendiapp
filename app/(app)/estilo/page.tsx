@@ -45,7 +45,10 @@ export default function EstiloPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div
+          data-tour="estilo-grid"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+        >
           {STYLE_LIST.map((style) => (
             <StyleCard
               key={style.id}

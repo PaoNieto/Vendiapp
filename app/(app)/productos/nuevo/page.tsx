@@ -140,7 +140,7 @@ export default function NuevoProductoPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div data-tour="product-photo" className="flex flex-col gap-2">
             <ImageUploader
               multi
               max={5}

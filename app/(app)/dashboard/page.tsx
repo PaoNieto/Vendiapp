@@ -509,7 +509,7 @@ function DashboardContent({
           <span className="eyebrow">{eyebrowDate}</span>
           <div className="hidden items-center gap-3 sm:flex">
             <PillButton size="md" asChild>
-              <Link href={ctaHref}>
+              <Link href={ctaHref} data-tour="nueva-imagen">
                 <Plus className="h-4 w-4" />
                 Nueva Imagen
               </Link>
@@ -531,7 +531,7 @@ function DashboardContent({
           </div>
         </div>
 
-        <div>
+        <div data-tour="greeting">
           <h1 className="display-serif text-3xl leading-tight text-ink sm:text-[40px]">
             {saludo},{" "}
             <span className="display-serif-italic text-accent dark:text-warning">
@@ -563,7 +563,7 @@ function DashboardContent({
 
         <div className="sm:hidden">
           <PillButton size="lg" asChild>
-            <Link href={ctaHref} className="w-full">
+            <Link href={ctaHref} className="w-full" data-tour="nueva-imagen">
               <Plus className="h-4 w-4" />
               Nueva Imagen
             </Link>
@@ -572,7 +572,10 @@ function DashboardContent({
       </header>
 
       {/* 2. Metric tiles */}
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-4">
+      <section
+        data-tour="metrics"
+        className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-4"
+      >
         <MetricTile
           label="IMÁGENES ESTE MES"
           value={imagesThisMonth}
@@ -638,7 +641,10 @@ function DashboardContent({
             .
           </h2>
 
-          <div className="relative z-[1] flex flex-wrap items-center gap-2">
+          <div
+            data-tour="workflow"
+            className="relative z-[1] flex flex-wrap items-center gap-2"
+          >
             <WorkflowChip label="Producto" state={workflow.producto} />
             <span className="text-mute" aria-hidden>
               →
