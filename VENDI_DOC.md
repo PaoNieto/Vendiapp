@@ -394,7 +394,7 @@ be78177  feat(estilo): catalogo de estilos + picker + identity guard reforzado
 
 4. **Brand profile no alimenta al Director**: el system prompt del Director es fijo. No lee paleta/tono/do's-don'ts del perfil de marca. El diferencial "IA que aprende tu marca" no está implementado.
 5. **enriched_prompt descartado**: El Director devuelve JSON rico (scene_description, lighting, composition, mood, props, color_palette, camera_angle) pero solo se usa `final_prompt`. Persistir el resto desbloquearía metadata visual.
-6. **UI de prompt estricto**: `strict_prompt` ya se persiste por imagen; falta el toggle + textarea + regenerar.
+6. **Prompt estricto (CONSTRUIDO + reconciliado 2026-07-02)**: regeneración por imagen. `POST /api/generations/regenerate` (imageId + strictPrompt) cobra 1 crédito y genera 1 variación con el texto del usuario como especificación **AUTORITATIVA**. Se saltea el Director, pero **MANTIENE producto + referencias de escena + estilo elegido**; el texto del usuario gana solo en conflicto y la identidad del producto queda blindada (dos candados). Ver `generateOnServer({ strictPrompt })`.
 7. **Fusionar Referencias + Estilo** en una sola pantalla (decisión de producto; el código aún tiene rutas separadas).
 8. **Style persistence en Supabase**: el estilo elegido vive solo en localStorage; falta columna `style_id` en `versions`.
 
