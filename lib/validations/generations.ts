@@ -49,6 +49,28 @@ export const serverGenerationRequestSchema = z.object({
 export type ServerGenerationRequest = z.infer<typeof serverGenerationRequestSchema>;
 export type BrandContext = NonNullable<ServerGenerationRequest["brand"]>;
 
+/**
+ * Request de REGENERACIÓN por imagen con "prompt estricto" (modelo de créditos,
+ * server-side). El cliente manda el `imageId` de la variación que quiere
+ * regenerar + el `strictPrompt` (texto AUTORITATIVO que el usuario escribió).
+ *
+ * El server usa el `imageId` para resolver, vía RLS, la generación → versión →
+ * producto (fotos + ratio). El `strictPrompt` viaja en el body (y no se lee de
+ * la DB) para evitar la carrera con el autosave del textarea: lo que el usuario
+ * ve al apretar "Regenerar" es exactamente lo que se manda. Es contenido del
+ * propio usuario, no un borde de seguridad — igual que `brand` arriba.
+ */
+export const regenerateImageRequestSchema = z.object({
+  imageId: z.string().uuid(),
+  strictPrompt: z
+    .string()
+    .trim()
+    .min(1, "Escribí un prompt estricto")
+    .max(2000, "Máximo 2000 caracteres"),
+});
+
+export type RegenerateImageRequest = z.infer<typeof regenerateImageRequestSchema>;
+
 export const artDirectorRequestSchema = z.object({
   productImages: z.array(z.string().url()).min(1).max(MAX_PRODUCT_IMAGES),
   referenceImages: z.array(z.string().url()).min(1).max(MAX_REFERENCE_IMAGES),
