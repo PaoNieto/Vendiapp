@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { regenerateImageRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
@@ -30,6 +31,16 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  // Candado PAGA-PRIMERO también en la API (no solo en el proxy de páginas): un
+  // usuario logueado que NUNCA pagó no puede regenerar, aunque arrastre saldo
+  // heredado de antes del paywall. Misma fuente de verdad que el middleware:
+  // una compra en `credit_ledger` o estar en la allowlist de acceso libre.
+  if (!(await userHasPaidAccess(userId))) {
+    return NextResponse.json(
+      { error: "Necesitás una compra activa para usar esta función." },
+      { status: 403 },
+    );
   }
   await ensureProfile();
   const supabase = await createClient();

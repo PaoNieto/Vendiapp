@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { analyzeImage } from "@/lib/ai/image-analyzer";
 import { analyzeRequestSchema } from "@/lib/validations/analyze";
 
@@ -29,6 +30,16 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  // Candado PAGA-PRIMERO también en la API (no solo en el proxy de páginas): un
+  // usuario logueado que NUNCA pagó no puede analizar, aunque arrastre saldo
+  // heredado de antes del paywall. Misma fuente de verdad que el middleware:
+  // una compra en `credit_ledger` o estar en la allowlist de acceso libre.
+  if (!(await userHasPaidAccess(userId))) {
+    return NextResponse.json(
+      { error: "Necesitás una compra activa para usar esta función." },
+      { status: 403 },
+    );
   }
   // Red de seguridad: provisiona el perfil del usuario Clerk si aún no existe.
   // Idempotente. Reemplaza al trigger handle_new_user (muerto con Clerk).

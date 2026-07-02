@@ -26,24 +26,38 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 /**
  * Devuelve `true`/`false` si la consulta corrió, o `null` si no se pudo resolver
  * (falta config o error de red). El caller distingue "no pagó" de "no sé".
+ *
+ * Con el modelo FAIL-CLOSED (ver `userHasPaidAccess`), un `null` deja al usuario
+ * AFUERA. Para no rebotar de más a un pagador por un hipo transitorio, acá
+ * reintentamos una vez y ponemos un timeout corto (un fetch colgado bloquearía
+ * la navegación). El `null` recién sale tras agotar el reintento.
  */
 async function rowsExist(query: string): Promise<boolean | null> {
   if (!SUPABASE_URL || !SERVICE_KEY) return null;
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${query}`, {
-      headers: {
-        apikey: SERVICE_KEY,
-        Authorization: `Bearer ${SERVICE_KEY}`,
-      },
-      // El acceso es por-usuario: el proxy no debe cachear esta respuesta.
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as unknown[];
-    return Array.isArray(data) && data.length > 0;
-  } catch {
-    return null;
+  for (let intento = 0; intento < 2; intento++) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${query}`, {
+        headers: {
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+        },
+        // El acceso es por-usuario: el proxy no debe cachear esta respuesta.
+        cache: "no-store",
+        // Timeout defensivo: un fetch colgado trabaría la navegación. Si el
+        // runtime no soporta AbortSignal.timeout, el throw cae en el catch y se
+        // trata como error de red (→ null → fail-closed).
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as unknown[];
+      return Array.isArray(data) && data.length > 0;
+    } catch {
+      // Reintenta UNA vez ante error de red/timeout. Si el segundo intento
+      // también falla, devuelve null → el caller cierra la puerta (fail-closed).
+      if (intento === 1) return null;
+    }
   }
+  return null;
 }
 
 export async function userHasPaidAccess(userId: string): Promise<boolean> {
@@ -53,14 +67,15 @@ export async function userHasPaidAccess(userId: string): Promise<boolean> {
     rowsExist(`unlimited_users?user_id=eq.${id}&select=user_id&limit=1`),
   ]);
 
-  // Señal positiva de cualquiera de las dos → tiene acceso.
-  if (paid === true || unlimited === true) return true;
-
-  // Si alguna consulta falló (null = error de infra), NO bloqueamos: fail-open
-  // para no dejar afuera a un cliente que pagó por un hipo transitorio de
-  // Supabase. En una caída total la app igual no genera (también necesita la DB).
-  if (paid === null || unlimited === null) return true;
-
-  // Ambas consultas OK y sin filas → no pagó.
-  return false;
+  // FAIL-CLOSED (regla dura de Paolo: "el que no paga NO entra"). Damos acceso
+  // SOLO si confirmamos POSITIVAMENTE que pagó (compra en `credit_ledger`) o que
+  // es cortesía (`unlimited_users`). Todo lo demás es NO:
+  //   - `false` en ambas       → no pagó.
+  //   - `null` (no se pudo      → NO SABEMOS si pagó ⇒ ante la duda, AFUERA.
+  //      confirmar: falta de env,    Antes acá había fail-open (`return true`) y
+  //      red caída, timeout)         ESE era el agujero: cualquier hipo del
+  //                                  chequeo colaba a un no-pagador. Preferimos
+  //                                  rebotar a un pagador ante un error raro
+  //                                  (reintenta) antes que dejar entrar gratis.
+  return paid === true || unlimited === true;
 }
