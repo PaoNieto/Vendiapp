@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { regenerateImageRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
+import { getStyleFragment, type StyleId } from "@/lib/styles";
 import type { OutputRatio } from "@/lib/constants";
 
 /**
@@ -12,7 +13,8 @@ import type { OutputRatio } from "@/lib/constants";
  *
  * A diferencia de /api/generations (que arma el prompt desde la versión: estilo
  * + Director), acá manda el TEXTO del usuario. El `strictPrompt` es autoritativo:
- * la generación lo cumple al pie de la letra, ignorando estilo y referencias
+ * la generación lo cumple al pie de la letra, pero MANTIENE el producto, las
+ * referencias de escena y el estilo elegido — el texto solo gana en conflicto
  * (ver `generateOnServer({ strictPrompt })`).
  *
  * Flujo (cobra 1 crédito, 1 imagen):
@@ -69,7 +71,7 @@ export async function POST(req: Request) {
 
   const { data: version, error: versionErr } = await supabase
     .from("versions")
-    .select("id, product_id, reference_images, output_ratio")
+    .select("id, product_id, reference_images, output_ratio, style_id")
     .eq("id", generation.version_id)
     .single();
   if (versionErr || !version) {
@@ -147,13 +149,17 @@ export async function POST(req: Request) {
     });
   };
 
-  // 5. Generar 1 variación con el prompt estricto.
+  // 5. Generar 1 variación con el prompt estricto. Pasamos el estilo de la
+  //    versión (style_id) para MANTENERLO: en estricto el texto del usuario gana
+  //    solo donde haya conflicto, pero el estilo elegido se sigue honrando.
+  const styleFragment = getStyleFragment(version.style_id as StyleId | null);
   const result = await generateOnServer({
     productImages,
     referenceImages,
     ratio,
     variations: 1,
     strictPrompt,
+    styleFragment,
   });
 
   if (!result.ok) {
