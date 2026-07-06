@@ -10,15 +10,16 @@ import { SignUp } from "@clerk/nextjs";
  * públicas, así la pantalla de verificación de email (subruta interna de Clerk)
  * es accesible sin sesión.
  *
- * Post-signup el nuevo usuario va a /onboarding (vía el env
- * NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL + el prop fallback de acá).
+ * Post-signup el nuevo usuario va a /comprar (vía el env
+ * NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL + el prop fallback de acá):
+ * en el embudo paga-primero, el recién registrado va recto al checkout.
  */
 export default function SignupPage() {
   return (
     <SignUp
       path="/signup"
       signInUrl="/login"
-      fallbackRedirectUrl="/onboarding"
+      fallbackRedirectUrl="/comprar"
     />
   );
 }

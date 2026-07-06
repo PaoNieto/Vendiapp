@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { Preference } from "mercadopago";
-import { getMercadoPagoClient } from "@/lib/mercadopago/client";
-import { getProduct } from "@/lib/mercadopago/catalog";
+import {
+  createPreference,
+  CreatePreferenceError,
+} from "@/lib/mercadopago/create-preference";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { checkoutRequestSchema } from "@/lib/validations/checkout";
 
@@ -43,74 +44,28 @@ export async function POST(req: Request) {
     );
   }
 
-  // 3. Resolver el producto del catálogo server-side (precio + créditos).
-  const product = getProduct(parsed.data.productId);
-  if (!product) {
-    return NextResponse.json(
-      { error: "Producto no encontrado" },
-      { status: 404 },
-    );
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  if (!appUrl) {
-    return NextResponse.json(
-      { error: "Servicio no configurado" },
-      { status: 503 },
-    );
-  }
-
-  // 4. Crear la Preference. external_reference + metadata llevan el id de Clerk
-  // y el pack para que el webhook reconcilie y acredite los créditos correctos.
+  // 3. Crear la Preference (resuelve producto + appUrl adentro y arma el cobro).
+  // Los fallos previsibles vienen como CreatePreferenceError tipado y se mapean
+  // a su HTTP status; cualquier otra cosa (incl. fallo de MP) cae en 502.
   try {
-    const client = getMercadoPagoClient();
-    const preference = await new Preference(client).create({
-      body: {
-        items: [
-          {
-            id: product.id,
-            title: product.title,
-            description: product.description,
-            quantity: 1,
-            unit_price: product.priceSoles,
-            currency_id: "PEN",
-          },
-        ],
-        external_reference: userId,
-        metadata: {
-          clerk_user_id: userId,
-          pack_id: product.id,
-          credits: product.credits,
-        },
-        // Pago ÚNICO: el Lifetime Pass no se vende en cuotas. installments: 1
-        // hace que MP solo ofrezca "1x" (sin la grilla de 3/6/12/24 cuotas).
-        payment_methods: {
-          installments: 1,
-        },
-        back_urls: {
-          success: `${appUrl}/upgrade/resultado`,
-          failure: `${appUrl}/upgrade/resultado`,
-          pending: `${appUrl}/upgrade/resultado`,
-        },
-        auto_return: "approved",
-        // notification_url: MP tiene que poder alcanzarla públicamente. En dev
-        // con localhost NO llega → usar un túnel (ngrok) o probar en Vercel.
-        notification_url: `${appUrl}/api/webhooks/mercadopago`,
-      },
-    });
-
-    if (!preference.init_point) {
-      return NextResponse.json(
-        { error: "No se pudo crear el checkout" },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json(
-      { initPoint: preference.init_point, preferenceId: preference.id },
-      { status: 200 },
+    const { initPoint, preferenceId } = await createPreference(
+      userId,
+      parsed.data.productId,
     );
+    return NextResponse.json({ initPoint, preferenceId }, { status: 200 });
   } catch (err) {
+    if (err instanceof CreatePreferenceError) {
+      if (err.code === "PRODUCT_NOT_FOUND")
+        return NextResponse.json(
+          { error: "Producto no encontrado" },
+          { status: 404 },
+        );
+      if (err.code === "APP_URL_MISSING")
+        return NextResponse.json(
+          { error: "Servicio no configurado" },
+          { status: 503 },
+        );
+    }
     console.error("[checkout] Error creando Preference de MP:", err);
     return NextResponse.json(
       { error: "No se pudo crear el checkout" },
