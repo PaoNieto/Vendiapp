@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
-import { hasAppAccess } from "@/lib/auth/access";
+import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { createPreference } from "@/lib/mercadopago/create-preference";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/signup?redirect_url=/comprar", request.url));
   }
   await ensureProfile();
-  if (await hasAppAccess(userId)) {
+  if (await userHasPaidAccess(userId)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
   try {

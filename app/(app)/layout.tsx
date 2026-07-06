@@ -5,7 +5,7 @@ import { BottomNav } from "@/components/app/bottom-nav";
 import { Sidebar } from "@/components/app/sidebar";
 import { AppBackground } from "@/components/dashboard";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
-import { hasAppAccess } from "@/lib/auth/access";
+import { userHasPaidAccess } from "@/lib/auth/paid-access";
 
 export default async function AppLayout({
   children,
@@ -23,8 +23,13 @@ export default async function AppLayout({
   // al Checkout de Mercado Pago. redirect() lanza NEXT_REDIRECT (no lo envolvemos
   // en try/catch). La página de resultado del pago vive FUERA de (app) a propósito,
   // para no rebotar acá mientras el webhook termina de acreditar.
+  //
+  // Señal de acceso = `userHasPaidAccess`: pagó (movimiento 'purchase' en
+  // credit_ledger → cubre Mercado Pago Y Shopify) o está en `unlimited_users`.
+  // Es la MISMA señal que ya usaban el proxy (viejo gate) y /fundador — fuente
+  // única, Shopify-aware y fail-open (no bloquea al pagador ante un hipo de infra).
   const { userId } = await auth();
-  if (userId && !(await hasAppAccess(userId))) {
+  if (userId && !(await userHasPaidAccess(userId))) {
     redirect("/comprar");
   }
 
