@@ -19,6 +19,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * no a la landing" y además cortocircuitaba el gate del layout, así que se quitó.
  *
  * Reglas de ruta:
+ *  - RAÍZ `/`: anónimo → rewrite a la LANDING pública (public/landing.html; la
+ *    URL queda en `/`, estilo Arcads); logueado → app/page.tsx lo pasa a /dashboard.
  *  - PÚBLICAS: `/`, `/login`, `/signup`, `/privacidad`, `/terminos`,
  *    `/onboarding`, `/recuperar`, `/comenzar`, `/comprar`, webhooks (y subrutas).
  *    Visitables por anónimos y logueados.
@@ -65,6 +67,15 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
   const { pathname } = request.nextUrl;
 
+  // Anónimo en la RAÍZ → servir la LANDING pública (rewrite: la URL queda en `/`).
+  // Sin esto, `/` cae en app/page.tsx, que manda al anónimo a /login (sin ver la
+  // landing). Es un estático autocontenido en public/landing.html; sus CTAs van a
+  // /comenzar (embudo paga-primero: registro → checkout de Mercado Pago → app).
+  // Estilo Arcads: la vidriera es pública, el candado vive dentro de (app)/*.
+  if (!userId && pathname === "/") {
+    return NextResponse.rewrite(new URL("/landing.html", request.url));
+  }
+
   // Logueado en /login o /signup → al dashboard.
   if (userId && isAuthFormRoute(request)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -84,7 +95,7 @@ export const config = {
   matcher: [
     // Corre en todas las rutas de app salvo assets estáticos / internos de Next.
     // (Las API routes hacen su propia validación con auth() en server.)
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|html)$).*)",
     // Siempre corre en las rutas de API y en el handshake interno de Clerk.
     "/(api|trpc)(.*)",
     "/__clerk/(.*)",
