@@ -67,12 +67,14 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
   const { pathname } = request.nextUrl;
 
-  // Anónimo en la RAÍZ → servir la LANDING pública (rewrite: la URL queda en `/`).
-  // Sin esto, `/` cae en app/page.tsx, que manda al anónimo a /login (sin ver la
-  // landing). Es un estático autocontenido en public/landing.html; sus CTAs van a
-  // /comenzar (embudo paga-primero: registro → checkout de Mercado Pago → app).
-  // Estilo Arcads: la vidriera es pública, el candado vive dentro de (app)/*.
-  if (!userId && pathname === "/") {
+  // La RAÍZ `/` SIEMPRE muestra la LANDING pública — a TODOS, logueado o no
+  // (rewrite: la URL queda en `/`), igual que la home de Arcads. El checkout NO
+  // aparece acá: solo cuando el usuario toca "Comenzar" (→ /comenzar → /comprar,
+  // que decide registro / pago / dashboard según su estado). Sin esto, `/` caía
+  // en app/page.tsx → /dashboard → gate → /comprar y el logueado-sin-pagar veía
+  // el checkout en vez de la landing. El candado sigue vivo dentro de (app)/*:
+  // esto solo cambia qué muestra la vidriera, no el acceso a la app.
+  if (pathname === "/") {
     return NextResponse.rewrite(new URL("/landing.html", request.url));
   }
 
