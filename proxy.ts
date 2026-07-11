@@ -19,8 +19,6 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * no a la landing" y además cortocircuitaba el gate del layout, así que se quitó.
  *
  * Reglas de ruta:
- *  - RAÍZ `/`: anónimo → rewrite a la LANDING pública (public/landing.html; la
- *    URL queda en `/`, estilo Arcads); logueado → app/page.tsx lo pasa a /dashboard.
  *  - PÚBLICAS: `/`, `/login`, `/signup`, `/privacidad`, `/terminos`,
  *    `/onboarding`, `/recuperar`, `/comenzar`, `/comprar`, webhooks (y subrutas).
  *    Visitables por anónimos y logueados.
@@ -67,17 +65,6 @@ export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
   const { pathname } = request.nextUrl;
 
-  // La RAÍZ `/` SIEMPRE muestra la LANDING pública — a TODOS, logueado o no
-  // (rewrite: la URL queda en `/`), igual que la home de Arcads. El checkout NO
-  // aparece acá: solo cuando el usuario toca "Comenzar" (→ /comenzar → /comprar,
-  // que decide registro / pago / dashboard según su estado). Sin esto, `/` caía
-  // en app/page.tsx → /dashboard → gate → /comprar y el logueado-sin-pagar veía
-  // el checkout en vez de la landing. El candado sigue vivo dentro de (app)/*:
-  // esto solo cambia qué muestra la vidriera, no el acceso a la app.
-  if (pathname === "/") {
-    return NextResponse.rewrite(new URL("/landing.html", request.url));
-  }
-
   // Logueado en /login o /signup → al dashboard.
   if (userId && isAuthFormRoute(request)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
@@ -97,7 +84,7 @@ export const config = {
   matcher: [
     // Corre en todas las rutas de app salvo assets estáticos / internos de Next.
     // (Las API routes hacen su propia validación con auth() en server.)
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|html)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
     // Siempre corre en las rutas de API y en el handshake interno de Clerk.
     "/(api|trpc)(.*)",
     "/__clerk/(.*)",
