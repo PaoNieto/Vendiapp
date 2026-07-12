@@ -27,6 +27,12 @@ import type { OutputRatio } from "@/lib/constants";
  *  6. Subir a Storage + insert en generated_images (arrastra el strict_prompt).
  *  7. Si falló: reembolsar el crédito. Devolver { image, creditsRemaining }.
  */
+
+// Misma razón que /api/generations: la generación (hasta 60s) + sharp + upload
+// pueden superar el default de Vercel; si corta, muere entre deduct y refund y
+// el usuario pierde el crédito de la regeneración.
+export const maxDuration = 300;
+
 export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {

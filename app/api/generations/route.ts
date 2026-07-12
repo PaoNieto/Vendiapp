@@ -28,6 +28,12 @@ import type { OutputRatio } from "@/lib/constants";
  * Los créditos se mutan SOLO con el cliente admin (service_role) vía las RPC
  * deduct_credits / grant_credits — el usuario nunca las puede invocar directo.
  */
+
+// Peor caso de la tanda: Director (45s) + 5 llamadas de imagen (60s c/u, en
+// paralelo) + sharp + uploads a Storage. Sin techo explícito Vercel corta antes
+// y la función muere ENTRE el deduct y el refund → el cliente pierde créditos.
+export const maxDuration = 300;
+
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
   // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
