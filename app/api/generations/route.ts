@@ -195,11 +195,15 @@ export async function POST(req: Request) {
 
   // Si falló TODO: reembolsar el total y marcar failed.
   if (!result.ok) {
-    await admin.rpc("grant_credits", {
-      p_user_id: userId,
-      p_amount: variations,
-      p_reason: "refund",
-    });
+    // Refund SOLO si hubo deduct real: para ilimitados el deduct es no-op y
+    // un refund acuñaría créditos de la nada (ya pasó en prod: +2 sin deduct).
+    if (!isUnlimited) {
+      await admin.rpc("grant_credits", {
+        p_user_id: userId,
+        p_amount: variations,
+        p_reason: "refund",
+      });
+    }
     await supabase
       .from("generations")
       .update({ status: "failed", error_message: result.error.kind })
@@ -228,6 +232,12 @@ export async function POST(req: Request) {
       .from("generated-images")
       .createSignedUrl(path, ONE_YEAR);
     const url = signed?.signedUrl ?? "";
+    if (!url) {
+      // Sin signed URL no hay imagen visible: la contamos como fallida (se
+      // reembolsa abajo) en vez de insertar una fila rota en la Fábrica.
+      index += 1;
+      continue;
+    }
 
     await supabase.from("generated_images").insert({
       generation_id: generationId,
@@ -239,14 +249,15 @@ export async function POST(req: Request) {
       // El prompt original/base (lo que produjo el modelo) queda read-only acá.
       metadata: { base_prompt: result.finalPrompt },
     });
-    if (url) urls.push(url);
+    urls.push(url);
     index += 1;
   }
 
-  // 8. Reembolsar las variaciones que NO produjeron imagen subida.
+  // 8. Reembolsar las variaciones que NO produjeron imagen subida. Ilimitados
+  // no reciben refund (su deduct fue no-op; sería acuñar saldo en el ledger).
   const delivered = urls.length;
   const refundCount = variations - delivered;
-  if (refundCount > 0) {
+  if (refundCount > 0 && !isUnlimited) {
     await admin.rpc("grant_credits", {
       p_user_id: userId,
       p_amount: refundCount,
@@ -254,7 +265,19 @@ export async function POST(req: Request) {
     });
   }
 
-  // 9. Completar + leer saldo final
+  // 9. Cerrar la generación. Con 0 imágenes subidas no hay nada "completado":
+  // queda failed (el costo entero ya se reembolsó arriba) y el cliente recibe
+  // el mismo contrato de error que un fallo total de generación.
+  if (delivered === 0) {
+    await supabase
+      .from("generations")
+      .update({ status: "failed", error_message: "upload_failed" })
+      .eq("id", generationId);
+    return NextResponse.json(
+      { error: "generation_failed", detail: { kind: "upload_failed" } },
+      { status: 502 },
+    );
+  }
   await supabase
     .from("generations")
     .update({ status: "completed", completed_at: new Date().toISOString() })
