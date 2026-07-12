@@ -14,9 +14,9 @@ import { SignIn } from "@clerk/nextjs";
  * necesitamos una página /recuperar custom para el flujo principal — pero la
  * mantenemos como atajo con redirect.
  *
- * Redirects post-login: por el env NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL
- * (=/dashboard). Si venimos con ?from=/ruta (lo setea el proxy), Clerk respeta
- * el `redirect_url` que ya viene en la URL.
+ * Redirects post-login: si venimos con `?redirect_url=/ruta` (lo setea el proxy
+ * al interceptar un deep-link sin sesión), Clerk lo honra y vuelve ahí. Sin ese
+ * param, cae en el fallback `/dashboard` (prop fallbackRedirectUrl de abajo).
  */
 export default function LoginPage() {
   return (
