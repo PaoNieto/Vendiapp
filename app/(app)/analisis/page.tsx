@@ -54,9 +54,10 @@ import { cn } from "@/lib/utils";
  * análisis sigue ahí, lo abre con un click. Trade-off conscientemente
  * tomado para no acoplar la URL al store hasta que conectemos backend.
  *
- * Todo el análisis es MOCK por ahora — devuelve siempre el mismo texto
- * sustancioso independiente de la imagen subida. Cuando conectemos
- * Gemini Vision, este mock se reemplaza por una llamada real al backend.
+ * El análisis es REAL: pega a `/api/analyze` (Oráculo — Gemini Vision
+ * server-side con la key propia de Vendí) y descuenta 1 crédito de la
+ * bolsa de análisis. Los errores del server (402 sin créditos, 403 sin
+ * compra activa) se muestran con su copy real en el ErrorBanner.
  */
 
 /* -------------------------------------------------------------------------- */
@@ -163,8 +164,9 @@ export default function AnalisisPage() {
   // análisis" antes de saberlo realmente.
   const [screen, setScreen] = useState<ScreenState>({ kind: "gallery" });
   const [creating, setCreating] = useState<CreatingState>({ kind: "idle" });
-  // Banner de error inline. Mismo sentinel `"missing_key"` que usa /fabrica
-  // para activar copy + CTA específicos a Mi Negocio.
+  // Banner de error inline. El sentinel `"insufficient_analysis_credits"`
+  // activa copy + CTA a /upgrade (mismo patrón que /fabrica con
+  // "insufficient_credits"); cualquier otra cadena se muestra tal cual.
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   // Si recién hidrata y no hay análisis previos, saltamos directo al
@@ -203,10 +205,22 @@ export default function AnalisisPage() {
         if (cancelled) return;
 
         if (!res.ok) {
+          // Leemos el body para mostrar el mensaje REAL del server (ej. el 403
+          // del candado paga-primero: "Necesitás una compra activa…"). Los
+          // sentinels técnicos sin espacios ("analysis_failed") no son copy
+          // humano → caen al mensaje genérico.
+          const data = (await res.json().catch(() => null)) as {
+            error?: string;
+            message?: string;
+          } | null;
+          const serverCopy =
+            data?.message ??
+            (data?.error && data.error.includes(" ") ? data.error : null);
           setErrorBanner(
             res.status === 402
-              ? "Te quedaste sin créditos de análisis. Conseguí más para seguir analizando."
-              : "No se pudo analizar la imagen. Intentá de nuevo en un momento.",
+              ? "insufficient_analysis_credits"
+              : (serverCopy ??
+                  "No se pudo analizar la imagen. Intentá de nuevo en un momento."),
           );
           setCreating({ kind: "idle" });
           // Revalidamos el saldo: si el 402 vino del server, el contador baja.
@@ -904,8 +918,9 @@ function IdentifiedStylesSection({
 
 /**
  * Banner inline rojo. Igual API que en /fabrica y /productos/.../versiones.
- * El sentinel `"missing_key"` activa copy + CTA a Mi Negocio; cualquier otra
- * cadena se renderiza tal cual (viene ya formateada por `formatGenerationError`).
+ * El sentinel `"insufficient_analysis_credits"` activa copy + CTA a /upgrade
+ * (patrón del ErrorBanner de /fabrica); cualquier otra cadena se renderiza
+ * tal cual (copy real del server o mensaje genérico).
  */
 function ErrorBanner({
   message,
@@ -914,9 +929,9 @@ function ErrorBanner({
   message: string;
   onDismiss: () => void;
 }) {
-  const isMissingKey = message === "missing_key";
-  const displayMessage = isMissingKey
-    ? "Para analizar imágenes reales, configurá tu API key de Gemini en Mi Negocio."
+  const isNoCredits = message === "insufficient_analysis_credits";
+  const displayMessage = isNoCredits
+    ? "Te quedaste sin créditos de análisis. Comprá más para seguir analizando."
     : message;
 
   return (
@@ -930,12 +945,12 @@ function ErrorBanner({
       />
       <div className="flex-1">
         <p className="font-medium leading-snug">{displayMessage}</p>
-        {isMissingKey ? (
+        {isNoCredits ? (
           <Link
-            href="/mi-negocio"
+            href="/upgrade"
             className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
           >
-            Ir a Mi Negocio →
+            Comprar créditos →
           </Link>
         ) : null}
       </div>

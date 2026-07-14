@@ -19,7 +19,7 @@
  *   stackea vertical. A partir de `sm` todo va en una fila.
  */
 
-import { CheckCircle2, Layers, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronDown, Layers, Sparkles } from "lucide-react";
 
 import { SelectableChip } from "@/components/fabrica/selectable-chip";
 import { cn } from "@/lib/utils";
@@ -106,7 +106,7 @@ export function FilterBar({
       {/* SELECTOR PRODUCTO + CONTADOR. Stack vertical en mobile, fila en sm+. */}
       <div className="flex items-center justify-between gap-3 sm:justify-end">
         {products.length > 0 ? (
-          <label className="flex items-center gap-2">
+          <label className="relative flex items-center gap-2">
             <span className="sr-only">Filtrar por producto</span>
             <select
               value={productId}
@@ -114,17 +114,11 @@ export function FilterBar({
                 onProductChange(e.target.value as FilterProduct)
               }
               className={cn(
-                "min-h-[40px] cursor-pointer appearance-none rounded-full border border-white/70 bg-white/70 px-4 py-2 pr-9 text-[13px] font-medium text-green-dark shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] transition-colors",
-                "hover:bg-white/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-dark/40",
-                // Chevron custom como background-image (no podemos meter un
-                // <ChevronDown /> dentro de un <select> nativo).
-                "bg-[length:14px_14px] bg-[right_12px_center] bg-no-repeat",
+                // Superficie por token (bg-card) — legible en light Y dark;
+                // el white-glass viejo dejaba texto cream sobre haze blanco.
+                "min-h-[44px] cursor-pointer appearance-none rounded-full border border-border bg-card px-4 py-2 pr-9 text-[13px] font-medium text-foreground transition-colors",
+                "hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30",
               )}
-              style={{
-                backgroundImage:
-                  // Chevron SVG inline en color green-dark (#0f2818).
-                  "url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%230f2818'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 0 1 1.08 1.04l-4.25 4.38a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E\")",
-              }}
             >
               <option value="all">Todos los productos</option>
               {products.map((p) => (
@@ -133,6 +127,12 @@ export function FilterBar({
                 </option>
               ))}
             </select>
+            {/* Chevron por token (currentColor via lucide) — no se puede meter
+                un icono DENTRO de un <select> nativo, así que va superpuesto. */}
+            <ChevronDown
+              aria-hidden
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-mute"
+            />
           </label>
         ) : null}
 

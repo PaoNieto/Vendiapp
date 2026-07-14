@@ -31,8 +31,8 @@ const variantClasses: Record<StatusBadgeStatus, string> = {
   completed: "bg-green-dark/15 text-green-dark border border-green-dark/20",
   // Fondo amber + texto blanco (estado activo).
   processing: "bg-amber text-white border border-amber/60",
-  // Fondo neutral suave.
-  pending: "bg-white/60 text-green-text border border-white/80",
+  // Fondo neutral suave por token — legible en light Y dark.
+  pending: "bg-secondary text-mute border border-border",
   // Fondo destructive suave.
   failed: "bg-destructive/15 text-destructive border border-destructive/30",
 };

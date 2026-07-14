@@ -66,7 +66,7 @@ export function CreditBadge({
         <Link
           href="/upgrade"
           className={cn(
-            "inline-flex min-h-[36px] items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90",
+            "inline-flex min-h-[44px] items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-90",
             empty
               ? "bg-pill-bg text-pill-fg"
               : "border border-border bg-card text-foreground",
