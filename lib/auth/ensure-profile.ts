@@ -8,13 +8,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Reemplaza al trigger `handle_new_user` (migración 0001), que con Clerk queda
  * MUERTO: los usuarios ya no nacen en `auth.users`, así que nada dispara la
  * creación del perfil. Sin esto, un usuario nuevo no tendría fila en `profiles`
- * ni sus créditos de regalo, y la app tiraría "Perfil no encontrado".
+ * y la app tiraría "Perfil no encontrado".
  *
- * Los créditos de regalo (60 de generación / 10 de análisis) los pone el
- * DEFAULT de las columnas `credits_remaining` / `analysis_credits_remaining`
- * (ver migraciones 0001/0008) — igual que cuando los creaba el trigger. Por eso
- * un INSERT con solo el id ya entrega el bono, sin necesidad de llamar a las
- * RPC de créditos.
+ * El saldo inicial sale del DEFAULT de las columnas `credits_remaining` /
+ * `analysis_credits_remaining`, que desde el paywall paga-primero es 0/0
+ * (migración 0016): la cuenta nueva nace SIN fichas y las recibe recién al
+ * comprar (webhook → grant_credits). Este insert NO regala créditos ni llama
+ * a las RPC de créditos.
  *
  * Usa el cliente admin (service_role) a propósito: insertar el propio perfil
  * ANTES de que exista no encaja en el modelo RLS dueño-only. El upsert con

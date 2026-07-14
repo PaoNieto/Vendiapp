@@ -110,13 +110,16 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5. Analizar. Si falla, reembolsar el crédito.
+  // 5. Analizar. Si falla, reembolsar el crédito — SOLO si hubo deduct real:
+  // para ilimitados el deduct es no-op y el refund acuñaría saldo de la nada.
   const result = await analyzeImage({ apiKey, imageDataUrl, ratio });
   if (!result.ok) {
-    await admin.rpc("grant_analysis_credits", {
-      p_user_id: userId,
-      p_amount: 1,
-    });
+    if (!isUnlimited) {
+      await admin.rpc("grant_analysis_credits", {
+        p_user_id: userId,
+        p_amount: 1,
+      });
+    }
     return NextResponse.json(
       { error: "analysis_failed", detail: result.error },
       { status: 502 },

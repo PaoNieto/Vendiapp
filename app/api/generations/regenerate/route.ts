@@ -158,7 +158,10 @@ export async function POST(req: Request) {
   }
 
   // Helper: reembolsa el crédito reservado ante cualquier fallo posterior.
+  // No-op para ilimitados: su deduct no descontó nada, así que un refund
+  // acuñaría créditos de la nada en el ledger.
   const refund = async () => {
+    if (isUnlimited) return;
     await admin.rpc("grant_credits", {
       p_user_id: userId,
       p_amount: 1,
@@ -217,6 +220,15 @@ export async function POST(req: Request) {
     .from("generated-images")
     .createSignedUrl(path, ONE_YEAR);
   const url = signed?.signedUrl ?? "";
+  if (!url) {
+    // Se subió pero no pudo firmarse la URL: sin imagen visible no hay
+    // entrega. Reembolsar y avisar, en vez de insertar una fila rota.
+    await refund();
+    return NextResponse.json(
+      { error: "upload_failed", message: "No se pudo firmar la URL de la imagen" },
+      { status: 502 },
+    );
+  }
 
   // variation_index: siguiente al máximo de la generación (columna NOT NULL).
   const { data: maxRow } = await supabase
