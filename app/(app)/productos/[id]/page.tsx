@@ -84,7 +84,7 @@ export default function ProductDetailPage() {
     });
     recorrido.setState({ productId: product.id, versionId: created.id });
     setModalOpen(false);
-    router.push("/referencias");
+    router.push("/estilo");
   }
 
   if (!allHydrated || !product) {

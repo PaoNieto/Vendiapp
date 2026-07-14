@@ -28,7 +28,7 @@ import {
   type GeminiResponse,
 } from "@/lib/ai/gemini-client";
 import type { OutputRatio } from "@/lib/constants";
-import type { CuratedStyleId } from "@/app/(app)/referencias/page";
+import type { CuratedStyleId } from "@/lib/curated-styles";
 
 /* -------------------------------------------------------------------------- */
 /*  Tipos públicos                                                              */
