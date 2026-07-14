@@ -14,6 +14,11 @@ import type { Product } from "@/lib/mercadopago/catalog";
  * el `initPoint` (URL de Checkout Pro) al que redirigimos. La acreditación de
  * créditos la confirma el webhook /api/webhooks/mercadopago — NUNCA acá.
  */
+/** "US$ 14" para enteros, "US$ 6.50" si el precio de vitrina trae centavos. */
+function formatUsd(n: number): string {
+  return Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2);
+}
+
 export function UpgradeStore({
   products,
   title = "Sumá créditos",
@@ -58,10 +63,11 @@ export function UpgradeStore({
       <div className="mx-auto max-w-4xl">
         <div className="flex flex-col items-center text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-pill-bg/10 px-3 py-1.5 text-sm font-semibold text-foreground">
-            <Coins className="h-4 w-4" />
+            <Coins className="h-4 w-4 dark:text-gold" />
             Tenés {stats.balance} {stats.balance === 1 ? "crédito" : "créditos"}
           </span>
-          <h1 className="mt-4 font-display text-3xl italic text-foreground sm:text-4xl">
+          <span className="eyebrow-on-bg mt-5">Tienda</span>
+          <h1 className="mt-2 font-display text-3xl italic text-foreground sm:text-4xl">
             {title}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
@@ -72,7 +78,7 @@ export function UpgradeStore({
         {/* Pase Fundador — oferta destacada de tiempo limitado. */}
         {lifetime ? (
           <div className="mt-10">
-            <div className="flex flex-col gap-6 rounded-2xl border border-pill-bg bg-card p-6 shadow-lg ring-1 ring-pill-bg sm:flex-row sm:items-center sm:p-7">
+            <div className="glass-card flex flex-col gap-6 p-6 ring-1 ring-pill-bg sm:flex-row sm:items-center sm:p-7">
               <div className="flex-1">
                 {lifetime.badge ? (
                   <span className="mb-3 inline-flex w-fit rounded-full bg-pill-bg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-pill-fg">
@@ -82,9 +88,10 @@ export function UpgradeStore({
                 <h2 className="font-display text-2xl italic text-foreground">
                   {lifetime.name}
                 </h2>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-foreground">
-                    S/ {lifetime.priceSoles.toFixed(2)}
+                <div className="mt-2 flex items-baseline gap-1.5">
+                  <span className="text-sm font-semibold text-mute">US$</span>
+                  <span className="card-value font-mono text-3xl font-semibold text-foreground dark:text-gold">
+                    {formatUsd(lifetime.priceUsdDisplay)}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     pago único · {lifetime.credits} créditos
@@ -134,14 +141,12 @@ export function UpgradeStore({
             </p>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
               {packs.map((pack) => {
-                const perCredit = pack.priceSoles / pack.credits;
+                const perCredit = pack.priceUsdDisplay / pack.credits;
                 return (
                   <div
                     key={pack.id}
-                    className={`flex flex-col rounded-2xl border bg-card p-5 shadow-sm ${
-                      pack.highlight
-                        ? "border-pill-bg ring-1 ring-pill-bg"
-                        : "border-pill-bg/40"
+                    className={`glass-card flex flex-col p-5 ${
+                      pack.highlight ? "ring-1 ring-pill-bg" : ""
                     }`}
                   >
                     {pack.badge ? (
@@ -152,16 +157,17 @@ export function UpgradeStore({
                     <h3 className="font-display text-lg italic text-foreground">
                       {pack.name}
                     </h3>
-                    <div className="mt-2 flex items-baseline gap-1">
-                      <span className="text-2xl font-bold text-foreground">
-                        S/ {pack.priceSoles.toFixed(2)}
+                    <div className="mt-2 flex items-baseline gap-1.5">
+                      <span className="text-sm font-semibold text-mute">US$</span>
+                      <span className="card-value font-mono text-3xl font-semibold text-foreground dark:text-gold">
+                        {formatUsd(pack.priceUsdDisplay)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm font-medium text-foreground">
                       {pack.credits} créditos
                     </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      S/ {perCredit.toFixed(2)} por crédito
+                    <p className="card-caption mt-0.5 font-mono">
+                      US$ {perCredit.toFixed(2)} por crédito
                     </p>
                     <button
                       type="button"
@@ -194,8 +200,9 @@ export function UpgradeStore({
         ) : null}
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          Pago en soles con tarjeta o saldo vía Mercado Pago. Te redirige a una
-          página segura de Mercado Pago para completar el pago.
+          Los precios están en dólares (USD). El cobro se procesa en soles (PEN)
+          por Mercado Pago: te redirige a su página segura para completar el
+          pago.
         </p>
       </div>
     </div>

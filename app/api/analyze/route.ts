@@ -22,6 +22,11 @@ import { analyzeRequestSchema } from "@/lib/validations/analyze";
  *
  * Recibe { imageDataUrl, ratio }. Requiere usuario logueado.
  */
+
+// El análisis es 1 llamada a Gemini (hasta 60s por AbortController) + parseo.
+// Techo holgado para no morir entre el deduct y el refund del crédito.
+export const maxDuration = 120;
+
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
   // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
@@ -105,13 +110,16 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5. Analizar. Si falla, reembolsar el crédito.
+  // 5. Analizar. Si falla, reembolsar el crédito — SOLO si hubo deduct real:
+  // para ilimitados el deduct es no-op y el refund acuñaría saldo de la nada.
   const result = await analyzeImage({ apiKey, imageDataUrl, ratio });
   if (!result.ok) {
-    await admin.rpc("grant_analysis_credits", {
-      p_user_id: userId,
-      p_amount: 1,
-    });
+    if (!isUnlimited) {
+      await admin.rpc("grant_analysis_credits", {
+        p_user_id: userId,
+        p_amount: 1,
+      });
+    }
     return NextResponse.json(
       { error: "analysis_failed", detail: result.error },
       { status: 502 },

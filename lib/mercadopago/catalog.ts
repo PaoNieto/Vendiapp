@@ -47,6 +47,14 @@ export type Product = {
   analysisCredits?: number;
   /** Precio en soles (PEN). Mercado Pago Perú cobra en moneda local. */
   priceSoles: number;
+  /**
+   * Precio de VITRINA en dólares (USD) — SOLO display (decisión de Paolo,
+   * 2026-07-11: la app muestra USD). El cobro real sigue siendo `priceSoles`
+   * vía Mercado Pago. Valor fijo a mano (no conversión runtime), anclado al
+   * ancla de la landing S/39 = US$10 (TC ref ~3.9). Si cambia un priceSoles,
+   * recalcular este también.
+   */
+  priceUsdDisplay: number;
   /** Orden en la vitrina (menor primero). Solo UI. */
   order: number;
   /** Texto del badge superior de la card (opcional). Solo UI. */
@@ -72,6 +80,7 @@ export const PRODUCTS: Record<string, Product> = {
     credits: 60,
     analysisCredits: 10,
     priceSoles: LIFETIME_PASS_PRICE_PEN,
+    priceUsdDisplay: 10,
     order: 0,
     badge: "Primeros 30 fundadores",
     highlight: true,
@@ -92,6 +101,7 @@ export const PRODUCTS: Record<string, Product> = {
       "30 créditos de generación. Pago único. Los créditos no vencen.",
     credits: 30,
     priceSoles: 24.9,
+    priceUsdDisplay: 6.5,
     order: 1,
   },
   "pack-pro": {
@@ -103,6 +113,7 @@ export const PRODUCTS: Record<string, Product> = {
       "80 créditos de generación. Pago único. Los créditos no vencen.",
     credits: 80,
     priceSoles: 54.9,
+    priceUsdDisplay: 14,
     order: 2,
     badge: "Más elegido",
     highlight: true,
@@ -116,6 +127,7 @@ export const PRODUCTS: Record<string, Product> = {
       "200 créditos de generación. Pago único. Los créditos no vencen.",
     credits: 200,
     priceSoles: 119.9,
+    priceUsdDisplay: 31,
     order: 3,
   },
 };

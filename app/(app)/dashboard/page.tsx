@@ -101,7 +101,7 @@ function nuevaImagenHref(productsCount: number): string {
 }
 
 /**
- * Estado de los chips del workflow "Producto → Referencias → Formato → Versión".
+ * Estado de los chips del workflow "Producto → Estilo → Formato → Versión".
  * El 4to step ("Versión") representa "revisar config y generar".
  *
  *  - sin productos                                  → producto active.
@@ -115,7 +115,7 @@ function nuevaImagenHref(productsCount: number): string {
  */
 type WorkflowState = {
   producto: "done" | "active" | "pending";
-  referencias: "done" | "active" | "pending";
+  estilo: "done" | "active" | "pending";
   formato: "done" | "active" | "pending";
   version: "done" | "active" | "pending";
 };
@@ -128,7 +128,7 @@ function getWorkflowState(
   if (productsCount === 0) {
     return {
       producto: "active",
-      referencias: "pending",
+      estilo: "pending",
       formato: "pending",
       version: "pending",
     };
@@ -141,15 +141,17 @@ function getWorkflowState(
   if (!latest) {
     return {
       producto: "done",
-      referencias: "active",
+      estilo: "active",
       formato: "pending",
       version: "pending",
     };
   }
-  if (latest.reference_images.length === 0) {
+  // El "look" (estilo + refs fusionados) está listo con CUALQUIERA de los dos:
+  // un estilo elegido o al menos una referencia subida.
+  if (latest.reference_images.length === 0 && latest.style_id == null) {
     return {
       producto: "done",
-      referencias: "active",
+      estilo: "active",
       formato: "pending",
       version: "pending",
     };
@@ -157,26 +159,26 @@ function getWorkflowState(
   if (latest.variations_default < 1) {
     return {
       producto: "done",
-      referencias: "done",
+      estilo: "done",
       formato: "active",
       version: "pending",
     };
   }
 
-  // Tiene refs + formato OK. Vemos las generations de esa versión.
+  // Tiene look + formato OK. Vemos las generations de esa versión.
   const latestGens = generations.filter((g) => g.version_id === latest.id);
   const hasCompleted = latestGens.some((g) => g.status === "completed");
   if (hasCompleted) {
     return {
       producto: "done",
-      referencias: "done",
+      estilo: "done",
       formato: "done",
       version: "done",
     };
   }
   return {
     producto: "done",
-    referencias: "done",
+    estilo: "done",
     formato: "done",
     version: "active",
   };
@@ -514,20 +516,33 @@ function DashboardContent({
                 Nueva Imagen
               </Link>
             </PillButton>
-            <AvatarCircle
-              initials={initials}
-              size={44}
-              ariaLabel={`Avatar de ${displayName}`}
-            />
+            <Link
+              href="/ajustes"
+              aria-label="Ir a Ajustes"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full"
+            >
+              <AvatarCircle
+                initials={initials}
+                size={44}
+                ariaLabel={`Avatar de ${displayName}`}
+              />
+            </Link>
           </div>
-          {/* En mobile dejamos solo el avatar arriba a la derecha. El CTA se
-              renderiza full-width abajo del subtítulo (mejor ergonomía). */}
+          {/* En mobile dejamos solo el avatar arriba a la derecha (linkea a
+              Ajustes — en mobile no hay sidebar y el bottom-nav va lleno con
+              5 items). El CTA se renderiza full-width abajo del subtítulo. */}
           <div className="sm:hidden">
-            <AvatarCircle
-              initials={initials}
-              size={40}
-              ariaLabel={`Avatar de ${displayName}`}
-            />
+            <Link
+              href="/ajustes"
+              aria-label="Ir a Ajustes"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full"
+            >
+              <AvatarCircle
+                initials={initials}
+                size={40}
+                ariaLabel={`Avatar de ${displayName}`}
+              />
+            </Link>
           </div>
         </div>
 
@@ -643,7 +658,7 @@ function DashboardContent({
             <span className="text-mute" aria-hidden>
               →
             </span>
-            <WorkflowChip label="Referencias" state={workflow.referencias} />
+            <WorkflowChip label="Estilo" state={workflow.estilo} />
             <span className="text-mute" aria-hidden>
               →
             </span>
@@ -764,36 +779,39 @@ function DashboardContent({
         )}
       </section>
 
-      {/* 5. Modo dev — oculto bajo <details> */}
-      <details className="mt-10 sm:mt-12">
-        <summary className="cursor-pointer text-xs text-mute hover:text-ink">
-          Validación visual
-        </summary>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <PillButton
-            size="sm"
-            onClick={() => {
-              products.seedDevData();
-              versions.seedDevData();
-              generations.seedDevData();
-            }}
-          >
-            Cargar data de ejemplo
-          </PillButton>
-          <PillButton
-            size="sm"
-            onClick={() => {
-              if (typeof window === "undefined") return;
-              window.localStorage.removeItem("vendi:products");
-              window.localStorage.removeItem("vendi:versions");
-              window.localStorage.removeItem("vendi:generations");
-              window.location.reload();
-            }}
-          >
-            Resetear
-          </PillButton>
-        </div>
-      </details>
+      {/* 5. Modo dev — oculto bajo <details>, SOLO en development. NODE_ENV se
+          inlinea en build, así que en prod este bloque ni se renderiza. */}
+      {process.env.NODE_ENV === "development" ? (
+        <details className="mt-10 sm:mt-12">
+          <summary className="cursor-pointer text-xs text-mute hover:text-ink">
+            Validación visual
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <PillButton
+              size="sm"
+              onClick={() => {
+                products.seedDevData();
+                versions.seedDevData();
+                generations.seedDevData();
+              }}
+            >
+              Cargar data de ejemplo
+            </PillButton>
+            <PillButton
+              size="sm"
+              onClick={() => {
+                if (typeof window === "undefined") return;
+                window.localStorage.removeItem("vendi:products");
+                window.localStorage.removeItem("vendi:versions");
+                window.localStorage.removeItem("vendi:generations");
+                window.location.reload();
+              }}
+            >
+              Resetear
+            </PillButton>
+          </div>
+        </details>
+      ) : null}
     </>
   );
 }
@@ -803,15 +821,15 @@ function DashboardSkeleton() {
     <div className="flex flex-col gap-6">
       {/* Header skeleton */}
       <div className="flex items-start justify-between gap-4">
-        <div className="h-3 w-48 animate-pulse rounded-full bg-white/40" />
+        <div className="h-3 w-48 animate-pulse rounded-full bg-card" />
         <div className="flex items-center gap-3">
-          <div className="hidden h-11 w-40 animate-pulse rounded-full bg-white/40 sm:block" />
-          <div className="h-11 w-11 animate-pulse rounded-full bg-white/40" />
+          <div className="hidden h-11 w-40 animate-pulse rounded-full bg-card sm:block" />
+          <div className="h-11 w-11 animate-pulse rounded-full bg-card" />
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <div className="h-10 w-72 animate-pulse rounded-full bg-white/40" />
-        <div className="h-4 w-96 animate-pulse rounded-full bg-white/30" />
+        <div className="h-10 w-72 animate-pulse rounded-full bg-card" />
+        <div className="h-4 w-96 animate-pulse rounded-full bg-card/70" />
       </div>
 
       {/* Metric tiles skeleton */}
@@ -829,7 +847,7 @@ function DashboardSkeleton() {
 
       {/* Recent skeleton */}
       <div>
-        <div className="h-7 w-72 animate-pulse rounded-full bg-white/40" />
+        <div className="h-7 w-72 animate-pulse rounded-full bg-card" />
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="glass-card-compact h-64 animate-pulse" />

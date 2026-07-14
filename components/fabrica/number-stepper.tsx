@@ -54,7 +54,7 @@ export function NumberStepper({
       <div
         role="group"
         aria-label={label ?? "Selector numérico"}
-        className="glass inline-flex items-center gap-1 rounded-2xl border border-white/60 p-1.5"
+        className="inline-flex items-center gap-1 rounded-2xl border border-border bg-card p-1.5"
       >
         <motion.button
           type="button"
@@ -64,8 +64,8 @@ export function NumberStepper({
           whileTap={decDisabled ? undefined : { scale: 0.93 }}
           transition={{ duration: 0.12, ease: "easeOut" }}
           className={cn(
-            "inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/70 text-foreground transition-colors",
-            "hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+            "inline-flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-foreground transition-colors",
+            "hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
             "disabled:cursor-not-allowed disabled:opacity-40",
           )}
         >

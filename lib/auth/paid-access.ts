@@ -9,7 +9,9 @@
  *
  * Es el "guardia en la puerta" del modelo PAGA-PRIMERO: una cuenta nueva puede
  * registrarse y loguearse, pero NO entra a la app hasta que tenga una compra
- * registrada. Lo consulta el proxy (middleware) en cada navegación de página.
+ * registrada. Lo consultan el gate de `app/(app)/layout.tsx` (cada hard load de
+ * la sección app), `/comprar`, `/fundador` y las 3 APIs de acción
+ * (generations / regenerate / analyze) para el candado 403.
  *
  *  - "Pagó"        = al menos un movimiento con reason 'purchase' en
  *                    `credit_ledger`. Lo escribe `grant_credits` desde el webhook
