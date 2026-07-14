@@ -21,6 +21,11 @@ type StationShellProps = {
   nextDisabled?: boolean;
   /** Optional hint shown next to the disabled next CTA (e.g. "Falta subir una foto"). */
   nextDisabledHint?: string;
+  /**
+   * Ensancha el contenedor a `max-w-5xl` (default `max-w-3xl`). Lo usa la
+   * estación de estilo fusionada, que necesita 2 columnas (grilla + panel).
+   */
+  wide?: boolean;
 };
 
 export function StationShell({
@@ -35,10 +40,11 @@ export function StationShell({
   nextLabel,
   nextDisabled = false,
   nextDisabledHint,
+  wide = false,
 }: StationShellProps) {
   return (
     <div className="px-5 py-6 sm:px-8 sm:py-8">
-      <div className="mx-auto max-w-3xl">
+      <div className={wide ? "mx-auto max-w-5xl" : "mx-auto max-w-3xl"}>
         <div className="flex items-baseline gap-3">
           <span className="font-mono text-sm font-semibold text-primary">
             {number}

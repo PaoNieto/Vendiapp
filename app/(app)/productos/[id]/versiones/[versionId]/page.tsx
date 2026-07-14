@@ -153,7 +153,7 @@ export default function VersionDetailPage() {
   function goEditReferences() {
     if (!product || !version) return;
     recorrido.setState({ productId: product.id, versionId: version.id });
-    router.push("/referencias");
+    router.push("/estilo");
   }
 
   function goEditFormato() {
@@ -339,7 +339,7 @@ function SetupRow({
             onClick={onEditReferences}
             className="text-[11.5px] font-bold text-sage-strong hover:underline"
           >
-            Editar referencias
+            Editar estilo y refs
           </button>
         </div>
         <div className="mt-3 flex items-center gap-3">

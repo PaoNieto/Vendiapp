@@ -101,7 +101,7 @@ function nuevaImagenHref(productsCount: number): string {
 }
 
 /**
- * Estado de los chips del workflow "Producto → Referencias → Formato → Versión".
+ * Estado de los chips del workflow "Producto → Estilo → Formato → Versión".
  * El 4to step ("Versión") representa "revisar config y generar".
  *
  *  - sin productos                                  → producto active.
@@ -115,7 +115,7 @@ function nuevaImagenHref(productsCount: number): string {
  */
 type WorkflowState = {
   producto: "done" | "active" | "pending";
-  referencias: "done" | "active" | "pending";
+  estilo: "done" | "active" | "pending";
   formato: "done" | "active" | "pending";
   version: "done" | "active" | "pending";
 };
@@ -128,7 +128,7 @@ function getWorkflowState(
   if (productsCount === 0) {
     return {
       producto: "active",
-      referencias: "pending",
+      estilo: "pending",
       formato: "pending",
       version: "pending",
     };
@@ -141,15 +141,17 @@ function getWorkflowState(
   if (!latest) {
     return {
       producto: "done",
-      referencias: "active",
+      estilo: "active",
       formato: "pending",
       version: "pending",
     };
   }
-  if (latest.reference_images.length === 0) {
+  // El "look" (estilo + refs fusionados) está listo con CUALQUIERA de los dos:
+  // un estilo elegido o al menos una referencia subida.
+  if (latest.reference_images.length === 0 && latest.style_id == null) {
     return {
       producto: "done",
-      referencias: "active",
+      estilo: "active",
       formato: "pending",
       version: "pending",
     };
@@ -157,26 +159,26 @@ function getWorkflowState(
   if (latest.variations_default < 1) {
     return {
       producto: "done",
-      referencias: "done",
+      estilo: "done",
       formato: "active",
       version: "pending",
     };
   }
 
-  // Tiene refs + formato OK. Vemos las generations de esa versión.
+  // Tiene look + formato OK. Vemos las generations de esa versión.
   const latestGens = generations.filter((g) => g.version_id === latest.id);
   const hasCompleted = latestGens.some((g) => g.status === "completed");
   if (hasCompleted) {
     return {
       producto: "done",
-      referencias: "done",
+      estilo: "done",
       formato: "done",
       version: "done",
     };
   }
   return {
     producto: "done",
-    referencias: "done",
+    estilo: "done",
     formato: "done",
     version: "active",
   };
@@ -643,7 +645,7 @@ function DashboardContent({
             <span className="text-mute" aria-hidden>
               →
             </span>
-            <WorkflowChip label="Referencias" state={workflow.referencias} />
+            <WorkflowChip label="Estilo" state={workflow.estilo} />
             <span className="text-mute" aria-hidden>
               →
             </span>
