@@ -13,7 +13,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * Este proxy maneja SOLO sesión: quién está logueado y qué puede visitar sin
  * cuenta. El PAYWALL (modelo PAGA-PRIMERO) ya NO vive acá: se movió a
  * `app/(app)/layout.tsx`, que gatea TODA la sección autenticada con
- * `hasAppAccess(userId)` y manda al que no pagó a `/comprar` (embudo directo al
+ * `userHasPaidAccess(userId)` y manda al que no pagó a `/comprar` (embudo directo al
  * Checkout de Mercado Pago). El gate viejo del proxy mandaba al no-pagador a la
  * landing (vendilatam.com): eso contradecía la regla "el que no paga va a pagar,
  * no a la landing" y además cortocircuitaba el gate del layout, así que se quitó.
@@ -23,7 +23,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  *    `/onboarding`, `/recuperar`, `/comenzar`, `/comprar`, webhooks (y subrutas).
  *    Visitables por anónimos y logueados.
  *  - Cualquier otra ruta (todo (app)/* y `/pago/*`) requiere sesión. Sin sesión →
- *    redirect a `/login?from=<ruta-original>` para volver post-login.
+ *    redirect a `/login?redirect_url=<ruta+query original>`: es el param que el
+ *    <SignIn/> de Clerk honra para volver al destino post-login.
  *  - Logueado entrando a `/login` o `/signup` → redirect a `/dashboard`.
  *
  * OJO bug Clerk #8302: `auth.protect()` en el proxy de Next 16 redirige a la
@@ -70,10 +71,16 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Sin sesión en ruta protegida → al login, conservando el destino.
+  // Sin sesión en ruta protegida → al login, conservando el destino COMPLETO
+  // (pathname + querystring). El param tiene que llamarse `redirect_url`: es el
+  // que honra el <SignIn/> de Clerk post-login. Antes se mandaba `from=`, que
+  // Clerk ignora → todo deep-link terminaba en /dashboard (fallback).
   if (!userId && !isPublicRoute(request)) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
+    loginUrl.searchParams.set(
+      "redirect_url",
+      pathname + request.nextUrl.search,
+    );
     return NextResponse.redirect(loginUrl);
   }
 
