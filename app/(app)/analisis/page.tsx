@@ -23,10 +23,7 @@ import {
   type RatioValue,
   type UploadedImage,
 } from "@/components/fabrica";
-import {
-  CURATED_STYLES,
-  type CuratedStyleId,
-} from "@/app/(app)/referencias/page";
+import { CURATED_STYLES, type CuratedStyleId } from "@/lib/curated-styles";
 import { useAnalyses, type Analysis } from "@/lib/analyses/store";
 import { useCreditos } from "@/lib/creditos/use-creditos";
 import { formatRelativeTime } from "@/lib/generations/format";
