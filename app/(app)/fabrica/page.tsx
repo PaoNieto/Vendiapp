@@ -280,7 +280,7 @@ function FabricaVersionCard({
         {/* Status pill + ratio chip. */}
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-3 pt-3">
           <StatusBadge status={status} size="sm" />
-          <span className="rounded-md bg-[rgba(15,31,22,0.78)] px-2 py-[3px] font-mono text-[10.5px] font-bold tracking-[0.4px] text-pill-fg">
+          <span className="rounded-md bg-[rgba(15,31,22,0.78)] px-2 py-[3px] font-mono text-[10.5px] font-bold tracking-[0.4px] text-[#F0F4E7]">
             {version.output_ratio}
           </span>
         </div>

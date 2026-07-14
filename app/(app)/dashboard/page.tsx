@@ -514,20 +514,33 @@ function DashboardContent({
                 Nueva Imagen
               </Link>
             </PillButton>
-            <AvatarCircle
-              initials={initials}
-              size={44}
-              ariaLabel={`Avatar de ${displayName}`}
-            />
+            <Link
+              href="/ajustes"
+              aria-label="Ir a Ajustes"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full"
+            >
+              <AvatarCircle
+                initials={initials}
+                size={44}
+                ariaLabel={`Avatar de ${displayName}`}
+              />
+            </Link>
           </div>
-          {/* En mobile dejamos solo el avatar arriba a la derecha. El CTA se
-              renderiza full-width abajo del subtítulo (mejor ergonomía). */}
+          {/* En mobile dejamos solo el avatar arriba a la derecha (linkea a
+              Ajustes — en mobile no hay sidebar y el bottom-nav va lleno con
+              5 items). El CTA se renderiza full-width abajo del subtítulo. */}
           <div className="sm:hidden">
-            <AvatarCircle
-              initials={initials}
-              size={40}
-              ariaLabel={`Avatar de ${displayName}`}
-            />
+            <Link
+              href="/ajustes"
+              aria-label="Ir a Ajustes"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full"
+            >
+              <AvatarCircle
+                initials={initials}
+                size={40}
+                ariaLabel={`Avatar de ${displayName}`}
+              />
+            </Link>
           </div>
         </div>
 
@@ -764,36 +777,39 @@ function DashboardContent({
         )}
       </section>
 
-      {/* 5. Modo dev — oculto bajo <details> */}
-      <details className="mt-10 sm:mt-12">
-        <summary className="cursor-pointer text-xs text-mute hover:text-ink">
-          Validación visual
-        </summary>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <PillButton
-            size="sm"
-            onClick={() => {
-              products.seedDevData();
-              versions.seedDevData();
-              generations.seedDevData();
-            }}
-          >
-            Cargar data de ejemplo
-          </PillButton>
-          <PillButton
-            size="sm"
-            onClick={() => {
-              if (typeof window === "undefined") return;
-              window.localStorage.removeItem("vendi:products");
-              window.localStorage.removeItem("vendi:versions");
-              window.localStorage.removeItem("vendi:generations");
-              window.location.reload();
-            }}
-          >
-            Resetear
-          </PillButton>
-        </div>
-      </details>
+      {/* 5. Modo dev — oculto bajo <details>, SOLO en development. NODE_ENV se
+          inlinea en build, así que en prod este bloque ni se renderiza. */}
+      {process.env.NODE_ENV === "development" ? (
+        <details className="mt-10 sm:mt-12">
+          <summary className="cursor-pointer text-xs text-mute hover:text-ink">
+            Validación visual
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <PillButton
+              size="sm"
+              onClick={() => {
+                products.seedDevData();
+                versions.seedDevData();
+                generations.seedDevData();
+              }}
+            >
+              Cargar data de ejemplo
+            </PillButton>
+            <PillButton
+              size="sm"
+              onClick={() => {
+                if (typeof window === "undefined") return;
+                window.localStorage.removeItem("vendi:products");
+                window.localStorage.removeItem("vendi:versions");
+                window.localStorage.removeItem("vendi:generations");
+                window.location.reload();
+              }}
+            >
+              Resetear
+            </PillButton>
+          </div>
+        </details>
+      ) : null}
     </>
   );
 }
@@ -803,15 +819,15 @@ function DashboardSkeleton() {
     <div className="flex flex-col gap-6">
       {/* Header skeleton */}
       <div className="flex items-start justify-between gap-4">
-        <div className="h-3 w-48 animate-pulse rounded-full bg-white/40" />
+        <div className="h-3 w-48 animate-pulse rounded-full bg-card" />
         <div className="flex items-center gap-3">
-          <div className="hidden h-11 w-40 animate-pulse rounded-full bg-white/40 sm:block" />
-          <div className="h-11 w-11 animate-pulse rounded-full bg-white/40" />
+          <div className="hidden h-11 w-40 animate-pulse rounded-full bg-card sm:block" />
+          <div className="h-11 w-11 animate-pulse rounded-full bg-card" />
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <div className="h-10 w-72 animate-pulse rounded-full bg-white/40" />
-        <div className="h-4 w-96 animate-pulse rounded-full bg-white/30" />
+        <div className="h-10 w-72 animate-pulse rounded-full bg-card" />
+        <div className="h-4 w-96 animate-pulse rounded-full bg-card/70" />
       </div>
 
       {/* Metric tiles skeleton */}
@@ -829,7 +845,7 @@ function DashboardSkeleton() {
 
       {/* Recent skeleton */}
       <div>
-        <div className="h-7 w-72 animate-pulse rounded-full bg-white/40" />
+        <div className="h-7 w-72 animate-pulse rounded-full bg-card" />
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="glass-card-compact h-64 animate-pulse" />

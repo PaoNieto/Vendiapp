@@ -33,7 +33,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   // Chrome del navegador en el forest casi-negro del modo oscuro — que es
   // ahora el default de marca (Natural OS premium).
-  themeColor: "#0a130e",
+  themeColor: "#080a09",
 };
 
 /**

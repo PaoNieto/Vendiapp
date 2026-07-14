@@ -11,6 +11,3 @@ export type { RatioSelectorProps, RatioOption, RatioValue } from "./ratio-select
 
 export { NumberStepper } from "./number-stepper";
 export type { NumberStepperProps } from "./number-stepper";
-
-export { MoodCard } from "./mood-card";
-export type { MoodCardProps } from "./mood-card";

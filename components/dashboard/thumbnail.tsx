@@ -98,7 +98,7 @@ export function Thumbnail({
         }}
       />
       {label && (
-        <span className="absolute left-2 top-2 rounded-[4px] bg-[rgba(15,31,22,0.7)] px-[7px] py-[3px] text-[9.5px] font-semibold uppercase tracking-[0.3px] text-pill-fg">
+        <span className="absolute left-2 top-2 rounded-[4px] bg-[rgba(15,31,22,0.7)] px-[7px] py-[3px] text-[9.5px] font-semibold uppercase tracking-[0.3px] text-[#F0F4E7]">
           {label}
         </span>
       )}
