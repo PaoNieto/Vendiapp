@@ -10,6 +10,7 @@ import {
   ScanSearch,
   Settings,
   LogOut,
+  LifeBuoy,
 } from "lucide-react";
 import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,14 @@ export function Sidebar() {
       : null) ??
     user?.email ??
     null;
+
+  // Correo único de soporte + contacto. Prellenamos la cuenta del usuario en
+  // el cuerpo para poder identificar quién escribe aunque envíe desde otro mail.
+  const supportMailto = `mailto:soporte@vendilatam.com?subject=${encodeURIComponent(
+    "Ayuda desde la app de Vendí",
+  )}&body=${encodeURIComponent(
+    `Hola, necesito ayuda con:\n\n\n\n— — —\nMi cuenta: ${user?.email ?? ""}\n(dejá esta línea, nos ayuda a encontrarte)`,
+  )}`;
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
@@ -156,6 +165,15 @@ export function Sidebar() {
           </Link>
         ) : null}
       </div>
+
+      {/* Ayuda y contacto — abre el correo a soporte con la cuenta prellenada. */}
+      <a
+        href={supportMailto}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-mute transition-colors hover:text-foreground"
+      >
+        <LifeBuoy className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+        Ayuda y contacto
+      </a>
 
       {/* ThemeToggle + Cerrar sesión al fondo del sidebar. */}
       <div className="mt-3 flex items-center justify-between">

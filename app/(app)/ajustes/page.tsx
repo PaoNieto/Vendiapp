@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   Coins,
+  LifeBuoy,
   Mail,
   ScanSearch,
   TrendingDown,
@@ -12,6 +13,22 @@ import {
 import { useUser } from "@/lib/auth/use-user";
 import { useCreditos, type LedgerEntry } from "@/lib/creditos/use-creditos";
 import { cn } from "@/lib/utils";
+
+// Correo único de soporte + contacto. Después se segmenta (etiquetas en la
+// bandeja); por ahora todo entra por acá.
+const SUPPORT_EMAIL = "soporte@vendilatam.com";
+
+/**
+ * Arma un `mailto:` a soporte con la cuenta del usuario prellenada en el
+ * cuerpo. Sirve para identificar quién escribe aunque envíe desde otro correo.
+ */
+function buildSupportMailto(email: string) {
+  const subject = "Ayuda desde la app de Vendí";
+  const body = `Hola, necesito ayuda con:\n\n\n\n— — —\nMi cuenta: ${email}\n(dejá esta línea, nos ayuda a encontrarte)`;
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(body)}`;
+}
 
 /**
  * Ajustes — Cuenta + Uso de créditos + Plan.
@@ -37,6 +54,7 @@ export default function AjustesPage() {
           <AccountSection email={email} />
           <UsageSection />
           <PlanSection />
+          <SupportSection email={email} />
         </div>
       </div>
     </div>
@@ -219,6 +237,32 @@ function PlanSection() {
         Comprar créditos
         <ArrowUpRight className="h-4 w-4" aria-hidden />
       </Link>
+    </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ayuda y soporte — un solo correo para cualquier consulta                   */
+/* -------------------------------------------------------------------------- */
+
+function SupportSection({ email }: { email: string }) {
+  return (
+    <section className="glass-card flex flex-col gap-4 p-6 sm:p-7">
+      <span className="eyebrow">Ayuda y soporte</span>
+      <p className="text-sm text-foreground">
+        ¿Una duda, un problema con tu cuenta o una consulta comercial?
+        Escribinos y te responde el fundador, de verdad.
+      </p>
+      <a
+        href={buildSupportMailto(email)}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-pill-bg px-5 py-3 text-sm font-semibold text-pill-fg transition-opacity hover:opacity-90"
+      >
+        <LifeBuoy className="h-4 w-4" aria-hidden />
+        Escribir a soporte
+      </a>
+      <span className="text-xs text-muted-foreground">
+        Nos llega a {SUPPORT_EMAIL} y te contestamos por correo.
+      </span>
     </section>
   );
 }
