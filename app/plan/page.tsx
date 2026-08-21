@@ -48,9 +48,14 @@ export default async function PlanPage() {
   const lifetime = getProduct("lifetime-pass");
   if (!lifetime) {
     // No deberia pasar (el catalogo es un objeto literal), pero si el producto
-    // no resolviera no podemos mostrar un precio. Caemos a /comprar, que es
-    // EXACTAMENTE el flujo del no-pagador hoy: fallamos hacia lo que ya funciona.
-    redirect("/comprar");
+    // no resolviera no podriamos mostrar un precio.
+    //
+    // ROMPE-LOOP (critico): tiene que ser `?direct=1`. `/comprar` ahora manda al
+    // no-pagador ACA, asi que un `redirect("/comprar")` pelado seria
+    // /comprar -> /plan -> /comprar -> ... infinito, y el usuario quedaria SIN
+    // camino a pagar. Con ?direct=1 el handler crea la Preference y salta a
+    // Mercado Pago: degradamos exactamente al comportamiento historico.
+    redirect("/comprar?direct=1");
   }
 
   const packNegocio = getProduct("pack-negocio");
