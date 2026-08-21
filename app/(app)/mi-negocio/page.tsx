@@ -8,18 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PillButton } from "@/components/dashboard";
 import { useNegocio } from "@/lib/negocio/store";
+import { INDUSTRIES } from "@/lib/industries";
 
-const INDUSTRIES = [
-  "Moda y ropa",
-  "Belleza y cosmética",
-  "Comida y bebida",
-  "Hogar y deco",
-  "Tecnología",
-  "Niños y bebés",
-  "Mascotas",
-  "Deporte y fitness",
-  "Otro",
-];
+// ⚠️ La lista de rubros ya NO vive acá: es el vocabulario compartido de
+// `lib/industries.ts`, el mismo que usa el onboarding pre-pago. Si las dos
+// listas divergen, el usuario elige un rubro en el onboarding y al abrir esta
+// pantalla ve el select VACÍO (el value no matchea ninguna option).
 
 /**
  * Mi Negocio — perfil de marca.
