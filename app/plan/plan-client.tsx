@@ -13,8 +13,11 @@ import { cn } from "@/lib/utils";
  * central del patron Arcads).
  *
  * ORDEN DE LA CARD (esto es lo que decide la venta, no es gusto):
- *   PRECIO -> capsula "por foto" -> resumen -> CTA -> reaseguro -> hairline ->
- *   6 beneficios -> letra chica.
+ *   PRECIO (US$10) -> capsula "Pago único" -> BLOQUE DE COBRO (S/ 39) -> CTA ->
+ *   reaseguro -> hairline -> 6 beneficios -> letra chica.
+ * El "resumen" suelto que iba entre la capsula y el CTA se ABSORBIO dentro del
+ * bloque de cobro (`.vd-plan-charge-note`): duplicarlo costaba ~40px verticales
+ * y esos 40px son justo los que tiran el boton fuera del fold del iPhone SE.
  * Antes iba al reves (4 bullets largos primero) y el S/39 arrancaba a ~900px del
  * tope: en un iPhone SE habia que scrollear una pantalla entera para ver el
  * precio. Ahora el precio y el boton entran sin scrollear en 375x667.
@@ -23,8 +26,18 @@ import { cn } from "@/lib/utils";
  * promesas de "mas fotos = mas ventas": el "US$27" de la landing nunca fue un
  * precio real y el descuento enganoso esta registrado como bloqueante para
  * pautar en Meta. El unico numero derivado permitido es S/39 / 60 = S/0.65 por
- * foto, que es aritmetica sobre el precio real. El numero grande es el que
- * Mercado Pago va a cobrar dos segundos despues.
+ * foto, que es aritmetica sobre el precio real.
+ *
+ * 🔴 LAS DOS MONEDAS. El numero grande es `US$10` (el ancla que el mercado
+ * entiende), pero Mercado Pago cobra SOLES. Por eso el `S/ 39` aparece TRES
+ * veces y ninguna en letra chica: 16px bold en el bloque de cobro que va pegado
+ * debajo del precio, 15px bold en el TEXTO DEL BOTON, y 12px en el pie. El que
+ * toca "Pagar" ya vio el monto real tres veces; no puede sorprenderse.
+ *
+ * ⚠️ La capsula al lado del precio dice "Pago único" y NO "S/0.65 por foto".
+ * Motivo: en un rubro que es 100% suscripcion, un `US$10` suelto se lee como
+ * `US$10/mes`. La capsula pegada al numero es el unico lugar donde ese
+ * malentendido se mata antes de nacer. El S/0.65 no se pierde: baja al pie.
  *
  * La prueba visual es FIJA (las 33 fotos de /public/catalogo, las mismas de la
  * landing). Esta pantalla NO genera ninguna imagen del producto del usuario: no
@@ -42,10 +55,15 @@ import { cn } from "@/lib/utils";
 type LifetimeCopy = {
   /** id del catalogo. `startCheckout` es generica: el id sale de aca, no de un literal. */
   id: string;
-  priceLabel: string;
-  /** "≈ US$10 · pago unico" — vive en la LETRA CHICA, no en el bloque de precio. */
-  usdLabel: string;
-  /** S/39 / 60 = "S/0.65". Lo calcula el server desde el catalogo. */
+  /** "US$10" — el NUMERO GRANDE. Sale de `priceUsdDisplay` del catalogo. */
+  usdBig: string;
+  /**
+   * "S/ 39" — lo que Mercado Pago cobra de verdad. Se muestra TRES veces
+   * (bloque de cobro 16px bold · texto del boton 15px bold · pie 12px) y ninguna
+   * en letra chica. NO lo escondas.
+   */
+  chargeLabel: string;
+  /** S/39 / 60 = "S/0.65". Lo calcula el server desde el catalogo. Vive en el pie. */
   perPhotoLabel: string;
   credits: number;
   analysisCredits: number;
@@ -166,8 +184,15 @@ export function PlanClient({ lifetime }: PlanClientProps) {
     setExitDone(true);
   }
 
+  /**
+   * ⚠️ TRUNCADO A 24 CARACTERES — no es capricho, es presupuesto vertical.
+   * El nombre lo escribe el usuario en el paso 1 del onboarding y no tiene tope
+   * util. Un nombre largo empuja el H1 a una TERCERA linea (+26px) y eso solo
+   * alcanza para tirar el CTA fuera del fold de un iPhone SE, que es la unica
+   * pantalla donde el presupuesto no tiene aire.
+   */
   const headline = brandName
-    ? `Listo, ${brandName}. Ahora sí, tus fotos.`
+    ? `Listo, ${brandName.slice(0, 24)}. Ahora sí, tus fotos.`
     : "Listo. Ahora sí, tus fotos.";
 
   /**
@@ -262,7 +287,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
 
   return (
     <div className="flex min-h-dvh flex-1 flex-col">
-      <header className="flex items-center justify-between px-5 pt-5 sm:px-6 sm:pt-6">
+      <header className="flex items-center justify-between px-5 pt-4 sm:px-6 sm:pt-6">
         <span className="display-serif-italic text-lg text-ink">Vendí</span>
         {/*
           Unica salida ademas del pago. Va a /login (ruta publica), NUNCA a una
@@ -271,7 +296,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
         <button
           type="button"
           onClick={() => signOut({ redirectUrl: "/login" })}
-          className="inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-medium text-mute-on-bg transition-colors duration-150 ease-out hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+          className="vd-onbg inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-medium transition-colors duration-150 ease-out hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
         >
           Cerrar sesión
         </button>
@@ -283,29 +308,45 @@ export function PlanClient({ lifetime }: PlanClientProps) {
         propio wrapper (COLUMN). El body nunca scrollea de costado: el
         `.dashboard-shell` de AppBackground ya tiene overflow:hidden.
       */}
-      <main className="flex-1 pb-12 pt-6">
+      <main className="flex-1 pb-12 pt-5 sm:pt-6">
         <div className={COLUMN}>
-          <p className="eyebrow eyebrow-on-bg">Último paso</p>
-          <h1 className="mt-2 text-[26px] leading-[1.1] text-ink sm:text-[32px]">
+          <p className="eyebrow vd-onbg">Último paso</p>
+          {/*
+            Escala mobile en DOS escalones, no uno. A 375px (iPhone SE) el H1 va
+            a 23px porque ahi el fold no perdona; a partir de 390px (el ancho del
+            iPhone 14/15/16 base, que es el grueso del parque) vuelve a 26px. Sin
+            el escalon del medio, o se apretaba de mas al 90% de los celulares o
+            se caia el CTA en el SE.
+          */}
+          <h1 className="mt-2 text-[23px] leading-[1.12] text-ink min-[390px]:text-[26px] min-[390px]:leading-[1.1] sm:text-[32px]">
             {headline}
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-mute-on-bg">
-            Subís la foto que ya tenés —la del celular sirve— y Vendí te la
-            devuelve profesional.
+          {/*
+            🔴 CONDICION DURA: este subhead TIENE que entrar en UNA linea. Cada
+            linea de mas son ~21px y el presupuesto vertical del fold quedo con
+            8px de aire. Por eso la copy es corta y cerrada — no la alargues.
+          */}
+          <p className="vd-onbg mt-2.5 text-sm leading-[1.5]">
+            La foto que ya tenés, ahora profesional.
           </p>
         </div>
 
-        {/* FILA A — ambiente. Chica, callada y sin titulo: no le compite al precio. */}
+        {/*
+          FILA A — ambiente. Chica, callada y sin titulo: no le compite al precio.
+          El aria-label NO dice "que ya usan Vendí": con una sola venta en la
+          historia eso seria afirmar 33 clientes que no existen. "Para los que
+          sirve" dice lo mismo y es cierto.
+        */}
         <RainRow
-          className="mt-5"
+          className="mt-4"
           items={RUBROS_FILA_A}
           direction="left"
           quiet
           singleSet={singleSet}
-          ariaLabel="Rubros que ya usan Vendí"
+          ariaLabel="Rubros para los que sirve Vendí"
         />
 
-        <div className={cn(COLUMN, "mt-7")}>
+        <div className={cn(COLUMN, "mt-6")}>
           {/*
             El badge vive FUERA de la card a proposito: `.vd-plan-card > *` fuerza
             `position: relative` en cada hijo directo (asi el contenido queda sobre
@@ -332,26 +373,45 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 className="flex flex-wrap items-baseline gap-x-3 gap-y-2"
               >
                 <p className="vd-price vd-price-gold text-ink">
-                  {lifetime.priceLabel}
+                  {lifetime.usdBig}
                 </p>
-                <span className="vd-plan-capsule">
-                  {lifetime.perPhotoLabel} por foto
-                </span>
+                {/*
+                  "Pago único" y NO "S/0.65 por foto". Con el numero grande en
+                  dolares aparece un riesgo que antes no existia: `US$10` en un
+                  rubro 100% suscripcion se lee como `US$10/mes`. Esta capsula,
+                  pegada al numero, es el unico lugar donde ese malentendido se
+                  mata antes de nacer. El S/0.65 bajo al pie, no se perdio.
+                */}
+                <span className="vd-plan-capsule">Pago único</span>
               </motion.div>
 
-              <motion.p
-                {...noRise}
-                className="mt-3 text-[13px] leading-relaxed text-ink-soft"
-              >
-                <span className="numeric-tabular font-semibold">
-                  {lifetime.credits}
-                </span>{" "}
-                fotos +{" "}
-                <span className="numeric-tabular font-semibold">
-                  {lifetime.analysisCredits}
-                </span>{" "}
-                análisis con IA. Acceso que no vence.
-              </motion.p>
+              {/*
+                ── BLOQUE DE COBRO ── el requisito duro de esta pantalla.
+                Mercado Pago cobra SOLES, no dolares. Este bloque existe para que
+                nadie llegue al checkout sorprendido: el monto real va en 16px
+                BOLD, no en letra chica.
+                ⚠️ `noRise` obligatorio: esto es informacion de PRECIO y aplica la
+                misma regla que el precio y el CTA (framer-motion serializa
+                `initial` en el HTML del server; con un initial que oculte, nace
+                invisible).
+                ⚠️ SIN `mt-3`: `.vd-plan-charge` ya trae su propio
+                `margin-top: 12px`. Los dos valen 12px y los margins no se
+                suman, asi que no habria bug — pero serian DOS fuentes de verdad
+                para la misma separacion, y la que manda es la de Davinci.
+              */}
+              <motion.div {...noRise} className="vd-plan-charge">
+                <p className="vd-plan-charge-line">
+                  Se cobra{" "}
+                  <b className="vd-plan-charge-amount numeric-tabular">
+                    {lifetime.chargeLabel}
+                  </b>{" "}
+                  en Mercado Pago
+                </p>
+                <p className="vd-plan-charge-note">
+                  {lifetime.usdBig} aprox. · {lifetime.credits} fotos +{" "}
+                  {lifetime.analysisCredits} análisis con IA
+                </p>
+              </motion.div>
 
               <motion.div {...noRise} className="mt-4">
                 <PillButton
@@ -361,7 +421,12 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                   aria-busy={busy}
                   onClick={() => startCheckout(lifetime.id)}
                 >
-                  {busy ? "Redirigiendo…" : `Pagar ${lifetime.priceLabel} y entrar`}
+                  {/*
+                    El monto REAL en el texto del boton (15px bold, lo pone
+                    `.vd-plan-cta`). Es la 2da de las 3 apariciones del S/ 39:
+                    el ultimo cartel antes de irse a Mercado Pago.
+                  */}
+                  {busy ? "Redirigiendo…" : `Pagar ${lifetime.chargeLabel} y entrar`}
                 </PillButton>
 
                 {error ? (
@@ -370,7 +435,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                   </p>
                 ) : null}
 
-                <p className="mt-3 text-[12px] leading-relaxed text-mute">
+                <p className="mt-3 text-[13px] leading-relaxed text-mute">
                   Pago seguro con Mercado Pago. Es un solo pago: no se renueva ni
                   se te vuelve a cobrar.
                 </p>
@@ -394,7 +459,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                     <span className="vd-feat-check" aria-hidden="true">
                       <Check size={12} strokeWidth={3} />
                     </span>
-                    <p className="min-w-0 text-[13px] leading-snug text-ink">
+                    <p className="min-w-0 text-[14px] leading-[1.45] text-ink">
                       <span className="font-semibold">{title}</span>{" "}
                       <span className="vd-feat-note">({note})</span>
                     </p>
@@ -402,9 +467,14 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 ))}
               </motion.ul>
 
-              <p className="mt-5 text-[11px] leading-relaxed text-mute">
-                {lifetime.usdLabel} — el cobro se hace en soles a través de Mercado
-                Pago. Los créditos no vencen.
+              {/*
+                Letra chica del pie. 3ra y ultima aparicion del monto real, y el
+                lugar donde vive el S/0.65 por foto que dejo la capsula.
+              */}
+              <p className="mt-5 text-[12px] leading-relaxed text-mute">
+                {lifetime.perPhotoLabel} por foto · el cobro se hace en soles a
+                través de Mercado Pago ({lifetime.chargeLabel}). Los créditos no
+                vencen.
               </p>
             </section>
           </div>
@@ -417,7 +487,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
           direction="right"
           eyebrow="Hecho para tu rubro"
           singleSet={singleSet}
-          ariaLabel="Más rubros que ya usan Vendí"
+          ariaLabel="Más rubros para los que sirve Vendí"
         />
 
         <div className={cn(COLUMN, "mt-2")}>
@@ -492,7 +562,7 @@ function RainRow({
     >
       {eyebrow ? (
         <div className={COLUMN}>
-          <p className="eyebrow eyebrow-on-bg">{eyebrow}</p>
+          <p className="eyebrow vd-onbg">{eyebrow}</p>
         </div>
       ) : null}
 
@@ -586,7 +656,7 @@ function ExitPanel({
             <button
               type="button"
               onClick={onOpen}
-              className="inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-medium text-mute-on-bg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              className="vd-onbg inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-medium underline underline-offset-4 transition-colors duration-150 ease-out hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
             >
               Ahora no puedo
             </button>
@@ -651,7 +721,7 @@ function ExitPanel({
                 <button
                   type="button"
                   onClick={onBack}
-                  className="mt-3 inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-medium text-mute-on-bg transition-colors duration-150 ease-out hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                  className="vd-onbg mt-3 inline-flex min-h-[44px] items-center rounded-full px-3 text-xs font-medium transition-colors duration-150 ease-out hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                 >
                   Volver al pago
                 </button>
