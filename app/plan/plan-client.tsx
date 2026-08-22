@@ -188,6 +188,22 @@ export function PlanClient({ lifetime }: PlanClientProps) {
       : { duration: 0.42, ease: EASE, delay },
   });
 
+  /**
+   * Variante SIN entrada para el PRECIO, el resumen y el CTA.
+   *
+   * ⚠️ NO cambiar a `rise()`. Framer-motion SERIALIZA `initial` como style inline
+   * en el HTML del server (`use-visual-state`/`useInitialMotionValues`), asi que
+   * un `initial:{opacity:0}` hace que el precio y el boton nazcan INVISIBLES y la
+   * card se vea vacia hasta que hidrata. En una 3G eso son segundos de tarjeta en
+   * blanco en la pantalla que decide la venta, y castiga el LCP.
+   *
+   * `initial={false}` monta directo en el estado final => el S/39 y el boton
+   * estan en el HTML, visibles sin JS. La card igual "llega": el badge y los
+   * beneficios siguen animando, y el barrido dorado del precio es CSS puro
+   * (@keyframes vd-price-sheen), asi que tampoco depende de JS.
+   */
+  const noRise = { initial: false as const, animate: { opacity: 1, y: 0 } };
+
   const featuresContainer = {
     hidden: {},
     show: {
@@ -216,8 +232,16 @@ export function PlanClient({ lifetime }: PlanClientProps) {
       note: "se respetan la forma, el color y la etiqueta de tu foto",
     },
     {
+      // Sube al puesto 2 a proposito: es lo UNICO que ninguno de los 10
+      // competidores del rubro puede decir (todos son suscripcion). Y la nota usa
+      // la formula de Depositphotos —"no se renuevan y no vencen"— que acota el
+      // costo y mata la ansiedad del comprador en una sola linea.
+      title: "Un solo pago",
+      note: "no es suscripción: no se renueva ni se te vuelve a cobrar, y los créditos no vencen",
+    },
+    {
       title: `${lifetime.credits} fotos para arrancar`,
-      note: "1 crédito = 1 foto, y no vencen",
+      note: "1 crédito = 1 foto",
     },
     {
       title: `${lifetime.analysisCredits} análisis con IA`,
@@ -230,10 +254,6 @@ export function PlanClient({ lifetime }: PlanClientProps) {
     {
       title: "Todos los estilos profesionales, sin marca de agua",
       note: "alta resolución, listo para publicar",
-    },
-    {
-      title: "Un solo pago",
-      note: "no es suscripción: no se renueva ni se te vuelve a cobrar",
     },
   ];
 
@@ -308,7 +328,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
             <section className="glass-card vd-plan-card px-5 pb-5 pt-7 sm:px-6 sm:pb-6 sm:pt-8">
               {/* ── PRECIO ── lo primero que agarra el ojo. */}
               <motion.div
-                {...rise(0.08)}
+                {...noRise}
                 className="flex flex-wrap items-baseline gap-x-3 gap-y-2"
               >
                 <p className="vd-price vd-price-gold text-ink">
@@ -320,7 +340,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
               </motion.div>
 
               <motion.p
-                {...rise(0.14)}
+                {...noRise}
                 className="mt-3 text-[13px] leading-relaxed text-ink-soft"
               >
                 <span className="numeric-tabular font-semibold">
@@ -333,7 +353,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 análisis con IA. Acceso que no vence.
               </motion.p>
 
-              <motion.div {...rise(0.2)} className="mt-4">
+              <motion.div {...noRise} className="mt-4">
                 <PillButton
                   size="lg"
                   className="vd-plan-cta w-full"
