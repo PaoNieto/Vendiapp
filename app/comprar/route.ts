@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
+import { checkCheckoutRateLimit } from "@/lib/mercadopago/checkout-rate-limit";
 import { createPreference } from "@/lib/mercadopago/create-preference";
 
 export const runtime = "nodejs";
@@ -30,6 +31,10 @@ export const dynamic = "force-dynamic";
  * Si crear la Preference falla -> /pago/resultado?status=error: pagina FUERA del
  * gate, con boton de reintento. NO se redirige a /upgrade (vive dentro de (app)
  * y esta gateado -> loop /comprar->/upgrade->gate).
+ *
+ * RATE LIMIT (G3): solo la rama ?direct=1 crea Preferences, asi que SOLO ella
+ * consulta el tope (lib/mercadopago/checkout-rate-limit.ts). El camino normal
+ * del embudo (-> /plan) no lo toca: cero latencia agregada al 99% del trafico.
  */
 export async function GET(request: Request) {
   // Escotilla explicita: SOLO ?direct=1 saltea el paywall y va derecho a MP.
@@ -51,6 +56,21 @@ export async function GET(request: Request) {
   }
 
   // Camino de ESCAPE (?direct=1): comportamiento historico intacto.
+  //
+  // Tope por usuario ANTES de crear la Preference. Bloqueado -> /pago/resultado,
+  // NUNCA -> /plan: `app/plan/page.tsx` cae a /comprar?direct=1 cuando no puede
+  // resolver el producto, asi que devolverlo a /plan podria armar
+  // /comprar -> /plan -> /comprar -> ... ("demasiados redireccionamientos") y
+  // dejar al usuario SIN camino a pagar. /pago/resultado es terminal, vive fuera
+  // del gate, dice "no se realizo ningun cargo" y tiene boton para volver.
+  const limite = await checkCheckoutRateLimit(userId);
+  if (!limite.allowed) {
+    console.warn(`[comprar] Rate limit (${limite.scope}) para user=${userId}`);
+    return NextResponse.redirect(
+      new URL("/pago/resultado?status=error", request.url),
+    );
+  }
+
   try {
     const { initPoint } = await createPreference(userId, "lifetime-pass");
     return NextResponse.redirect(initPoint);

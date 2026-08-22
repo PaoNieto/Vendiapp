@@ -5,6 +5,7 @@ import {
   CreatePreferenceError,
 } from "@/lib/mercadopago/create-preference";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { checkCheckoutRateLimit } from "@/lib/mercadopago/checkout-rate-limit";
 import { checkoutRequestSchema } from "@/lib/validations/checkout";
 
 // El SDK de Mercado Pago + la creación de Preference necesitan runtime Node
@@ -23,6 +24,12 @@ export const dynamic = "force-dynamic";
  *
  * El cobro real lo confirma el webhook /api/webhooks/mercadopago (fuente de
  * verdad). Las back_urls son solo UX y NO acreditan créditos.
+ *
+ * RATE LIMIT (G3): cada llamada abre una Preference en la cuenta real de Mercado
+ * Pago de Paolo, así que hay un tope por usuario (ver
+ * `lib/mercadopago/checkout-rate-limit.ts`). Es lo bastante alto como para que un
+ * comprador que duda y vuelve varias veces no lo toque nunca, y falla hacia la
+ * VENTA: si el chequeo no puede correr, se deja pagar igual.
  */
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string).
@@ -30,11 +37,29 @@ export async function POST(req: Request) {
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+
+  // 2. Tope de checkouts por usuario. Va ACÁ ARRIBA a propósito: es lo primero
+  // después de saber quién es, así el loop de abuso tampoco hace trabajar a
+  // `ensureProfile()` ni a Mercado Pago. Nunca devuelve un error crudo: el
+  // `error` que sale por JSON es el texto que los tres clientes del checkout
+  // (/plan, /upgrade, /fundador) ya muestran tal cual en pantalla, y el botón
+  // queda habilitado para reintentar.
+  const limite = await checkCheckoutRateLimit(userId);
+  if (!limite.allowed) {
+    return NextResponse.json(
+      { error: limite.message, retryAfterSeconds: limite.retryAfterSeconds },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limite.retryAfterSeconds) },
+      },
+    );
+  }
+
   // Garantiza que exista la fila profiles ANTES de pagar: el webhook acredita
   // con grant_credits, que falla si el profile no existe. Idempotente.
   await ensureProfile();
 
-  // 2. Validación del body (solo el id del producto).
+  // 3. Validación del body (solo el id del producto).
   const body = await req.json().catch(() => null);
   const parsed = checkoutRequestSchema.safeParse(body);
   if (!parsed.success) {
@@ -44,7 +69,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 3. Crear la Preference (resuelve producto + appUrl adentro y arma el cobro).
+  // 4. Crear la Preference (resuelve producto + appUrl adentro y arma el cobro).
   // Los fallos previsibles vienen como CreatePreferenceError tipado y se mapean
   // a su HTTP status; cualquier otra cosa (incl. fallo de MP) cae en 502.
   try {
