@@ -705,3 +705,449 @@
     }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAYWALL /plan — "Joya + Lluvia"  ·  Davinci (estilos), 2026-08-22
+   ───────────────────────────────────────────────────────────────────────────
+   PEGAR TAL CUAL AL FINAL DE `app/globals.css`, como bloque NUEVO.
+   Es 100% ADITIVO: no redefine ni un token existente, no toca `:root`,
+   no toca `[data-theme="dark"]`, no toca `.glass-card`.
+   Todo lo nuevo va prefijado `vd-`.
+
+   REGLA DE MARCA RESPETADA
+   verde/forest = interacción · dorado = joya, y el dorado SATURADO
+   (--vd-gold) sigue viviendo SOLO en dark. En light el mismo gesto se pinta
+   con --vd-butter, que YA es token de light (es --warning y el hotspot del
+   gradient del body). O sea: el dorado NO cruza a light; lo que cruza es el
+   GESTO, con el material que a light le corresponde.
+
+   CERO HEX NUEVOS: todos los tintes salen de los tokens vivos vía
+   `color-mix(in srgb, var(--token) N%, transparent)`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+  /* ─────────────────────────────────────────────────────────────────────────
+     1 · CARD DEL PRECIO — se COMPONE sobre .glass-card
+     uso: class="glass-card vd-plan-card"
+     .glass-card pone el MATERIAL (blur, sheen, sombras en capas);
+     .vd-plan-card pone la JOYA (radio más generoso, halo, hairline dorado).
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-plan-card {
+    position: relative;
+    isolation: isolate;
+    /* light 18px · dark 24px — derivado de --radius, que sí cambia por tema */
+    border-radius: calc(var(--radius) * 1.5);
+    /* halo butter desde el borde superior — mismo gesto que el hotspot del body */
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.78),
+      inset 0 1px 18px -9px color-mix(in srgb, var(--vd-butter) 62%, transparent),
+      0 2px 6px color-mix(in srgb, var(--vd-ink) 9%, transparent),
+      0 28px 64px -26px color-mix(in srgb, var(--vd-ink) 46%, transparent);
+  }
+
+  /* Wash radial cálido desde el tope de la card. Es el equivalente Cuaderno
+     del `.plan.featured::before` de la landing. NO lleva z-index: los hijos
+     se levantan a z-1 abajo (mismo patrón que la landing). */
+  .vd-plan-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse 78% 52% at 50% 0%,
+      color-mix(in srgb, var(--vd-butter) 13%, transparent),
+      transparent 64%
+    );
+  }
+  .vd-plan-card > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  [data-theme="dark"] .vd-plan-card {
+    box-shadow:
+      /* specular hairline arriba */
+      inset 0 1px 0 color-mix(in srgb, var(--vd-gold) 26%, transparent),
+      /* inner-glow dorado — más marcado que el de .glass-card: esto es LA card */
+      inset 0 1px 22px -10px color-mix(in srgb, var(--vd-gold) 78%, transparent),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.42),
+      0 1px 2px rgba(0, 0, 0, 0.55),
+      0 8px 20px -10px rgba(0, 0, 0, 0.6),
+      0 40px 80px -30px rgba(0, 0, 0, 0.88);
+  }
+  [data-theme="dark"] .vd-plan-card::before {
+    background: radial-gradient(
+      ellipse 78% 52% at 50% 0%,
+      color-mix(in srgb, var(--vd-gold) 15%, transparent),
+      transparent 62%
+    );
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     2 · BADGE — cápsula que monta el borde superior de la card
+     uso: <span class="vd-plan-badge">Pase Fundador</span>  (posicionado por
+     Tailwind: absolute -top-3 left-1/2 -translate-x-1/2 z-[2])
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-plan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--vd-butter);
+    color: var(--vd-pill-fg);
+    box-shadow: 0 10px 22px -10px color-mix(in srgb, var(--vd-ink) 55%, transparent);
+  }
+  [data-theme="dark"] .vd-plan-badge {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--vd-gold) 82%, #fff),
+      var(--vd-gold) 58%,
+      color-mix(in srgb, var(--vd-gold) 76%, #000)
+    );
+    color: var(--vd-pill-fg);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--vd-gold) 42%, transparent),
+      0 12px 30px -10px color-mix(in srgb, var(--vd-gold) 55%, transparent);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     3 · EL PRECIO — lo primero que agarra el ojo
+     .vd-price      → sólo tipografía (Instrument Serif + escala + tracking).
+                      El COLOR lo pone el consumidor: `text-ink` en light,
+                      `vd-price-gold` en dark.
+     .vd-price-gold → dorado glossy + barrido de luz de UNA sola pasada.
+                      No hace NADA en light (regla de marca).
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-price {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-style: normal; /* el h1/h2/h3 del sistema es italic; el precio NO */
+    font-size: clamp(56px, 17vw, 76px);
+    line-height: 0.92;
+    letter-spacing: -0.035em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  [data-theme="dark"] .vd-price-gold {
+    background-image: linear-gradient(
+      104deg,
+      color-mix(in srgb, var(--vd-gold) 62%, #fff) 0%,
+      var(--vd-gold) 26%,
+      color-mix(in srgb, var(--vd-gold) 72%, #000) 42%,
+      #fff 50%,
+      color-mix(in srgb, var(--vd-gold) 70%, #fff) 58%,
+      var(--vd-gold) 74%,
+      color-mix(in srgb, var(--vd-gold) 68%, #000) 100%
+    );
+    background-size: 280% 100%;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    /* joya, no neón */
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--vd-gold) 22%, transparent));
+    animation: vd-price-sheen 1100ms cubic-bezier(0.16, 1, 0.3, 1) 420ms 1 both;
+  }
+
+  @keyframes vd-price-sheen {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 22% 0;
+    }
+  }
+
+  /* Cápsula al costado del precio (el `.plan-save` de la landing, pero con un
+     dato ARITMÉTICO real, no un descuento). uso: "S/0.65 por foto" */
+  .vd-plan-capsule {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: var(--vd-butter);
+    color: var(--vd-pill-fg);
+  }
+  [data-theme="dark"] .vd-plan-capsule {
+    background: color-mix(in srgb, var(--vd-gold) 17%, transparent);
+    color: var(--vd-gold);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vd-gold) 30%, transparent);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     4 · CTA — el botón de compra. Se COMPONE sobre <PillButton size="lg">.
+     uso: <PillButton size="lg" className="vd-plan-cta w-full">
+     ⚠️ El halo va por `filter: drop-shadow`, NUNCA por box-shadow: si pisáramos
+     box-shadow mataríamos el focus-ring de Tailwind (= a11y). Mismo criterio
+     que `.cta-emerald`, que queda activo debajo.
+     ⚠️ NO es dorado saturado. En dark --primary YA es champagne: el botón se
+     lee cálido-premium (interacción) y el precio queda oro puro (joya). Dos
+     materiales distintos = el dorado no se diluye.
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-plan-cta {
+    min-height: 56px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 88%, #fff) 0%,
+      var(--primary) 54%,
+      color-mix(in srgb, var(--primary) 86%, var(--vd-gold)) 100%
+    );
+    filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--primary) 34%, transparent));
+    transition:
+      transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .vd-plan-cta:hover {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 16px 34px color-mix(in srgb, var(--primary) 46%, transparent));
+  }
+  .vd-plan-cta:active {
+    transform: translateY(0);
+  }
+  [data-theme="dark"] .vd-plan-cta {
+    filter: drop-shadow(0 10px 26px color-mix(in srgb, var(--primary) 42%, transparent));
+  }
+  [data-theme="dark"] .vd-plan-cta:hover {
+    filter: drop-shadow(0 16px 38px color-mix(in srgb, var(--primary) 56%, transparent));
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     5 · HAIRLINE divisoria dentro de la card (reemplaza al `border-t`)
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-plan-rule {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--vd-butter) 42%, transparent) 22%,
+      color-mix(in srgb, var(--vd-butter) 42%, transparent) 78%,
+      transparent
+    );
+  }
+  [data-theme="dark"] .vd-plan-rule {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--vd-gold) 34%, transparent) 22%,
+      color-mix(in srgb, var(--vd-gold) 34%, transparent) 78%,
+      transparent
+    );
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     6 · CHECK de los beneficios — círculo + tilde
+     uso: <span class="vd-feat-check" aria-hidden="true"><Check size={12} …/></span>
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-feat-check {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vd-sage-strong) 15%, transparent);
+    color: var(--vd-sage-strong);
+  }
+  [data-theme="dark"] .vd-feat-check {
+    background: color-mix(in srgb, var(--vd-gold) 16%, transparent);
+    color: var(--vd-gold);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vd-gold) 24%, transparent);
+  }
+
+  /* Aclaración chiquita dentro del beneficio (el `.byok` de la landing). */
+  .vd-feat-note {
+    color: var(--vd-mute);
+    font-weight: 500;
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     7 · LA LLUVIA — marquee infinito de fotos por rubro
+     Mecánica copiada de la landing; estilo NO (esto es Cuaderno v2).
+
+     🔴 CORRECCIÓN al CSS de la landing: la landing usa `gap` en el track y
+     `translateX(-50%)`. Con gap, medio track ≠ un set exacto (queda medio gap
+     de diferencia) ⇒ SALTITO en cada vuelta. Acá el gap se hace con
+     `margin-inline-end` en cada card: así el track mide exactamente
+     2 × N × (ancho + gap) y el -50% cae clavado. NO le pongas `gap` al track.
+
+     🔑 Cada track DEBE renderizar su set DUPLICADO (por el -50%).
+        El 2º set va con aria-hidden="true" y alt="" para no leerse dos veces.
+     ═════════════════════════════════════════════════════════════════════════ */
+  .vd-rain {
+    --rain-w: clamp(112px, 30vw, 148px);
+    --rain-gap: 12px;
+    --rain-mat: var(--vd-card-cream);
+    --rain-tag-bg: color-mix(in srgb, var(--vd-ink) 72%, transparent);
+    --rain-tag-fg: var(--vd-pill-fg);
+    position: relative;
+  }
+  /* Fila "quieta": la que va ARRIBA de la card. Más chica y más callada para
+     que NO le compita al precio. */
+  .vd-rain--quiet {
+    --rain-w: clamp(88px, 24vw, 116px);
+    --rain-gap: 10px;
+    opacity: 0.8;
+  }
+  [data-theme="dark"] .vd-rain {
+    --rain-mat: color-mix(in srgb, var(--vd-ink) 12%, var(--vd-card-cream));
+    --rain-tag-bg: color-mix(in srgb, var(--vd-bg-b) 78%, transparent);
+    --rain-tag-fg: var(--vd-ink);
+  }
+
+  .vd-rain-marquee {
+    overflow: hidden;
+    contain: layout paint style;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 9%,
+      #000 91%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 9%,
+      #000 91%,
+      transparent 100%
+    );
+  }
+  .vd-rain-marquee + .vd-rain-marquee {
+    margin-top: var(--rain-gap);
+  }
+
+  .vd-rain-track {
+    display: flex;
+    width: max-content;
+    will-change: transform;
+  }
+  .vd-rain-track--left {
+    animation: vd-rain-left 58s linear infinite;
+  }
+  .vd-rain-track--right {
+    animation: vd-rain-right 68s linear infinite;
+  }
+  /* Pausa al hover: cortesía de desktop. En touch no aplica y no molesta. */
+  .vd-rain-marquee:hover .vd-rain-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes vd-rain-left {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+  @keyframes vd-rain-right {
+    from {
+      transform: translate3d(-50%, 0, 0);
+    }
+    to {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  /* Card de foto — "polaroid pegada en el cuaderno": passe-partout cream +
+     hairline. En dark el passe-partout es el charcoal de las cards. */
+  .vd-rain-card {
+    position: relative;
+    flex: 0 0 auto;
+    width: var(--rain-w);
+    aspect-ratio: 1 / 1;
+    margin-inline-end: var(--rain-gap);
+    border-radius: calc(var(--radius) * 0.9);
+    overflow: hidden;
+    background: var(--rain-mat);
+    border: 4px solid var(--rain-mat);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--vd-ink) 10%, transparent),
+      0 10px 24px -14px color-mix(in srgb, var(--vd-ink) 52%, transparent);
+  }
+  [data-theme="dark"] .vd-rain-card {
+    border-width: 3px;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--vd-ink) 11%, transparent),
+      0 12px 28px -16px rgba(0, 0, 0, 0.85);
+  }
+  .vd-rain-card img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: calc(var(--radius) * 0.62);
+  }
+
+  .vd-rain-tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 1;
+    font-family: var(--font-sans);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    line-height: 1;
+    padding: 4px 7px;
+    border-radius: 6px;
+    background: var(--rain-tag-bg);
+    color: var(--rain-tag-fg);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     8 · MOVIMIENTO REDUCIDO — obligatorio.
+     La lluvia NO anima y pasa a ser swipeable; el barrido del precio no corre.
+     (En React, además, con reduced-motion se renderiza UN SOLO set = 33 nodos
+     en vez de 66. Esto de acá es la red de seguridad en CSS.)
+     ═════════════════════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    .vd-rain-track--left,
+    .vd-rain-track--right {
+      animation: none;
+      transform: none;
+      will-change: auto;
+    }
+    .vd-rain-marquee {
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .vd-rain-marquee::-webkit-scrollbar {
+      display: none;
+    }
+    [data-theme="dark"] .vd-price-gold {
+      animation: none;
+      background-position: 22% 0;
+    }
+    .vd-plan-cta,
+    .vd-plan-cta:hover {
+      transform: none;
+      transition: none;
+    }
+  }
+}
