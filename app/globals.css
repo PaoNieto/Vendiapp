@@ -1150,4 +1150,285 @@
       transition: none;
     }
   }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     9 · RECALIBRADO MOBILE + PRECIO EN US$  ·  Davinci, 2026-08-22
+     Va AL FINAL de este mismo `@layer utilities`, después del bloque 8.
+
+     🔴 ADITIVO. No redefine ningún token, no toca `:root`, ni
+     `[data-theme="dark"]`, ni `.glass-card`. Las 7 clases que se REDECLARAN
+     ganan por ORDEN DE APARICIÓN dentro del mismo layer (misma especificidad,
+     la última manda). Por eso este bloque tiene que quedar último: si algún día
+     se agrega un bloque 10 que toque las mismas clases, gana el 10.
+
+     Presupuesto vertical del fold (iPhone SE, ~553px útiles): el precio arranca
+     a ~335px y el CTA cierra a ~545px. Quedan 8px de aire. Cada valor de acá
+     está elegido contra ese número, no por gusto — si tocás uno, recalculá.
+     ═════════════════════════════════════════════════════════════════════════ */
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     9.1 · NUEVA · .vd-onbg — texto que vive SOBRE EL FONDO de la app
+     (el `--bg-gradient`), NO sobre una card.
+
+     ⚠️ NO es `text-mute`. Sobre la nebulosa verde de dark, `--vd-mute` da
+     4.10:1 = EMPEORA (AA pide 4.5). `--vd-mute-on-bg`, que es el token que ya
+     existe justo para esto, da 4.39:1: pasa raspando y en 13-14px se lee
+     lavado. Acá se le suma un 18% de `--vd-ink` y sube a 4.97:1. Es un fix
+     independiente del de la card — no los mezcles.
+     En light `--vd-mute-on-bg` ya da 4.70:1 sobre la parte MÁS OSCURA del
+     gradient (#a6c198), así que ahí no se toca nada.
+
+     🔑 EL COLOR SE PASA POR UNA VAR LOCAL, NO POR `color:` DIRECTO — y esto no
+     es cosmética, es la única forma de que ande. Si escribiéramos
+     `[data-theme="dark"] .vd-onbg { color: ... }`, esa regla es (0,2,0), igual
+     que el `hover:text-ink` de Tailwind, y como este bloque va DESPUÉS de las
+     utilities de Tailwind en el mismo layer, le ganaría → el hover de
+     "Cerrar sesión" y de los links de salida quedaría MUERTO en dark (y dark es
+     el tema con el que arranca la app). Declarando el `color` una sola vez en
+     `.vd-onbg` (0,1,0) y moviendo sólo la VAR en dark, cualquier `hover:text-*`
+     (0,2,0) sigue ganando. Mismo chequeo de cascada por byte-offset que hicimos
+     con `.vd-plan-cta` vs `.min-h-[44px]`.
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-onbg {
+    --vd-onbg-fg: var(--vd-mute-on-bg);
+    color: var(--vd-onbg-fg);
+  }
+  [data-theme="dark"] .vd-onbg {
+    --vd-onbg-fg: color-mix(in srgb, var(--vd-ink) 18%, var(--vd-mute-on-bg));
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     9.2 · REDECLARADAS · Contraste en LIGHT del badge y la cápsula
+     (follow-up 3 de §22).
+
+     El bug: ambos pintan `background: var(--vd-butter)` (#c9a640) con
+     `color: var(--vd-pill-fg)`, y en light `--vd-pill-fg` es el CREAM (#f0f4e7).
+     Cream sobre butter = 2.09:1 en texto de 10.5-11px. El token está invertido
+     para este uso: `--vd-pill-fg` es "el texto de la píldora VERDE OSCURA", no
+     "el texto de cualquier chip". Sobre butter el par correcto es `--vd-ink`
+     → 7.6:1. Sube 3.6× y no cambia ni un pixel de layout.
+
+     ⚠️ SÓLO TOCAN `color`, y SÓLO EN LIGHT. Las reglas
+     `[data-theme="dark"] .vd-plan-badge` / `.vd-plan-capsule` de los bloques
+     2 y 3 son (0,2,0) ⇒ le ganan a esto sin importar el orden, así que dark
+     queda intacto (11.5:1 y 9.1:1, ya estaba impecable). No agregues acá
+     `background`, `box-shadow` ni nada más: pisarías el dorado de dark.
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-plan-badge {
+    color: var(--vd-ink);
+  }
+  .vd-plan-capsule {
+    color: var(--vd-ink);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     9.3 · REDECLARADA · .vd-price — el número grande ahora es `US$10`
+
+     Tres cambios, todos por el fold:
+     · clamp 56/17vw/76 → 50/15.5vw/68. A 375px pasa de 63.7px a 58.1px. Con
+       line-height 0.9 el bloque del precio mide ~52px y deja entrar los 72px
+       del bloque de cobro sin empujar el CTA fuera de los 545px.
+     · `proportional-nums` en vez de `tabular-nums`. Acá NO hay columna de
+       números que alinear: es UN número suelto. Con figuras tabulares el `1`
+       de "10" ocupa el mismo ancho que un `0` y queda un hueco feo en el
+       serif; proporcionales lo cierran y recuperan ~9px de ancho — que es
+       justo lo que necesita la cápsula "Pago único" para quedarse en la MISMA
+       línea a 375px (US$10 ~150px + gap 12 + cápsula ~96px = 258px sobre 295px
+       de ancho útil de la card). Si se va a dos líneas, perdés 52px de golpe.
+     · letter-spacing -0.035em → -0.04em: `U`,`S`,`$` en Instrument Serif dejan
+       aire de sobra entre sí. Es el techo; a -0.05em el `$` empieza a tocar.
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-price {
+    font-size: clamp(50px, 15.5vw, 68px);
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-variant-numeric: proportional-nums lining-nums;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     9.4 · NUEVAS · BLOQUE DE COBRO — va pegado DEBAJO del precio.
+     Alto total ~72px (60px de caja + 12px de su propio margen).
+
+     Por qué existe: el número grande es US$10, pero Mercado Pago cobra SOLES.
+     El `S/ 39` NO es letra chica, es INFORMACIÓN DE PRECIO — nadie puede
+     llegar al checkout sorprendido. Por eso va en 16px bold, un escalón por
+     ENCIMA del texto que lo rodea (13px), y con su propia superficie: se lee
+     como un recibo, no como un disclaimer.
+
+     ⚠️ `.vd-plan-charge` YA TRAE SU `margin-top`. No le agregues `mt-3` en el
+     TSX: sería una segunda fuente de verdad para el mismo valor.
+
+     Markup esperado:
+       <div class="vd-plan-charge">
+         <p class="vd-plan-charge-line">
+           Se cobra <b class="vd-plan-charge-amount">S/ 39</b> en Mercado Pago
+         </p>
+         <p class="vd-plan-charge-note">US$10 aprox. · 60 fotos + 10 análisis con IA</p>
+       </div>
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-plan-charge {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 12px;
+    border-radius: calc(var(--radius) * 0.7);
+    background: color-mix(in srgb, var(--vd-ink) 4%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vd-ink) 8%, transparent);
+  }
+  [data-theme="dark"] .vd-plan-charge {
+    background: color-mix(in srgb, var(--vd-ink) 5%, transparent);
+    /* hairline dorado tenue: mismo material que `.vd-plan-rule` en dark, un
+       escalón más callado. La caja del cobro es dato, no joya. */
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vd-gold) 16%, transparent);
+  }
+
+  /* La línea del cobro. NO uses flex acá: el `<b>` está EN MEDIO de un texto
+     corrido y con flex cada nodo de texto se vuelve un ítem y se comen los
+     espacios de los costados del monto. Es texto inline y punto. El line-box
+     lo estira el `<b>` de 16px → ~22px de alto. */
+  .vd-plan-charge-line {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+    color: var(--vd-ink-soft);
+  }
+
+  /* El monto REAL. 16px bold, tier `--vd-ink` (el más alto de la card).
+     `tabular-nums` acá SÍ, porque es una cifra de dinero. `nowrap` para que
+     `S/ 39` no se parta nunca entre dos líneas. */
+  .vd-plan-charge-amount {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    color: var(--vd-ink);
+    white-space: nowrap;
+  }
+
+  /* La nota de abajo. Terciaria (`--vd-mute`: 6.9:1 en light, 7.2:1 en dark
+     sobre la card) — es contexto, no el dato que decide.
+     ⚠️ EL `clamp` NO ES DECORATIVO: a 12px fijos la cadena
+     "US$10 aprox. · 60 fotos + 10 análisis con IA" mide ~262px contra 271px de
+     ancho útil a 375px. Roza el borde y en cuanto la copy crezca un carácter
+     salta a 2 líneas: +17px = te comiste los 8px de aire y el CTA se cae del
+     fold. A 375px baja a 11.6px y entra con margen; de 390px para arriba
+     vuelve a 12px. */
+  /* El monto en soles: presente pero deliberadamente discreto (decision de
+     Paolo, 2026-08-22). Es el dato mas chico y mas callado de la card. Se
+     mantiene en el DOM a proposito: Mercado Pago cobra SOLES, y quitarlo del
+     todo dejaria al comprador sin ningun aviso previo del monto real. */
+  .vd-plan-charge-soles {
+    font-size: 0.82em;
+    font-weight: 400;
+    opacity: 0.62;
+    white-space: nowrap;
+  }
+
+  .vd-plan-charge-note {
+    font-family: var(--font-sans);
+    font-size: clamp(11px, 3.1vw, 12px);
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: -0.005em;
+    font-variant-numeric: tabular-nums;
+    color: var(--vd-mute);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     9.5 · REDECLARADAS · LA LLUVIA — el tag se cortaba seco
+
+     El bug: `"CAMAS PARA MASCOTAS"` en una sola línea a 9px con 0.09em de
+     tracking mide ~126px. La card de la fila A a 375px mide 90px y el tag
+     arranca a 8px del borde ⇒ quedaban ~60px de caja y se leía
+     `"CAMAS PARA MASC"`. Cortado, no truncado: sin elipsis, sin aviso.
+
+     El fix NO es achicar la letra (a 9px ya era ilegible Y estaba cortada).
+     Es repartir el trabajo entre las dos filas, que tienen roles distintos:
+
+     · FILA A (`--quiet`, ARRIBA de la card, dentro del fold) = AMBIENTE.
+       En <640px PIERDE EL TAG y se achica. Un tag ilegible es peor que ningún
+       tag, y cada pixel de esta fila sale del presupuesto del precio.
+       El `alt` de cada `<img>` sigue intacto ⇒ CERO pérdida para el lector de
+       pantalla: los 33 rubros se siguen leyendo una vez, igual que antes.
+     · FILA B (DEBAJO de la card, fuera del fold) = PRUEBA. CRECE, y ahí sí el
+       tag se lee: 11px, menos tracking, `max-width` atado al ancho real de la
+       card y hasta 2 líneas con line-clamp.
+
+     ⚠️ `.vd-rain:not(.vd-rain--quiet)` es (0,2,0) — `:not()` hereda la
+     especificidad de su argumento. Empata con `[data-theme="dark"] .vd-rain`
+     del bloque 7 y, al ir después, le ganaría. Hoy no se pisan porque acá sólo
+     se tocan `--rain-w`/`--rain-gap`/`--rain-tag-fz` y allá sólo
+     `--rain-mat`/`--rain-tag-bg`/`--rain-tag-fg`. NO metas colores en esta
+     regla o rompés el tema oscuro de la lluvia.
+     ───────────────────────────────────────────────────────────────────────── */
+  .vd-rain--quiet {
+    --rain-w: clamp(72px, 21vw, 104px);
+    --rain-gap: 8px;
+    --rain-tag-fz: 10px;
+    opacity: 0.74;
+  }
+  .vd-rain:not(.vd-rain--quiet) {
+    --rain-w: clamp(132px, 36vw, 156px);
+    --rain-gap: 14px;
+    --rain-tag-fz: 11px;
+  }
+
+  /* El tag, recalibrado. `max-width` se deriva de `--rain-w`, así que sigue
+     solo a las dos reglas de arriba y no hay ningún número que mantener a
+     mano: ancho de card − 8px de borde − 8px de offset izq − 8px de aire der.
+     `-webkit-box` + line-clamp 2 = si no entra en una línea, parte en dos y
+     recién ahí trunca con elipsis. Nunca más un corte seco. */
+  .vd-rain-tag {
+    font-size: var(--rain-tag-fz, 11px);
+    letter-spacing: 0.04em;
+    line-height: 1.14;
+    padding: 3px 6px;
+    max-width: calc(var(--rain-w) - 24px);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+  }
+
+  /* Fila A sin tag en mobile. `.vd-rain--quiet .vd-rain-tag` es (0,2,0) ⇒ le
+     gana al `display:-webkit-box` de arriba sin `!important`.
+     639.98px = justo debajo del `sm:` de Tailwind (640px), para que el corte
+     coincida con el resto de la pantalla y no haya un rango de 1px raro. */
+  @media (max-width: 639.98px) {
+    .vd-rain--quiet .vd-rain-tag {
+      display: none;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     9.6 · REDECLARADA · .eyebrow — recalibrada a la escala mobile nueva
+
+     Con el H1 a 23px en el SE, un eyebrow de 10.5px con 1.3px de tracking
+     pesa casi lo mismo que el título. Baja a 10px, el tracking pasa a `em`
+     (0.11em = 1.1px acá, y escala solo si algún día cambia el tamaño), y
+     `line-height: 1` le saca ~4px de alto muerto al bloque de arriba del fold.
+     De 640px para arriba vuelve a la escala de siempre.
+
+     🔴 NO LE PONGAS `color` A ESTA REGLA. `.eyebrow-on-bg` (línea ~557) es
+     (0,1,0) igual que esto y va ANTES ⇒ si acá declarás color, le ganás y le
+     matás el contraste al eyebrow de la fila B, que vive sobre el fondo.
+     Sólo métrica, nunca color.
+     ───────────────────────────────────────────────────────────────────────── */
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    line-height: 1;
+  }
+  @media (min-width: 640px) {
+    .eyebrow {
+      font-size: 10.5px;
+      letter-spacing: 0.125em;
+    }
+  }
 }

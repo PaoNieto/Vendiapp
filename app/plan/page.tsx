@@ -28,6 +28,15 @@ import { PlanClient } from "./plan-client";
  * `server-only`) y baja al cliente ya formateado. NUNCA hardcodeado, y NUNCA
  * viaja desde el cliente hacia el checkout: al POST /api/checkout solo se le
  * manda `productId`.
+ *
+ * 🔴 DOS MONEDAS EN PANTALLA, UNA SOLA QUE SE COBRA.
+ * El numero GRANDE es `US$10` (`priceUsdDisplay`, que ya vivia en el catalogo):
+ * es el ancla que el mercado entiende. Pero Mercado Pago cobra SOLES, asi que el
+ * monto real (`S/ 39`) aparece TRES veces y ninguna en letra chica —
+ * 16px bold debajo del precio, 15px bold en el texto del boton, y 12px en el
+ * pie. Nadie puede llegar al checkout sorprendido por la moneda.
+ * ⚠️ El monto cobrado NO cambio: `lifetime-pass` sigue siendo S/39 en el
+ * catalogo. Esto es SOLO presentacion.
  */
 
 export const metadata: Metadata = {
@@ -35,9 +44,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** S/39 cuando es entero, S/119.90 cuando tiene centavos. */
+/**
+ * "S/ 39" cuando es entero, "S/ 119.90" cuando tiene centavos.
+ *
+ * El ESPACIO no es cosmetico: este label ya no es un numero grande al lado de su
+ * simbolo, es una frase corrida ("Se cobra S/ 39 en Mercado Pago") y el texto de
+ * un boton. Pegado, "S/39" se lee como una sola palabra rara; con espacio se lee
+ * como monto.
+ */
 function formatSoles(amount: number): string {
-  return Number.isInteger(amount) ? `S/${amount}` : `S/${amount.toFixed(2)}`;
+  return Number.isInteger(amount) ? `S/ ${amount}` : `S/ ${amount.toFixed(2)}`;
 }
 
 export default async function PlanPage() {
@@ -65,10 +81,17 @@ export default async function PlanPage() {
           // El id viaja al cliente para que `startCheckout` siga siendo generica
           // (recibe el productId), en vez de hardcodear el string en el onClick.
           id: lifetime.id,
-          priceLabel: formatSoles(lifetime.priceSoles),
-          usdLabel: `≈ US$${lifetime.priceUsdDisplay} · pago único`,
+          // El numero GRANDE. Sale de `priceUsdDisplay` del catalogo, que ya
+          // existia — no se invento ni se hardcodeo un dolar nuevo.
+          usdBig: `US$${lifetime.priceUsdDisplay}`,
+          // Lo que Mercado Pago cobra DE VERDAD. Se muestra 3 veces y ninguna en
+          // letra chica (ver el bloque de arriba).
+          chargeLabel: formatSoles(lifetime.priceSoles),
           // Aritmetica sobre el precio REAL del catalogo: S/39 / 60 = S/0.65.
           // NUNCA hardcodeado — si cambia el precio o los creditos, cambia solo.
+          // ⚠️ Va en SOLES a proposito: US$10 / 60 = US$0.17, y 0.17 × 60 =
+          // US$10.20, que NO cierra con el precio mostrado. El soles cierra
+          // exacto porque es el monto que se cobra.
           perPhotoLabel: `S/${(lifetime.priceSoles / lifetime.credits).toFixed(2)}`,
           credits: lifetime.credits,
           analysisCredits: lifetime.analysisCredits ?? 0,
