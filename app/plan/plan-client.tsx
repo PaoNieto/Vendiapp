@@ -1,50 +1,58 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useClerk } from "@clerk/nextjs";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { BadgeCheck, Camera, Images, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import { PillButton } from "@/components/dashboard/pill-button";
-import { STYLE_LIST } from "@/lib/styles";
+import { RUBROS_FILA_A, RUBROS_FILA_B, type Rubro } from "./rubros";
 import { cn } from "@/lib/utils";
 
 /**
  * Paywall de Vendí. Precio y prueba visual EN LA MISMA PANTALLA (es el mecanismo
- * central del patron Arcads): la galeria de estilos vive arriba de la card del
- * plan, no en otra vista.
+ * central del patron Arcads).
  *
- * Sin precio tachado, sin chip de "ahorras", sin contador de escasez: el "US$27"
- * de la landing nunca fue un precio real y el descuento enganoso esta registrado
- * como bloqueante para pautar en Meta. El numero grande es el que Mercado Pago va
- * a cobrar dos segundos despues.
+ * ORDEN DE LA CARD (esto es lo que decide la venta, no es gusto):
+ *   PRECIO -> capsula "por foto" -> resumen -> CTA -> reaseguro -> hairline ->
+ *   6 beneficios -> letra chica.
+ * Antes iba al reves (4 bullets largos primero) y el S/39 arrancaba a ~900px del
+ * tope: en un iPhone SE habia que scrollear una pantalla entera para ver el
+ * precio. Ahora el precio y el boton entran sin scrollear en 375x667.
  *
- * La galeria es FIJA, la misma para todos. Esta pantalla NO genera ninguna imagen
- * del producto del usuario: no hay estado de "generando tu muestra", y no se
- * llama a /api/generations ni a /api/analyze (devuelven 403 al no-pagador).
+ * Sin precio tachado, sin chip de "ahorras", sin contador de escasez, sin
+ * promesas de "mas fotos = mas ventas": el "US$27" de la landing nunca fue un
+ * precio real y el descuento enganoso esta registrado como bloqueante para
+ * pautar en Meta. El unico numero derivado permitido es S/39 / 60 = S/0.65 por
+ * foto, que es aritmetica sobre el precio real. El numero grande es el que
+ * Mercado Pago va a cobrar dos segundos despues.
+ *
+ * La prueba visual es FIJA (las 33 fotos de /public/catalogo, las mismas de la
+ * landing). Esta pantalla NO genera ninguna imagen del producto del usuario: no
+ * hay estado de "generando tu muestra", y no se llama a /api/generations ni a
+ * /api/analyze (devuelven 403 al no-pagador).
+ *
+ * UNA sola oferta: el Pase Fundador. El Pack Negocio se saco a proposito
+ * (decision comercial) — /upgrade lo sigue vendiendo por su cuenta desde
+ * `listProducts()`, asi que el catalogo NO se toco.
  *
  * El precio baja YA FORMATEADO del server (catalogo server-only). Al checkout
  * solo viaja `productId` — nunca un monto.
  */
 
 type LifetimeCopy = {
+  /** id del catalogo. `startCheckout` es generica: el id sale de aca, no de un literal. */
+  id: string;
   priceLabel: string;
+  /** "≈ US$10 · pago unico" — vive en la LETRA CHICA, no en el bloque de precio. */
   usdLabel: string;
+  /** S/39 / 60 = "S/0.65". Lo calcula el server desde el catalogo. */
+  perPhotoLabel: string;
   credits: number;
   analysisCredits: number;
 };
 
-type PackNegocioCopy = {
-  id: string;
-  name: string;
-  credits: number;
-  priceLabel: string;
-  perPhotoLabel: string;
-};
-
 export type PlanClientProps = {
   lifetime: LifetimeCopy;
-  packNegocio: PackNegocioCopy | null;
 };
 
 /** Clave del store de negocio. La escribe /onboarding, la lee el NegocioProvider. */
@@ -60,6 +68,9 @@ const EXIT_REASONS = [
   "Otro",
 ] as const;
 
+/** Ancho maximo de los bloques de texto/card. La lluvia va a ancho COMPLETO. */
+const COLUMN = "mx-auto w-full max-w-[560px] px-5 sm:px-6";
+
 /**
  * STUB — el motivo de abandono todavia NO se persiste (no hay donde guardarlo sin
  * tocar la DB, y eso queda pendiente de la auditoria de seguridad). Engancharlo
@@ -70,9 +81,9 @@ function recordExitReason(reason: string, detail: string) {
   void detail;
 }
 
-export function PlanClient({ lifetime, packNegocio }: PlanClientProps) {
+export function PlanClient({ lifetime }: PlanClientProps) {
   const { signOut } = useClerk();
-  const reduceMotion = useReducedMotion();
+  const prefersReduced = Boolean(useReducedMotion());
 
   /** productId en vuelo, o null. El loading NO se apaga en el exito: nos vamos. */
   const [pending, setPending] = useState<string | null>(null);
@@ -86,9 +97,24 @@ export function PlanClient({ lifetime, packNegocio }: PlanClientProps) {
    */
   const [brandName, setBrandName] = useState<string | null>(null);
 
+  /**
+   * Gate de hidratacion. `useReducedMotion()` devuelve null en el server y el
+   * valor real ya en el PRIMER render del cliente: decidir con eso CUANTOS nodos
+   * pintar romperia la hidratacion (66 divs en el HTML del server vs 33 en el
+   * cliente). Por eso el conteo de nodos de la lluvia se decide POST-MOUNT. El
+   * resto de la coreografia no necesita este gate: usa `prefersReduced` solo en
+   * `transition`, que no se serializa.
+   */
+  const [hydrated, setHydrated] = useState(false);
+
   const [exitPanel, setExitPanel] = useState(false);
   const [exitDone, setExitDone] = useState(false);
   const [exitOther, setExitOther] = useState("");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- gate de hidratacion: el server no conoce prefers-reduced-motion.
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     try {
@@ -144,28 +170,75 @@ export function PlanClient({ lifetime, packNegocio }: PlanClientProps) {
     ? `Listo, ${brandName}. Ahora sí, tus fotos.`
     : "Listo. Ahora sí, tus fotos.";
 
-  const bullets = [
+  /**
+   * Coreografia de entrada: precio 0.08 · CTA 0.20 · badge 0.26 · beneficios
+   * escalonados (stagger 0.045, delayChildren 0.16). Todo termina antes de 900ms.
+   *
+   * Con movimiento reducido la transicion dura 0 y sin delay: el elemento aparece
+   * ya puesto. Se hace por `transition` y NO por `initial={false}` porque
+   * `initial` SI se serializa en el HTML del server — cambiarlo segun la
+   * preferencia del usuario rompe la hidratacion, y esta es exactamente la
+   * pantalla donde no se puede romper nada.
+   */
+  const rise = (delay: number) => ({
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: prefersReduced
+      ? { duration: 0, delay: 0 }
+      : { duration: 0.42, ease: EASE, delay },
+  });
+
+  const featuresContainer = {
+    hidden: {},
+    show: {
+      transition: prefersReduced
+        ? { staggerChildren: 0, delayChildren: 0 }
+        : { staggerChildren: 0.045, delayChildren: 0.16 },
+    },
+  };
+  const featureItem = {
+    hidden: { opacity: 0, y: 8 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: prefersReduced ? { duration: 0 } : { duration: 0.3, ease: EASE },
+    },
+  };
+
+  /**
+   * Los 6 beneficios, en formato "linea + aclaracion entre parentesis".
+   * Los numeros salen del catalogo (`lifetime.credits` / `analysisCredits`),
+   * NUNCA hardcodeados.
+   */
+  const features = [
     {
-      icon: Camera,
-      title: "Tu producto de verdad, no una foto de banco.",
-      body: "Vendí trabaja sobre la foto real de lo que vendés: se respetan la forma, el color y la etiqueta. Es tu producto, no uno parecido.",
+      title: "Tu producto de verdad, no una foto de banco",
+      note: "se respetan la forma, el color y la etiqueta de tu foto",
     },
     {
-      icon: Images,
-      title: `${lifetime.credits} fotos para arrancar.`,
-      body: "Un crédito, una foto. No vencen: las usás cuando quieras.",
+      title: `${lifetime.credits} fotos para arrancar`,
+      note: "1 crédito = 1 foto, y no vencen",
     },
     {
-      icon: Sparkles,
-      title: `${lifetime.analysisCredits} análisis con IA.`,
-      body: "Subís una foto y Vendí te dice qué mejorar antes de que la publiques.",
+      title: `${lifetime.analysisCredits} análisis con IA`,
+      note: "bolsa aparte de tus fotos",
     },
     {
-      icon: BadgeCheck,
-      title: "Un solo pago.",
-      body: "No es suscripción. No se renueva ni se te vuelve a cobrar.",
+      title: "Motor Nano Banana, el modelo de imagen de Google",
+      note: "la dirección de arte y la fidelidad de tu producto las pone Vendí",
+    },
+    {
+      title: "Todos los estilos profesionales, sin marca de agua",
+      note: "alta resolución, listo para publicar",
+    },
+    {
+      title: "Un solo pago",
+      note: "no es suscripción: no se renueva ni se te vuelve a cobrar",
     },
   ];
+
+  const busy = pending === lifetime.id;
+  const singleSet = hydrated && prefersReduced;
 
   return (
     <div className="flex min-h-dvh flex-1 flex-col">
@@ -184,160 +257,263 @@ export function PlanClient({ lifetime, packNegocio }: PlanClientProps) {
         </button>
       </header>
 
-      <main className="mx-auto w-full max-w-[560px] flex-1 px-5 pb-12 pt-6 sm:px-6">
-        <p className="eyebrow eyebrow-on-bg">Último paso</p>
-        <h1 className="mt-2 text-[30px] leading-[1.12] text-ink sm:text-[36px]">
-          {headline}
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-mute-on-bg">
-          Subís la foto que ya tenés —la del celular sirve— y Vendí te devuelve
-          fotos profesionales de tu propio producto, en minutos. Sin estudio, sin
-          fotógrafo y sin saber nada de diseño.
-        </p>
+      {/*
+        <main> a ancho COMPLETO: las dos filas de lluvia son hijas directas y
+        sangran de borde a borde. Cada bloque de texto/card se centra con su
+        propio wrapper (COLUMN). El body nunca scrollea de costado: el
+        `.dashboard-shell` de AppBackground ya tiene overflow:hidden.
+      */}
+      <main className="flex-1 pb-12 pt-6">
+        <div className={COLUMN}>
+          <p className="eyebrow eyebrow-on-bg">Último paso</p>
+          <h1 className="mt-2 text-[26px] leading-[1.1] text-ink sm:text-[32px]">
+            {headline}
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-mute-on-bg">
+            Subís la foto que ya tenés —la del celular sirve— y Vendí te la
+            devuelve profesional.
+          </p>
+        </div>
 
-        <StyleGallery />
-
-        {/*
-          UNICA capa de blur de la pantalla (.glass-card = backdrop-filter). El
-          Pack Negocio de abajo NO la usa: es deliberadamente subordinado.
-        */}
-        <section className="glass-card mt-7 p-5 sm:p-6">
-          <ul className="space-y-4">
-            {bullets.map(({ icon: Icon, title, body }) => (
-              <li key={title} className="flex gap-3">
-                <span
-                  aria-hidden="true"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-sage/15"
-                >
-                  <Icon size={18} className="text-sage-strong" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold leading-snug text-ink">{title}</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-mute">{body}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-6 border-t border-ink/10 pt-5">
-            {/* card-value + numeric-tabular, NO font-mono: --font-mono apunta a
-                Geist Mono, que no se carga en la app. */}
-            <p className="card-value text-[40px] leading-none text-ink">
-              {lifetime.priceLabel}
-            </p>
-            <p className="mt-2 text-xs text-mute">{lifetime.usdLabel}</p>
-            <p className="mt-1 text-[13px] font-semibold text-ink-soft">
-              Pase Fundador — acceso que no vence, {lifetime.credits} fotos +{" "}
-              {lifetime.analysisCredits} análisis
-            </p>
-
-            <PillButton
-              size="lg"
-              className="mt-5 w-full"
-              disabled={pending !== null}
-              aria-busy={pending === "lifetime-pass"}
-              onClick={() => startCheckout("lifetime-pass")}
-            >
-              {pending === "lifetime-pass"
-                ? "Redirigiendo…"
-                : `Pagar ${lifetime.priceLabel} y entrar`}
-            </PillButton>
-
-            {error ? (
-              <p className="mt-3 text-[13px] text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-
-            <p className="mt-3 text-[11px] leading-relaxed text-mute">
-              Pago seguro con Mercado Pago. Es un solo pago: no se renueva ni se te
-              vuelve a cobrar, y los créditos no vencen.
-            </p>
-          </div>
-        </section>
-
-        {packNegocio ? (
-          <section className="mt-5 rounded-2xl border border-ink/10 bg-card-cream/60 p-4">
-            <p className="text-[13px] font-semibold text-ink">
-              ¿Vendés mucho y necesitás más?
-            </p>
-            <p className="mt-1.5 text-[13px] text-ink-soft">
-              <span className="font-semibold">{packNegocio.name}</span> —{" "}
-              <span className="numeric-tabular">{packNegocio.credits}</span> fotos ·{" "}
-              <span className="numeric-tabular">{packNegocio.priceLabel}</span>
-            </p>
-            <p className="mt-1 text-[12px] leading-relaxed text-mute">
-              <span className="numeric-tabular">{packNegocio.perPhotoLabel}</span> por
-              foto, el precio más bajo. Solo créditos de generación: sin análisis con
-              IA ni perks de fundador.
-            </p>
-            <button
-              type="button"
-              disabled={pending !== null}
-              aria-busy={pending === packNegocio.id}
-              onClick={() => startCheckout(packNegocio.id)}
-              className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-full border border-ink/20 px-4 text-[13px] font-medium text-ink transition-colors duration-150 ease-out hover:bg-ink/6 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:pointer-events-none disabled:opacity-50"
-            >
-              {pending === packNegocio.id
-                ? "Redirigiendo…"
-                : `Elegir ${packNegocio.name}`}
-            </button>
-          </section>
-        ) : null}
-
-        <ExitPanel
-          open={exitPanel}
-          done={exitDone}
-          otherValue={exitOther}
-          reduceMotion={Boolean(reduceMotion)}
-          onOpen={() => setExitPanel(true)}
-          onOtherChange={setExitOther}
-          onChoose={chooseExitReason}
-          onBack={() => {
-            setExitPanel(false);
-            setExitDone(false);
-            setExitOther("");
-          }}
+        {/* FILA A — ambiente. Chica, callada y sin titulo: no le compite al precio. */}
+        <RainRow
+          className="mt-5"
+          items={RUBROS_FILA_A}
+          direction="left"
+          quiet
+          singleSet={singleSet}
+          ariaLabel="Rubros que ya usan Vendí"
         />
+
+        <div className={cn(COLUMN, "mt-7")}>
+          {/*
+            El badge vive FUERA de la card a proposito: `.vd-plan-card > *` fuerza
+            `position: relative` en cada hijo directo (asi el contenido queda sobre
+            el halo), lo que anularia el `absolute` del badge. Este wrapper
+            relativo le da el mismo anclaje sin pelearse con esa regla.
+          */}
+          <div className="relative">
+            {/*
+              DOS capas a proposito: el CENTRADO (-translate-x-1/2) vive en el
+              wrapper y la ANIMACION en el span. Motion escribe `transform`
+              inline, asi que animar el mismo nodo que lleva el translate de
+              Tailwind lo pisaria y el badge quedaria corrido a la derecha.
+            */}
+            <div className="absolute -top-3 left-1/2 z-[2] -translate-x-1/2">
+              <motion.span {...rise(0.26)} className="vd-plan-badge">
+                Pase Fundador
+              </motion.span>
+            </div>
+
+            <section className="glass-card vd-plan-card px-5 pb-5 pt-7 sm:px-6 sm:pb-6 sm:pt-8">
+              {/* ── PRECIO ── lo primero que agarra el ojo. */}
+              <motion.div
+                {...rise(0.08)}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-2"
+              >
+                <p className="vd-price vd-price-gold text-ink">
+                  {lifetime.priceLabel}
+                </p>
+                <span className="vd-plan-capsule">
+                  {lifetime.perPhotoLabel} por foto
+                </span>
+              </motion.div>
+
+              <motion.p
+                {...rise(0.14)}
+                className="mt-3 text-[13px] leading-relaxed text-ink-soft"
+              >
+                <span className="numeric-tabular font-semibold">
+                  {lifetime.credits}
+                </span>{" "}
+                fotos +{" "}
+                <span className="numeric-tabular font-semibold">
+                  {lifetime.analysisCredits}
+                </span>{" "}
+                análisis con IA. Acceso que no vence.
+              </motion.p>
+
+              <motion.div {...rise(0.2)} className="mt-4">
+                <PillButton
+                  size="lg"
+                  className="vd-plan-cta w-full"
+                  disabled={pending !== null}
+                  aria-busy={busy}
+                  onClick={() => startCheckout(lifetime.id)}
+                >
+                  {busy ? "Redirigiendo…" : `Pagar ${lifetime.priceLabel} y entrar`}
+                </PillButton>
+
+                {error ? (
+                  <p className="mt-3 text-[13px] text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+
+                <p className="mt-3 text-[12px] leading-relaxed text-mute">
+                  Pago seguro con Mercado Pago. Es un solo pago: no se renueva ni
+                  se te vuelve a cobrar.
+                </p>
+              </motion.div>
+
+              <hr className="vd-plan-rule my-5" />
+
+              {/* ── QUÉ INCLUYE ── 6 beneficios, escalonados. */}
+              <motion.ul
+                variants={featuresContainer}
+                initial="hidden"
+                animate="show"
+                className="space-y-2.5"
+              >
+                {features.map(({ title, note }) => (
+                  <motion.li
+                    key={title}
+                    variants={featureItem}
+                    className="flex gap-2.5"
+                  >
+                    <span className="vd-feat-check" aria-hidden="true">
+                      <Check size={12} strokeWidth={3} />
+                    </span>
+                    <p className="min-w-0 text-[13px] leading-snug text-ink">
+                      <span className="font-semibold">{title}</span>{" "}
+                      <span className="vd-feat-note">({note})</span>
+                    </p>
+                  </motion.li>
+                ))}
+              </motion.ul>
+
+              <p className="mt-5 text-[11px] leading-relaxed text-mute">
+                {lifetime.usdLabel} — el cobro se hace en soles a través de Mercado
+                Pago. Los créditos no vencen.
+              </p>
+            </section>
+          </div>
+        </div>
+
+        {/* FILA B — la prueba visual "grande", ya sin competirle al precio. */}
+        <RainRow
+          className="mt-8"
+          items={RUBROS_FILA_B}
+          direction="right"
+          eyebrow="Hecho para tu rubro"
+          singleSet={singleSet}
+          ariaLabel="Más rubros que ya usan Vendí"
+        />
+
+        <div className={cn(COLUMN, "mt-2")}>
+          <ExitPanel
+            open={exitPanel}
+            done={exitDone}
+            otherValue={exitOther}
+            reduceMotion={prefersReduced}
+            onOpen={() => setExitPanel(true)}
+            onOtherChange={setExitOther}
+            onChoose={chooseExitReason}
+            onBack={() => {
+              setExitPanel(false);
+              setExitDone(false);
+              setExitOther("");
+            }}
+          />
+        </div>
       </main>
     </div>
   );
 }
 
-/* ──────────────────────────── Prueba visual ──────────────────────────── */
+/* ─────────────────────── La lluvia (prueba visual) ─────────────────────── */
+
+type RainRowProps = {
+  items: readonly Rubro[];
+  direction: "left" | "right";
+  /** Fila "quieta": mas chica y con opacity .8. La de ARRIBA de la card. */
+  quiet?: boolean;
+  /** Con movimiento reducido pintamos UN solo set (33 nodos) y sin animacion. */
+  singleSet: boolean;
+  eyebrow?: string;
+  ariaLabel: string;
+  className?: string;
+};
 
 /**
- * Galeria FIJA de los 10 estilos que ya existen en /public/estilos. Reusa el
- * catalogo `STYLE_LIST` para no duplicar rutas ni nombres.
+ * Marquee infinito de fotos por rubro.
  *
- * Fila con scroll horizontal (no grilla) para que el precio quede a un scroll de
- * distancia en mobile 375px: la prueba visual y el precio tienen que convivir en
- * la misma pantalla. El scroll horizontal esta contenido en su propio
- * `overflow-x-auto` — el body nunca scrollea de costado.
+ * Tres detalles que NO son opcionales:
+ *
+ * 1. El track renderiza su set DUPLICADO. El loop es `translateX(-50%)`, asi que
+ *    media pista tiene que ser exactamente un set; sin duplicar, salta.
+ * 2. El 2do set va `aria-hidden` y con `alt=""`: si no, el lector de pantalla lee
+ *    los 33 rubros dos veces.
+ * 3. El espaciado lo pone `margin-inline-end` en cada card, NO `gap` en el track.
+ *    Con `gap` + `-50%` sobra medio gap y el carrusel pega un saltito de ~9px en
+ *    cada vuelta (bug real del CSS de la landing, cazado por Davinci).
+ *
+ * `<img>` plano y NO `next/image`: son 33 archivos fijos que no cambian nunca
+ * (conviene optimizarlos en build, no por request), y con un `sizes` sin unidad
+ * `vw` el `getWidths` de Next 16.2.6 emite 16 candidatos de srcset por imagen —
+ * por 66 nodos es una barbaridad de markup en la pantalla que decide la venta.
+ * `width`/`height` fijos + `loading="lazy"` + `decoding="async"` = cero CLS.
  */
-function StyleGallery() {
+function RainRow({
+  items,
+  direction,
+  quiet,
+  singleSet,
+  eyebrow,
+  ariaLabel,
+  className,
+}: RainRowProps) {
+  const sets = singleSet ? [items] : [items, items];
+
   return (
-    <section className="mt-7" aria-label="Ejemplos de estilos">
-      <p className="eyebrow eyebrow-on-bg">Así se ven los estilos</p>
-      <div className="-mx-5 mt-3 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
-        <ul className="flex w-max gap-2.5 pb-1">
-          {STYLE_LIST.map((style) => (
-            <li key={style.id} className="w-[132px] shrink-0">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-ink/10 bg-card-cream/40">
-                <Image
-                  src={style.previewImage}
-                  alt={`Ejemplo del estilo ${style.label}`}
-                  fill
-                  sizes="132px"
-                  className="object-cover"
-                />
-              </div>
-              <p className="mt-1.5 text-[11px] font-medium text-mute-on-bg">
-                {style.label}
-              </p>
-            </li>
-          ))}
-        </ul>
+    <section
+      aria-label={ariaLabel}
+      className={cn("vd-rain", quiet && "vd-rain--quiet", className)}
+    >
+      {eyebrow ? (
+        <div className={COLUMN}>
+          <p className="eyebrow eyebrow-on-bg">{eyebrow}</p>
+        </div>
+      ) : null}
+
+      <div className={cn("vd-rain-marquee", eyebrow && "mt-3")}>
+        <div
+          className={cn(
+            "vd-rain-track",
+            !singleSet &&
+              (direction === "left"
+                ? "vd-rain-track--left"
+                : "vd-rain-track--right"),
+          )}
+        >
+          {sets.map((set, setIndex) =>
+            set.map((rubro) => {
+              const clone = setIndex === 1;
+              return (
+                <div
+                  key={`${setIndex}-${rubro.slug}`}
+                  className="vd-rain-card"
+                  aria-hidden={clone || undefined}
+                >
+                  {/* El tag repite el alt de la foto: decorativo para el lector. */}
+                  <span className="vd-rain-tag" aria-hidden="true">
+                    {rubro.label}
+                  </span>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 33 JPG estaticos de /public ya optimizados en build; next/image inflaria el srcset por 66 nodos. */}
+                  <img
+                    src={`/catalogo/${rubro.slug}.jpg`}
+                    alt={clone ? "" : rubro.label}
+                    width={400}
+                    height={400}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                  />
+                </div>
+              );
+            }),
+          )}
+        </div>
       </div>
     </section>
   );

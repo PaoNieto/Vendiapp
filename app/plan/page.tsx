@@ -58,28 +58,21 @@ export default async function PlanPage() {
     redirect("/comprar?direct=1");
   }
 
-  const packNegocio = getProduct("pack-negocio");
-
   return (
     <AppBackground>
       <PlanClient
         lifetime={{
+          // El id viaja al cliente para que `startCheckout` siga siendo generica
+          // (recibe el productId), en vez de hardcodear el string en el onClick.
+          id: lifetime.id,
           priceLabel: formatSoles(lifetime.priceSoles),
           usdLabel: `≈ US$${lifetime.priceUsdDisplay} · pago único`,
+          // Aritmetica sobre el precio REAL del catalogo: S/39 / 60 = S/0.65.
+          // NUNCA hardcodeado — si cambia el precio o los creditos, cambia solo.
+          perPhotoLabel: `S/${(lifetime.priceSoles / lifetime.credits).toFixed(2)}`,
           credits: lifetime.credits,
           analysisCredits: lifetime.analysisCredits ?? 0,
         }}
-        packNegocio={
-          packNegocio
-            ? {
-                id: packNegocio.id,
-                name: packNegocio.name,
-                credits: packNegocio.credits,
-                priceLabel: formatSoles(packNegocio.priceSoles),
-                perPhotoLabel: `S/${(packNegocio.priceSoles / packNegocio.credits).toFixed(2)}`,
-              }
-            : null
-        }
       />
     </AppBackground>
   );
