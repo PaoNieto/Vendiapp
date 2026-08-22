@@ -401,15 +401,17 @@ export function PlanClient({ lifetime }: PlanClientProps) {
               */}
               <motion.div {...noRise} className="vd-plan-charge">
                 <p className="vd-plan-charge-line">
-                  Se cobra{" "}
+                  Pago único de{" "}
                   <b className="vd-plan-charge-amount numeric-tabular">
-                    {lifetime.chargeLabel}
-                  </b>{" "}
-                  en Mercado Pago
+                    {lifetime.usdBig}
+                  </b>
                 </p>
                 <p className="vd-plan-charge-note">
-                  {lifetime.usdBig} aprox. · {lifetime.credits} fotos +{" "}
-                  {lifetime.analysisCredits} análisis con IA
+                  {lifetime.credits} fotos + {lifetime.analysisCredits} análisis
+                  con IA{" "}
+                  <span className="vd-plan-charge-soles">
+                    · se cobra {lifetime.chargeLabel} en Mercado Pago
+                  </span>
                 </p>
               </motion.div>
 
@@ -426,7 +428,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                     `.vd-plan-cta`). Es la 2da de las 3 apariciones del S/ 39:
                     el ultimo cartel antes de irse a Mercado Pago.
                   */}
-                  {busy ? "Redirigiendo…" : `Pagar ${lifetime.chargeLabel} y entrar`}
+                  {busy ? "Redirigiendo…" : "Pagar y entrar"}
                 </PillButton>
 
                 {error ? (
@@ -471,7 +473,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 Letra chica del pie. 3ra y ultima aparicion del monto real, y el
                 lugar donde vive el S/0.65 por foto que dejo la capsula.
               */}
-              <p className="mt-5 text-[12px] leading-relaxed text-mute">
+              <p className="mt-5 text-[11px] leading-relaxed text-mute">
                 {lifetime.perPhotoLabel} por foto · el cobro se hace en soles a
                 través de Mercado Pago ({lifetime.chargeLabel}). Los créditos no
                 vencen.
