@@ -37,19 +37,29 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 /**
  * LOS NÚMEROS (fuente de verdad; la RPC solo trae defaults de respaldo).
  *
- * Criterio: el tope NO puede molestar a un comprador legítimo. El peor caso real
- * de alguien que SÍ quiere pagar, en 10 minutos: abre /plan y toca el botón (1),
- * mira Mercado Pago, vuelve y lo toca de nuevo (2), prueba el Pack Negocio (3),
- * vuelve al Pase (4), le rebota la tarjeta y reintenta (5, 6). Un indeciso muy
- * indeciso llega a ~7. Con 10 queda ~40% de aire arriba del peor caso realista,
- * y el que duda y vuelve tres veces no se entera de que esto existe.
+ * Criterio: el tope NO puede molestar a un comprador legítimo. Hay DOS
+ * superficies distintas y la que manda es la peor de las dos:
  *
- * El tope DIARIO es el que de verdad protege la cuenta de MP: sin él, 10 cada 10
- * minutos sostenidos son ~1.400 Preferences por día por cuenta. Con 40, un
+ *  · /plan (2 botones) — el comprador nuevo. Peor caso realista en 10 minutos:
+ *    toca "Pagar" (1), mira Mercado Pago, vuelve y lo toca de nuevo (2), prueba
+ *    el Pack Negocio (3), vuelve al Pase (4), le rebota la tarjeta y reintenta
+ *    (5, 6), cambia de tarjeta (7). → ~7.
+ *
+ *  · /upgrade (3 packs) — el PAGADOR QUE RECARGA, que es la métrica de recompra.
+ *    Abre los tres para ver el precio en soles (3), los vuelve a comparar (6),
+ *    decide (7), dos rebotes de tarjeta (9). → ~9. ESTA es la que manda.
+ *
+ * Con 15 quedan ~6 de aire sobre el peor caso realista. No se elige más bajo
+ * porque bloquear a alguien que ya pagó una vez y viene a recargar es mucho más
+ * caro que una Preference de más.
+ *
+ * El tope DIARIO es el que de verdad protege la cuenta de MP: sin él, 15 cada 10
+ * minutos sostenidos son ~2.100 Preferences por día por cuenta. Con 40, un
  * comprador real nunca se acerca (serían 40 checkouts en un día) y un abusador
- * queda en 40 en vez de 1.400.
+ * queda en 40. Subir la ventana NO afloja el candado: el techo diario es el
+ * mismo, solo se corre la molestia lejos del que compra de verdad.
  */
-export const CHECKOUT_MAX_PER_WINDOW = 10;
+export const CHECKOUT_MAX_PER_WINDOW = 15;
 export const CHECKOUT_WINDOW_SECONDS = 600; // 10 minutos
 export const CHECKOUT_MAX_PER_DAY = 40;
 
@@ -143,7 +153,12 @@ export async function checkCheckoutRateLimit(
       return { allowed: true };
     }
 
-    const data = (await res.json()) as RpcResponse | null;
+    // PostgREST devuelve el jsonb de una función escalar como OBJETO. Igual
+    // aceptamos `[{...}]` por las dudas: si algún día cambiara y solo leyéramos
+    // el objeto, el limitador quedaría mudo (siempre "allowed") y G3 volvería a
+    // estar abierto SIN que nadie se entere. Dos líneas para que no pase.
+    const raw = (await res.json()) as unknown;
+    const data = (Array.isArray(raw) ? raw[0] : raw) as RpcResponse | null;
     if (!data || data.allowed !== false) return { allowed: true };
 
     const scope: "window" | "day" = data.scope === "day" ? "day" : "window";

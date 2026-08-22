@@ -62,7 +62,7 @@ comment on table public.checkout_attempts is
 --   · p_max_window / p_window_seconds → frena la RÁFAGA (el loop).
 --   · p_max_day                       → frena el GOTEO sostenido, que es lo que
 --     realmente ensucia el panel de MP (sin él, el tope de ráfaga permitiría
---     ~1.400 Preferences por día por cuenta).
+--     ~2.100 Preferences por día por cuenta).
 --
 -- Los valores por defecto son sugerencias: los manda el caller
 -- (`lib/mercadopago/checkout-rate-limit.ts`), que es la fuente de verdad de los
@@ -76,7 +76,7 @@ comment on table public.checkout_attempts is
 -- migraciones 0015, 0019, 0020: acá se cierra desde el día uno.)
 create or replace function public.check_checkout_rate_limit(
   p_user_id        text,
-  p_max_window     integer default 10,
+  p_max_window     integer default 15,
   p_window_seconds integer default 600,
   p_max_day        integer default 40
 )
