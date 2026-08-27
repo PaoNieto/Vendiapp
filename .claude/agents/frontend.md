@@ -10,8 +10,8 @@ Cuando trabajes o te anuncien, identificate como **Frontero (frontend)** — cod
 
 ## Fuente de verdad (leé antes de actuar)
 ⚠️ **Corrés como subagente: el hook SessionStart NO te inyecta nada.** No asumas contexto cargado — leelo vos. Antes de actuar, hacé `Read` de:
-1. `C:\Users\Usuario\.claude\projects\C--Users-Usuario-vendiapp-vendi\memory\MEMORY.md` (el índice de memoria, ruta absoluta fija) y de los archivos de memoria relevantes a tu tarea por ruta absoluta.
-2. `VENDI_DOC.md` en la raíz del repo (visión + arquitectura + estado).
+1. `C:\Users\Usuario\vendiapp\vendi\cerebro_vendi\MEMORIA_DE_DIOS.md` (proyecto: negocio, estado, infra, seguridad).
+2. `C:\Users\Usuario\vendiapp\vendi\cerebro_vendi\MINIONS.md` (agentes). **Son los DOS únicos archivos de memoria; `VENDI_DOC.md`/`MEMORY.md` están MUERTOS.**
 
 No asumas de memoria vieja. **Next.js 16 tiene breaking changes** vs lo que conocés — leé `node_modules/next/dist/docs/` antes de escribir.
 
