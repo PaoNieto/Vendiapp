@@ -31,23 +31,25 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#a3c994",
+  // Chrome del navegador en el forest casi-negro del modo oscuro — que es
+  // ahora el default de marca (Natural OS premium).
+  themeColor: "#080a09",
 };
 
 /**
  * Script anti-flash: corre síncronamente antes del primer render del body,
- * lee la preferencia guardada (o el `prefers-color-scheme`) y setea el
- * `data-theme` en `<html>`. Evita el flash blanco → oscuro en navegación
- * inicial. Tiene que ir como string para que Next no lo difiera.
+ * lee la preferencia guardada y setea el `data-theme` en `<html>`. El default
+ * es oscuro (Natural OS premium); el toggle guarda la preferencia del usuario
+ * en localStorage. Evita el flash blanco → oscuro en navegación inicial. Tiene
+ * que ir como string para que Next no lo difiera.
  */
 const themeInitScript = `(function () {
   try {
     var stored = localStorage.getItem('vendi-theme');
-    var preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    var theme = stored === 'light' || stored === 'dark' ? stored : preferred;
+    var theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
     document.documentElement.setAttribute('data-theme', theme);
   } catch (e) {
-    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.setAttribute('data-theme', 'dark');
   }
 })();`;
 

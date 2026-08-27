@@ -87,12 +87,16 @@ export function StyleCard({
       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         "group relative flex w-full flex-col overflow-hidden rounded-[14px] bg-card text-left",
+        // Dark: superficie charcoal top-lit (un pelo más clara arriba) + esquina
+        // más generosa (iOS continuous-corner). Light intacto (bg-card sólido).
+        "dark:rounded-[18px] dark:bg-gradient-to-b dark:from-[#1b1f19] dark:to-[#0e110e]",
         "ring-1 ring-inset transition-shadow duration-200 ease-out",
         "min-h-[180px] sm:min-h-[200px]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+        "dark:focus-visible:ring-[color:var(--vd-emerald)]",
         selected
-          ? "ring-[2px] ring-[var(--vd-pill-bg)] shadow-[0_1px_0_rgba(15,31,22,0.08),0_18px_40px_-16px_rgba(15,31,22,0.32)]"
-          : "ring-[color:var(--border)] shadow-[0_1px_0_rgba(15,31,22,0.06),0_10px_28px_-14px_rgba(15,31,22,0.28)] hover:shadow-[0_1px_0_rgba(15,31,22,0.08),0_18px_40px_-16px_rgba(15,31,22,0.32)]",
+          ? "ring-[2px] ring-[var(--vd-pill-bg)] shadow-[0_1px_0_rgba(15,31,22,0.08),0_18px_40px_-16px_rgba(15,31,22,0.32)] dark:ring-[color:var(--vd-emerald)] dark:shadow-[0_0_30px_-6px_var(--vd-emerald-glow),0_20px_46px_-18px_rgba(0,0,0,0.72)]"
+          : "ring-[color:var(--border)] shadow-[0_1px_0_rgba(15,31,22,0.06),0_10px_28px_-14px_rgba(15,31,22,0.28)] hover:shadow-[0_1px_0_rgba(15,31,22,0.08),0_18px_40px_-16px_rgba(15,31,22,0.32)] dark:shadow-[0_1px_0_rgba(0,0,0,0.4),0_14px_34px_-16px_rgba(0,0,0,0.66)] dark:hover:ring-[color:var(--vd-emerald)] dark:hover:shadow-[0_0_26px_-8px_var(--vd-emerald-glow),0_18px_42px_-16px_rgba(0,0,0,0.7)]",
         selected
           ? "focus-visible:ring-[var(--vd-pill-bg)]"
           : "focus-visible:ring-[var(--vd-sage-strong)]",
@@ -152,7 +156,8 @@ export function StyleCard({
             className={cn(
               "absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full",
               "bg-[var(--vd-pill-bg)] text-[var(--vd-pill-fg)]",
-              "shadow-[0_2px_8px_-2px_rgba(15,31,22,0.45)]",
+              "dark:bg-[var(--vd-emerald)] dark:text-[#04160e]",
+              "shadow-[0_2px_8px_-2px_rgba(15,31,22,0.45)] dark:shadow-[0_2px_12px_-2px_var(--vd-emerald-glow)]",
             )}
           >
             <Check className="h-4 w-4" strokeWidth={2.4} />

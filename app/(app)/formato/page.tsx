@@ -67,11 +67,11 @@ export default function FormatoPage() {
 
   return (
     <StationShell
-      number="02"
+      number="03"
       title="Formato"
       description="Elegí el aspecto y cuántas variaciones querés por tanda."
-      prevHref="/referencias"
-      prevLabel="Volver a Referencias"
+      prevHref="/estilo"
+      prevLabel="Volver al estilo"
       nextHref={nextHref}
       nextLabel="Revisar y generar"
     >

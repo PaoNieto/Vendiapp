@@ -10,12 +10,21 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * la integración nativa third-party auth (el token de Clerk se inyecta en el
  * cliente Supabase; ver lib/supabase/{client,server}.ts).
  *
- * Reglas de ruta (igual semántica que la versión Supabase):
+ * Este proxy maneja SOLO sesión: quién está logueado y qué puede visitar sin
+ * cuenta. El PAYWALL (modelo PAGA-PRIMERO) ya NO vive acá: se movió a
+ * `app/(app)/layout.tsx`, que gatea TODA la sección autenticada con
+ * `userHasPaidAccess(userId)` y manda al que no pagó a `/comprar` (embudo directo al
+ * Checkout de Mercado Pago). El gate viejo del proxy mandaba al no-pagador a la
+ * landing (vendilatam.com): eso contradecía la regla "el que no paga va a pagar,
+ * no a la landing" y además cortocircuitaba el gate del layout, así que se quitó.
+ *
+ * Reglas de ruta:
  *  - PÚBLICAS: `/`, `/login`, `/signup`, `/privacidad`, `/terminos`,
- *    `/onboarding`, `/recuperar` (y subrutas). Visitables por anónimos y
- *    logueados.
- *  - Cualquier otra ruta (todo (app)/*) requiere sesión. Sin sesión →
- *    redirect a `/login?from=<ruta-original>` para volver post-login.
+ *    `/onboarding`, `/recuperar`, `/comenzar`, `/comprar`, webhooks (y subrutas).
+ *    Visitables por anónimos y logueados.
+ *  - Cualquier otra ruta (todo (app)/* y `/pago/*`) requiere sesión. Sin sesión →
+ *    redirect a `/login?redirect_url=<ruta+query original>`: es el param que el
+ *    <SignIn/> de Clerk honra para volver al destino post-login.
  *  - Logueado entrando a `/login` o `/signup` → redirect a `/dashboard`.
  *
  * OJO bug Clerk #8302: `auth.protect()` en el proxy de Next 16 redirige a la
@@ -39,6 +48,15 @@ const isPublicRoute = createRouteMatcher([
   "/recuperar/(.*)",
   // Destino del boton "Comenzar" de la landing: sin sesion va al pago, no al login.
   "/comenzar",
+  // Destino universal del embudo paga-primero. Su handler decide el siguiente
+  // paso (anonimo→/signup, pagador→/dashboard, no-pagador→Mercado Pago), asi que
+  // debe correr para anonimos y logueados-sin-pagar sin que el proxy lo intercepte.
+  "/comprar",
+  // Webhooks de sistemas externos (Mercado Pago, Shopify): los invoca un server
+  // externo SIN sesion Clerk. Cada ruta valida su PROPIA firma HMAC, asi que
+  // exponerlas es seguro. Sin esto, el proxy las redirige a /login (307) y la
+  // notificacion de pago nunca llega al handler -> los creditos NO se acreditan.
+  "/api/webhooks/(.*)",
 ]);
 
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
@@ -53,10 +71,16 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Sin sesión en ruta protegida → al login, conservando el destino.
+  // Sin sesión en ruta protegida → al login, conservando el destino COMPLETO
+  // (pathname + querystring). El param tiene que llamarse `redirect_url`: es el
+  // que honra el <SignIn/> de Clerk post-login. Antes se mandaba `from=`, que
+  // Clerk ignora → todo deep-link terminaba en /dashboard (fallback).
   if (!userId && !isPublicRoute(request)) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("from", pathname);
+    loginUrl.searchParams.set(
+      "redirect_url",
+      pathname + request.nextUrl.search,
+    );
     return NextResponse.redirect(loginUrl);
   }
 

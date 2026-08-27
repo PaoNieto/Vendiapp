@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Factory, Package, Briefcase } from "lucide-react";
+import { Home, Factory, Package, Briefcase, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// 5 items — tope para 375px con touch targets ≥44px (px-2 por item; con 6 no
+// entran sin achicar el target). Análisis usa ScanSearch, el mismo icono que
+// el sidebar desktop. Ajustes no entra acá: en mobile se accede tocando el
+// avatar del dashboard (linkea a /ajustes).
 const ITEMS = [
   { href: "/dashboard", label: "Inicio", icon: Home },
   { href: "/productos", label: "Productos", icon: Package },
   { href: "/fabrica", label: "Fábrica", icon: Factory },
+  { href: "/analisis", label: "Análisis", icon: ScanSearch },
   { href: "/mi-negocio", label: "Negocio", icon: Briefcase },
 ];
 
@@ -27,9 +32,9 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-3 py-1.5 text-[11px] font-medium transition-colors",
+                "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1.5 text-[11px] font-medium transition-colors",
                 active
-                  ? "text-primary"
+                  ? "text-primary dark:text-gold"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

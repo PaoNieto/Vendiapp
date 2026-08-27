@@ -52,9 +52,11 @@ export function SelectableChip({
       className={cn(
         "group relative inline-flex min-h-[44px] items-center gap-2 rounded-2xl border px-4 py-2.5 text-left text-sm font-medium transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        // Selected = patrón ring de StyleCard: pill-bg en light, emerald en
+        // dark. Superficies por token (nada de white-glass).
         selected
-          ? "border-primary/60 bg-white/80 text-foreground shadow-sm ring-2 ring-primary/30"
-          : "glass border-white/60 text-foreground/85 hover:bg-white/75 hover:text-foreground",
+          ? "border-transparent bg-card text-foreground shadow-sm ring-2 ring-pill-bg dark:ring-[color:var(--vd-emerald)]"
+          : "border-border bg-card/60 text-foreground/85 hover:bg-card hover:text-foreground",
         disabled && "cursor-not-allowed opacity-50",
         className,
       )}

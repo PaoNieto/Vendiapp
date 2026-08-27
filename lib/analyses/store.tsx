@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import type { OutputRatio } from "@/lib/constants";
-import type { CuratedStyleId } from "@/app/(app)/referencias/page";
+import type { CuratedStyleId } from "@/lib/curated-styles";
 import { useUser } from "@/lib/auth/use-user";
 import { createClient } from "@/lib/supabase/client";
 import { isPersistedUrl, uploadImageToBucket } from "@/lib/supabase/storage";

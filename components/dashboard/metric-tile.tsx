@@ -117,12 +117,12 @@ export function MetricTile({
             {delta.value}
           </span>
           {deltaLabel ? (
-            <span className="text-xs text-mute">{deltaLabel}</span>
+            <span className="card-caption">{deltaLabel}</span>
           ) : null}
         </div>
       ) : caption ? (
         <div className="mt-4">
-          <span className="text-xs text-mute">{caption}</span>
+          <span className="card-caption">{caption}</span>
         </div>
       ) : null}
     </div>

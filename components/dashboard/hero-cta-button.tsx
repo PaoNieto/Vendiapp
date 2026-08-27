@@ -42,7 +42,7 @@ export type HeroCTAButtonProps = {
  * pantalla. Si hay 2 CTAs equivalentes, ambos deberían ser PillButton.
  */
 const heroBase =
-  "relative inline-flex items-center justify-center gap-3 rounded-2xl px-6 py-5 text-base font-medium text-primary-foreground transition-shadow duration-200 ease-out shadow-[0_12px_32px_rgba(15,40,24,0.24)] hover:shadow-[0_18px_44px_rgba(15,40,24,0.32)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50 disabled:pointer-events-none sm:text-[17px]";
+  "cta-emerald relative inline-flex items-center justify-center gap-3 rounded-2xl px-6 py-5 text-base font-medium text-primary-foreground transition-shadow duration-200 ease-out shadow-[0_12px_32px_rgba(15,40,24,0.24)] hover:shadow-[0_18px_44px_rgba(15,40,24,0.32)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 dark:focus-visible:ring-[color:var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-50 disabled:pointer-events-none sm:text-[17px]";
 
 // Background sólido del token primary — se invierte automáticamente en dark
 // (forest en light, cream en dark). Mantiene contraste correcto con

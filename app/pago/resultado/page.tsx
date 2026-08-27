@@ -60,7 +60,7 @@ export default async function ResultadoPage({
             Ir a la Fábrica
           </Link>
           <Link
-            href="/upgrade"
+            href="/comprar"
             className="inline-flex min-h-[48px] items-center justify-center rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-opacity hover:opacity-90"
           >
             Volver

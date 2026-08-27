@@ -139,7 +139,7 @@ function CreateNewTile({ onCreateNew }: CreateNewTileProps) {
       onClick={onCreateNew}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
-      className="group flex flex-col items-center justify-center gap-3 rounded-[16px] border border-dashed border-green-dark/25 bg-white/30 px-4 py-10 text-green-dark transition-colors duration-150 ease-out hover:border-green-dark/45 hover:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-dark/40 min-h-[200px]"
+      className="group flex flex-col items-center justify-center gap-3 rounded-[16px] border border-dashed border-border bg-secondary px-4 py-10 text-foreground transition-colors duration-150 ease-out hover:border-foreground/35 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30 min-h-[200px]"
     >
       <span
         aria-hidden

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { analyzeImage } from "@/lib/ai/image-analyzer";
 import { analyzeRequestSchema } from "@/lib/validations/analyze";
 
@@ -21,6 +22,11 @@ import { analyzeRequestSchema } from "@/lib/validations/analyze";
  *
  * Recibe { imageDataUrl, ratio }. Requiere usuario logueado.
  */
+
+// El análisis es 1 llamada a Gemini (hasta 60s por AbortController) + parseo.
+// Techo holgado para no morir entre el deduct y el refund del crédito.
+export const maxDuration = 120;
+
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
   // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
@@ -29,6 +35,16 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  // Candado PAGA-PRIMERO también en la API (no solo en el proxy de páginas): un
+  // usuario logueado que NUNCA pagó no puede analizar, aunque arrastre saldo
+  // heredado de antes del paywall. Misma fuente de verdad que el middleware:
+  // una compra en `credit_ledger` o estar en la allowlist de acceso libre.
+  if (!(await userHasPaidAccess(userId))) {
+    return NextResponse.json(
+      { error: "Necesitás una compra activa para usar esta función." },
+      { status: 403 },
+    );
   }
   // Red de seguridad: provisiona el perfil del usuario Clerk si aún no existe.
   // Idempotente. Reemplaza al trigger handle_new_user (muerto con Clerk).
@@ -94,13 +110,16 @@ export async function POST(req: Request) {
     );
   }
 
-  // 5. Analizar. Si falla, reembolsar el crédito.
+  // 5. Analizar. Si falla, reembolsar el crédito — SOLO si hubo deduct real:
+  // para ilimitados el deduct es no-op y el refund acuñaría saldo de la nada.
   const result = await analyzeImage({ apiKey, imageDataUrl, ratio });
   if (!result.ok) {
-    await admin.rpc("grant_analysis_credits", {
-      p_user_id: userId,
-      p_amount: 1,
-    });
+    if (!isUnlimited) {
+      await admin.rpc("grant_analysis_credits", {
+        p_user_id: userId,
+        p_amount: 1,
+      });
+    }
     return NextResponse.json(
       { error: "analysis_failed", detail: result.error },
       { status: 502 },

@@ -195,7 +195,7 @@ export function ImageUploader({
             )}
           </div>
           {max > 1 && (
-            <span className="shrink-0 rounded-full bg-white/50 px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
+            <span className="shrink-0 rounded-full bg-secondary px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
               {value.length}/{max}
             </span>
           )}
@@ -209,8 +209,8 @@ export function ImageUploader({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         className={cn(
-          "glass relative flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/70 px-6 py-8 text-center transition-all",
-          "hover:border-primary/40 hover:bg-white/70",
+          "glass relative flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border px-6 py-8 text-center transition-all",
+          "hover:border-primary/40 hover:bg-secondary",
           dragOver && "border-primary bg-primary/5 ring-2 ring-primary/30",
           uploading && "pointer-events-none opacity-80",
           reachedMax && "cursor-not-allowed opacity-60",

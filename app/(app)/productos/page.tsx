@@ -47,7 +47,8 @@ export default function ProductosPage() {
   return (
     <>
       <Topbar
-        title="Mi Catálogo"
+        title="Mi"
+        titleAccent="Catálogo"
         subtitle="Tus productos y las fotos que reutilizás en cada generación."
         right={
           <>

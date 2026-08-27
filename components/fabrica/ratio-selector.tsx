@@ -73,9 +73,11 @@ export function RatioSelector({
             className={cn(
               "group relative flex min-h-[120px] flex-col items-center justify-between gap-2 rounded-2xl border px-3 py-4 text-center transition-all",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+              // Selected = patrón ring de StyleCard: pill-bg en light, emerald
+              // glow en dark. Superficies por token (nada de white-glass).
               selected
-                ? "border-primary/60 bg-white/80 shadow-[0_0_0_3px_rgba(91,174,133,0.25)] ring-2 ring-primary/30"
-                : "glass border-white/60 hover:bg-white/75",
+                ? "border-transparent bg-card ring-2 ring-pill-bg shadow-sm dark:ring-[color:var(--vd-emerald)] dark:shadow-[0_0_24px_-8px_var(--vd-emerald-glow)]"
+                : "border-border bg-card/60 hover:bg-card",
             )}
           >
             <div className="flex h-16 w-full items-center justify-center">
@@ -84,7 +86,7 @@ export function RatioSelector({
                   "rounded-md border-2 transition-colors",
                   selected
                     ? "border-primary bg-primary/15"
-                    : "border-foreground/30 bg-white/40",
+                    : "border-foreground/30 bg-secondary",
                 )}
                 style={{ width: `${box.w}px`, height: `${box.h}px` }}
                 aria-hidden

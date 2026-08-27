@@ -52,7 +52,7 @@ export function GenerationCard({
       whileHover={{ y: -2 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
       className={cn(
-        "group glass-card-compact overflow-hidden hover:shadow-[0_18px_40px_rgba(15,40,24,0.18),inset_0_1px_0_rgba(255,255,255,0.6)]",
+        "group glass-card-compact glass-interactive overflow-hidden",
         className,
       )}
     >
@@ -87,14 +87,14 @@ export function GenerationCard({
         </div>
 
         {/* Body */}
-        <div className="flex flex-col gap-1 px-3 py-3">
+        <div className="flex flex-col gap-1 px-3.5 py-3">
           <span
-            className="truncate text-sm font-medium text-green-dark"
+            className="truncate text-sm font-semibold tracking-[-0.01em] text-foreground"
             title={projectName}
           >
             {projectName}
           </span>
-          <span className="text-xs text-green-text">
+          <span className="card-caption">
             {variations} var · {ratio} · {relativeTime}
           </span>
         </div>

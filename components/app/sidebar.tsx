@@ -10,6 +10,7 @@ import {
   ScanSearch,
   Settings,
   LogOut,
+  LifeBuoy,
 } from "lucide-react";
 import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,14 @@ export function Sidebar() {
     user?.email ??
     null;
 
+  // Correo único de soporte + contacto. Prellenamos la cuenta del usuario en
+  // el cuerpo para poder identificar quién escribe aunque envíe desde otro mail.
+  const supportMailto = `mailto:soporte@vendilatam.com?subject=${encodeURIComponent(
+    "Ayuda desde la app de Vendí",
+  )}&body=${encodeURIComponent(
+    `Hola, necesito ayuda con:\n\n\n\n— — —\nMi cuenta: ${user?.email ?? ""}\n(dejá esta línea, nos ayuda a encontrarte)`,
+  )}`;
+
   return (
     <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
       {/*
@@ -62,7 +71,7 @@ export function Sidebar() {
         href="/dashboard"
         className="px-2.5 font-display text-[30px] italic leading-none text-foreground"
       >
-        Vendí<span className="text-sage-strong">.</span>
+        Vendí<span className="text-sage-strong dark:text-gold dark:[text-shadow:0_0_16px_rgba(233,198,95,0.4)]">.</span>
       </Link>
 
       {/* Eyebrow "ESPACIO" — micro-label sobre la nav. */}
@@ -139,7 +148,7 @@ export function Sidebar() {
 
         <div className="eyebrow mt-3">Créditos</div>
         <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <Coins className="h-4 w-4 text-sage-strong" aria-hidden />
+          <Coins className="h-4 w-4 text-sage-strong dark:text-gold" aria-hidden />
           {creditosLoading
             ? "…"
             : stats.unlimited
@@ -150,12 +159,21 @@ export function Sidebar() {
         {!stats.unlimited ? (
           <Link
             href="/upgrade"
-            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong transition-colors hover:text-foreground"
+            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-sage-strong dark:text-gold transition-colors hover:text-foreground"
           >
             Comprar más <span aria-hidden>→</span>
           </Link>
         ) : null}
       </div>
+
+      {/* Ayuda y contacto — abre el correo a soporte con la cuenta prellenada. */}
+      <a
+        href={supportMailto}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-mute transition-colors hover:text-foreground"
+      >
+        <LifeBuoy className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden />
+        Ayuda y contacto
+      </a>
 
       {/* ThemeToggle + Cerrar sesión al fondo del sidebar. */}
       <div className="mt-3 flex items-center justify-between">

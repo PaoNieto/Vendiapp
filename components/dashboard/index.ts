@@ -38,9 +38,6 @@ export type { VersionCardProps, VersionCardRatio } from "./version-card";
 export { HeroCTAButton } from "./hero-cta-button";
 export type { HeroCTAButtonProps } from "./hero-cta-button";
 
-export { VersionDrawer } from "./version-drawer";
-export type { VersionDrawerProps } from "./version-drawer";
-
 export { FilterBar } from "./filter-bar";
 export type { FilterBarProps, FilterStatus, FilterProduct } from "./filter-bar";
 
