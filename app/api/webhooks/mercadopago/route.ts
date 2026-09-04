@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { Payment } from "mercadopago";
 import { getMercadoPagoClient } from "@/lib/mercadopago/client";
-import { getProduct } from "@/lib/mercadopago/catalog";
+import { getProduct } from "@/lib/billing/catalog";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // crypto + SDK de MP requieren runtime Node (no Edge). force-dynamic: el webhook

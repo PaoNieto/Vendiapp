@@ -1,11 +1,11 @@
 import "server-only";
-import { getProduct, type Product } from "@/lib/mercadopago/catalog";
+import { getProduct, type Product } from "@/lib/billing/catalog";
 
 /**
  * Mapeo de un pedido de Shopify (orders/paid) -> creditos a acreditar.
  *
  * La FUENTE DE VERDAD de cuantos creditos da cada producto es el catalogo
- * server-side (lib/mercadopago/catalog.ts, compartido con Mercado Pago). Aca NO
+ * server-side (lib/billing/catalog.ts, agnostico del riel de cobro). Aca NO
  * se inventan creditos ni se leen del precio del pedido: se resuelve el producto
  * del catalogo y se usa su `.credits`. Igual que en el webhook de MP, esto evita
  * que alguien manipule el payload para acreditarse de mas.

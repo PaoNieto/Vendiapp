@@ -1,4 +1,4 @@
-import { listProducts } from "@/lib/mercadopago/catalog";
+import { listProducts } from "@/lib/billing/catalog";
 import { UpgradeStore } from "./upgrade-store";
 
 /**
@@ -9,7 +9,7 @@ import { UpgradeStore } from "./upgrade-store";
  * valores: no hay precios hardcodeados en el cliente ni drift.
  *
  * Hoy hay 4 productos: el Pase Fundador (lifetime) + los 3 packs de créditos.
- * El cobro real (Mercado Pago) lo maneja /api/checkout + el webhook.
+ * El cobro real (Whop) lo maneja /api/checkout + el webhook /api/webhooks/whop.
  */
 export default function UpgradePage() {
   const products = listProducts();

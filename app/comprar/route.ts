@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
-import { createPreference } from "@/lib/mercadopago/create-preference";
+import { createWhopCheckout } from "@/lib/whop/create-checkout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,25 +14,29 @@ export const dynamic = "force-dynamic";
  *  - logueado sin acceso -> /plan (el PAYWALL). El boton de /plan es el que
  *    dispara el checkout via POST /api/checkout.
  *
- * ANTES este handler creaba la Preference y saltaba DERECHO a Mercado Pago. Por
+ * ANTES este handler creaba el checkout y saltaba DERECHO a la pasarela. Por
  * eso el paywall era inalcanzable: la landing ("Quiero mi Lifetime Pass" ->
  * /comenzar -> /comprar), el login (-> /dashboard -> gate -> /comprar) y
- * cualquier ruta de (app) sin pagar (-> gate -> /comprar) TODAS terminaban en MP
- * sin pasar por la pantalla de precio. El unico camino que veia el onboarding
- * era completar el signup en ese instante exacto.
+ * cualquier ruta de (app) sin pagar (-> gate -> /comprar) TODAS terminaban en el
+ * checkout sin pasar por la pantalla de precio. El unico camino que veia el
+ * onboarding era completar el signup en ese instante exacto.
  *
  * ?direct=1 = ESCOTILLA ANTI-LOOP (y unica forma de conservar el salto directo).
  * `app/plan/page.tsx` la usa como fallback cuando no puede resolver el producto
  * del catalogo: sin esto seria /comprar -> /plan -> /comprar -> ... infinito, y
  * el usuario quedaria SIN camino a pagar. Con ella, cualquier fallo de /plan
- * degrada exactamente al comportamiento viejo (Preference + MP), que funciona.
+ * degrada a "checkout del Pase Fundador y a pagar".
  *
- * Si crear la Preference falla -> /pago/resultado?status=error: pagina FUERA del
+ * ⚠️ LOS DOS LADOS SE CONMUTAN JUNTOS. Esta escotilla y `/api/checkout` tienen
+ * que apuntar al MISMO riel (hoy Whop). Si uno queda en Mercado Pago y el otro
+ * en Whop, un fallo del catalogo deja al usuario sin ningun camino a pagar.
+ *
+ * Si crear el checkout falla -> /pago/resultado?status=error: pagina FUERA del
  * gate, con boton de reintento. NO se redirige a /upgrade (vive dentro de (app)
  * y esta gateado -> loop /comprar->/upgrade->gate).
  */
 export async function GET(request: Request) {
-  // Escotilla explicita: SOLO ?direct=1 saltea el paywall y va derecho a MP.
+  // Escotilla explicita: SOLO ?direct=1 saltea el paywall y va derecho a pagar.
   const direct =
     new URL(request.url).searchParams.get("direct") === "1";
 
@@ -50,12 +54,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/plan", request.url));
   }
 
-  // Camino de ESCAPE (?direct=1): comportamiento historico intacto.
+  // Camino de ESCAPE (?direct=1): checkout de Whop del Pase Fundador (pago
+  // unico de US$10) y salto directo a pagar.
   try {
-    const { initPoint } = await createPreference(userId, "lifetime-pass");
+    const { initPoint } = await createWhopCheckout(userId, "lifetime-pass");
     return NextResponse.redirect(initPoint);
   } catch (err) {
-    console.error("[comprar] No se pudo crear la Preference:", err);
+    console.error("[comprar] No se pudo crear el checkout de Whop:", err);
     return NextResponse.redirect(
       new URL("/pago/resultado?status=error", request.url),
     );

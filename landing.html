@@ -15,13 +15,17 @@
 <meta property="og:description" content="Convertí la foto de tu producto en imágenes profesionales listas para vender, en menos de 5 minutos. Sin sesión de fotos, sin Photoshop, sin prompts. Hecho para quienes venden en LATAM.">
 <meta property="og:locale" content="es_LA">
 <meta property="og:site_name" content="Vendí">
-<meta property="og:image" content="/og-image.jpg"><!-- TODO: falta el asset real og-image.jpg de 1200x630 -->
+<meta property="og:image" content="https://vendilatam.com/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Vendí — tu producto, en cualquier escenario, sin sesión de fotos">
+<meta property="og:url" content="https://vendilatam.com/">
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Vendí — Tu producto, en cualquier escenario, sin sesión de fotos">
 <meta name="twitter:description" content="Convertí la foto de tu producto en imágenes profesionales listas para vender, en menos de 5 minutos. Sin sesión de fotos, sin Photoshop, sin prompts. Hecho para quienes venden en LATAM.">
-<meta name="twitter:image" content="/og-image.jpg"><!-- TODO: mismo asset que og:image -->
+<meta name="twitter:image" content="https://vendilatam.com/og-image.jpg">
 
 <!-- Favicon inline SVG: cuadrado redondeado forest con "V" cream -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230f1f16'/%3E%3Ctext x='32' y='33' font-family='Georgia,serif' font-size='42' font-style='italic' font-weight='600' fill='%23f0f4e7' text-anchor='middle' dominant-baseline='central'%3EV%3C/text%3E%3C/svg%3E">
@@ -846,6 +850,7 @@ body.no-grain::before{opacity:0 !important}
 body.no-floats .hero-floats{display:none !important}
 </style>
 </head>
+<script src="https://cdn.pagesense.io/js/vend/a4fddcd1e2844850841a8f6873384303.js"></script>
 <body>
 
 <!-- ============ NAV ============ -->
@@ -861,8 +866,8 @@ body.no-floats .hero-floats{display:none !important}
       <a href="#casos">Casos</a>
     </div>
     <div class="nav-cta">
-      <a href="https://vendilatam.com/login" style="margin-right:16px;font-weight:600;font-size:.95rem;color:var(--ink)">Iniciar sesión</a>
-      <button class="pill" onclick="window.location.href='https://vendilatam.com/comenzar?producto=lifetime-pass'">Comenzar</button>
+      <a href="https://vendilatam.com/login" class="pill ghost">Iniciar sesión</a>
+      <button class="pill" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Comenzar</button>
     </div>
     <button class="nav-toggle" aria-label="Abrir menú">
       <span></span><span></span><span></span>
@@ -894,16 +899,16 @@ body.no-floats .hero-floats{display:none !important}
       <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Listas para Instagram, Facebook Marketplace y Temu</li>
     </ul>
     <div class="hero-cta reveal d3">
-      <button class="pill lg" onclick="window.location.href='https://vendilatam.com/comenzar?producto=lifetime-pass'">Comenzar a crear
+      <button class="pill lg" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Comenzar a crear
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <a href="#vsl"><button class="pill ghost lg">Ver cómo funciona</button></a>
     </div>
-    <p class="hero-micro reveal d3">Tu Pase Fundador incluye <strong>60 créditos + 10 análisis con IA</strong> · Pago único</p>
+    <p class="hero-micro reveal d3">Arrancás con <strong>60 fotos gratis + 10 análisis IA</strong> · Sin tarjeta</p>
     <div class="founders reveal d4">
       <span class="founders-badge">🌱 Solo 30 lugares</span>
       <small>Sé uno de los primeros <b>30 fundadores</b> de Vendí.
-        <button class="founders-cta" onclick="window.location.href='https://vendilatam.com/comenzar?producto=lifetime-pass'">Unirme →</button>
+        <button class="founders-cta" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Unirme →</button>
       </small>
     </div>
   </div>
@@ -1006,7 +1011,7 @@ body.no-floats .hero-floats{display:none !important}
   </div>
   <div class="wrap" style="text-align:center;margin-top:clamp(30px,4vw,48px)">
     <p style="font-family:var(--font-display);font-style:italic;font-size:clamp(1.4rem,3.4vw,2.3rem);color:var(--ink);line-height:1.15">Tus productos pueden estar <em style="color:var(--clay)">acá</em>.</p>
-    <button class="pill" style="margin-top:18px" onclick="window.VendiQuiz&&window.VendiQuiz.buy&&window.VendiQuiz.buy()">Quiero mis fotos así
+    <button class="pill" style="margin-top:18px" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Quiero mis fotos así
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
@@ -1148,7 +1153,7 @@ body.no-floats .hero-floats{display:none !important}
       <span class="guarantee-ic">🛡️</span>
       <div class="guarantee-txt">
         <b>Probá sin riesgo.</b>
-        <span>Tu Pase incluye 60 créditos y 10 análisis con IA. Soporte directo del fundador, de verdad.</span>
+        <span>Arrancás con 60 fotos de regalo y 10 análisis con IA, sin tarjeta. Soporte directo del fundador, de verdad.</span>
       </div>
     </div>
   </div>
@@ -1252,7 +1257,7 @@ body.no-floats .hero-floats{display:none !important}
         <div class="why b reveal d1">
           <div class="wic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 7a4 4 0 11-8 0 4 4 0 018 0zM12 11v6m-3-3h6"/></svg></div>
           <h3>Créditos <em>sin vueltas</em></h3>
-          <p>Cada imagen usa créditos. Tu Pase incluye 60 créditos —más 10 análisis con IA— y sumás más cuando los necesites. Sin mensualidades obligatorias.</p>
+          <p>Cada imagen usa 1 crédito, o sea que 60 créditos son 60 fotos. Arrancás con esos 60 de regalo —más 10 análisis con IA de cortesía— y sumás más cuando los necesites. Sin mensualidades obligatorias.</p>
         </div>
         <div class="why c reveal d2">
           <div class="wic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-7-10a7 7 0 0114 0c0 5.5-7 10-7 10z"/><circle cx="12" cy="11" r="2.5"/></svg></div>
@@ -1312,9 +1317,9 @@ body.no-floats .hero-floats{display:none !important}
       <div class="tkt-glow" aria-hidden="true"></div>
       <div class="tkt-inner">
         <div class="tkt-copy">
-          <span class="kicker">La oferta de lanzamiento</span>
+          <span class="kicker">El regalo de lanzamiento</span>
           <h3 class="tkt-h">Tu catálogo que vende,<br><em>listo esta tarde.</em></h3>
-          <p class="tkt-sub">Subís una foto, elegís un estilo y descargás imágenes que venden. Tu Pase incluye <strong>60 créditos</strong> y <strong>10 análisis con IA</strong> — sin sesión de fotos ni diseñador.</p>
+          <p class="tkt-sub">Subís una foto, elegís un estilo y descargás imágenes que venden. Empezás con <strong>60 fotos de regalo</strong> y <strong>10 análisis con IA</strong> — sin sesión de fotos ni diseñador.</p>
         </div>
         <div class="tkt-props" aria-hidden="true">
           <div class="tkt-card a"><div class="rimg"><img src="/estilos/editorial-premium.jpg" alt="" loading="lazy"></div></div>
@@ -1330,10 +1335,8 @@ body.no-floats .hero-floats{display:none !important}
           <h3>Lifetime Pass</h3>
           <p class="plan-sub">Acceso completo a Vendí, de por vida.</p>
           <div class="plan-price">
-            <span class="amt-old">$27</span>
             <span class="amt">$10</span>
             <span class="per">USD · pago único</span>
-            <span class="plan-save">Ahorrás $17</span>
           </div>
           <div class="plan-tags">
             <span class="plan-tag">⚡ Pago único</span>
@@ -1344,17 +1347,17 @@ body.no-floats .hero-floats{display:none !important}
           <li>Todos los estilos profesionales curados</li>
           <li>Sin marca de agua · alta resolución</li>
           <li>Formatos por canal: feed, story, ecommerce</li>
-          <li>60 créditos de inicio incluidos <span class="byok">(generás tus imágenes con ellos)</span></li>
-          <li>10 análisis con IA incluidos <span class="byok">(bolsa aparte de tus créditos)</span></li>
+          <li>60 fotos de inicio incluidas <span class="byok">(1 crédito = 1 foto)</span></li>
+          <li>10 análisis con IA de regalo <span class="byok">(bolsa aparte de tus créditos)</span></li>
           <li>Mejoras y estilos nuevos, para siempre</li>
         </ul>
-        <button class="pill lg" style="width:100%;justify-content:center" onclick="window.VendiQuiz&&window.VendiQuiz.buy&&window.VendiQuiz.buy()">Quiero mi Lifetime Pass
+        <button class="pill lg" style="width:100%;justify-content:center" onclick="window.location.href='https://vendilatam.com/comenzar'">Quiero mi Lifetime Pass
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <p class="plan-fine">Pago único · Sin mensualidades · Acceso de por vida</p>
       </div>
     </div>
-    <p class="pricing-foot reveal d2">Cada imagen usa créditos. Tu Pase incluye 60 créditos y sumás más packs cuando quieras, sin mensualidades.</p>
+    <p class="pricing-foot reveal d2">Cada imagen usa 1 crédito: arrancás con 60, o sea 60 fotos de regalo, y sumás más packs cuando quieras, sin mensualidades.</p>
   </div>
 </section>
 
@@ -1450,7 +1453,7 @@ body.no-floats .hero-floats{display:none !important}
           <svg class="faq-chev" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <div class="faq-a" id="faq-a5" role="region" aria-labelledby="faq-q5">
-          <div class="faq-a-inner">Cada imagen que generás usa créditos. Tu Pase incluye 60 créditos. Cuando se te terminan, sumás más con un pack — sin mensualidad obligatoria.</div>
+          <div class="faq-a-inner">Cada imagen que generás usa 1 crédito, así que 60 créditos son 60 fotos. Arrancás con esos 60 de regalo. Cuando se te terminan, sumás más con un pack — sin mensualidad obligatoria.</div>
         </div>
       </div>
 
@@ -1504,7 +1507,7 @@ body.no-floats .hero-floats{display:none !important}
     <h2>Un solo pago.<br>Tu catálogo, <em>para siempre</em>.</h2>
     <p>Sin sesión de fotos. Sin diseñador. Sin mensualidades.</p>
     <div class="final-cta">
-      <button class="pill on-dark lg" onclick="window.VendiQuiz&&window.VendiQuiz.buy&&window.VendiQuiz.buy()">Quiero mi Lifetime Pass
+      <button class="pill on-dark lg" onclick="document.getElementById('precios').scrollIntoView({behavior:'smooth'})">Quiero mi Lifetime Pass
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <a href="#precios"><button class="pill ghost on-dark-ghost lg">Ver qué incluye</button></a>
@@ -1538,8 +1541,8 @@ body.no-floats .hero-floats{display:none !important}
         <div class="foot-col">
           <h4>Empresa</h4>
           <a href="#">Sobre Vendí</a>
-          <a href="#">Contacto</a>
-          <a href="#">Soporte</a>
+          <a href="mailto:soporte@vendilatam.com?subject=Contacto%20desde%20la%20web%20de%20Vend%C3%AD">Contacto</a>
+          <a href="mailto:soporte@vendilatam.com?subject=Soporte%20desde%20la%20web%20de%20Vend%C3%AD">Soporte</a>
         </div>
         <div class="foot-col">
           <h4>Legal</h4>
@@ -1968,14 +1971,15 @@ if(rail){
 </div>
 <script>
 (function(){
-  // Acción de COMPRA del Lifetime: NO usar un link estático de Mercado Pago.
-  // Vamos al dominio de la app, a /comenzar?producto=lifetime-pass: ese route
-  // decide signup/checkout según la sesión y crea la Preference de MP por-usuario
-  // (external_reference = id de Clerk), así el webhook le acredita el Pase al
-  // comprador correcto y le abre el acceso founder. Un pref_id fijo NO lleva
-  // usuario → el cliente pagaría y quedaría sin nada.
+  // Dominio de la app (cross-domain: la landing es estática en otro dominio).
+  const APP_URL = 'https://vendilatam.com';
+  // NO usar un checkout link estatico de Whop: no lleva el clerk_user_id, asi que
+  // el cliente pagaria y el webhook no sabria a quien acreditarle los creditos.
+  // El cobro va SIEMPRE por el embudo cuenta-primero:
+  //   /comenzar -> /comprar -> (signup si es anonimo) -> /plan -> checkout de Whop
+  // /plan es la pestana pre-checkout branded de Vendi; recien desde ahi se sale a pagar.
   function buy(){
-    window.location.href = 'https://vendilatam.com/comenzar?producto=lifetime-pass';
+    window.location.href = APP_URL + '/comenzar';
   }
   // Captura de leads en Supabase. La anon/publishable key es PÚBLICA (va embebida en estático, está OK):
   // la tabla `leads` tiene RLS insert-only (insert anónimo permitido, lectura bloqueada).
@@ -2421,18 +2425,16 @@ if(rail){
         <span class="co-badge">🎁 Oferta de lanzamiento</span>
         <span class="co-name">Lifetime Pass</span>
         <div class="co-price">
-          <span class="co-old">$27</span>
           <span class="co-now">$10</span>
           <span class="co-cur">USD</span>
-          <span class="co-save">Ahorrás $17</span>
         </div>
         <div class="co-tags">
           <span class="co-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5V4a1 1 0 011-1h7.5L21 12.5l-8.5 8.5L3 11.5z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/></svg> Pago único</span>
           <span class="co-tag"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8a4 4 0 100 8c2.2 0 3.4-2 5-4s2.8-4 5-4a4 4 0 110 8c-2.2 0-3.4-2-5-4S9.2 8 7 8z"/></svg> Acceso de por vida</span>
         </div>
         <ul class="co-feats">
-          <li>${ck()} 60 créditos de inicio incluidos</li>
-          <li>${ck()} 10 análisis con IA incluidos</li>
+          <li>${ck()} 60 fotos de inicio incluidas</li>
+          <li>${ck()} 10 análisis con IA de regalo</li>
           <li>${ck()} Todos los estilos profesionales curados</li>
           <li>${ck()} Sin marca de agua · alta resolución</li>
           <li>${ck()} Formatos por canal: feed, story, ecommerce</li>
@@ -2441,7 +2443,7 @@ if(rail){
         <button class="pill lg co-cta" id="vqCoCta">Quiero mi Lifetime Pass
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <p class="co-fine">Incluye 60 créditos + 10 análisis con IA para empezar. Sumás más cuando los necesites.</p>
+        <p class="co-fine">Incluye 60 fotos + 10 análisis con IA para empezar. Sumás más cuando los necesites.</p>
           </div>
         </div>
       </div>`;
@@ -2454,8 +2456,8 @@ if(rail){
     const escCo=(e)=>{ if(e.key==='Escape'){ closeCo(); document.removeEventListener('keydown',escCo); } };
     document.addEventListener('keydown',escCo);
     const cta=wrap.querySelector('#vqCoCta');
-    // CTA de COMPRA del checkout card: va a buy() → /comenzar?producto=lifetime-pass
-    // (checkout per-usuario del Pase Fundador vía Mercado Pago).
+    // CTA de COMPRA del checkout card: entra al embudo cuenta-primero via /comenzar.
+    // Termina en /plan (pre-checkout branded) y de ahi al checkout de Whop.
     if(cta)cta.addEventListener('click',()=>{ closeCo(); buy(); });
   }
 
@@ -2597,5 +2599,73 @@ document.addEventListener('click',function(e){
   });
 })();
 </script>
+
+<!-- ===== SOPORTE / CONTACTO — botón flotante que abre el correo ===== -->
+<style>
+.vsupport{position:fixed;right:clamp(16px,4vw,26px);bottom:clamp(16px,4vw,26px);z-index:41;font-family:var(--font-sans)}
+.vsupport-bubble{position:relative;width:58px;height:58px;border-radius:999px;border:none;cursor:pointer;background:var(--forest);color:var(--cream);display:grid;place-items:center;box-shadow:0 18px 40px -12px rgba(15,31,22,.6),inset 0 0 0 1px rgba(240,244,231,.08);transition:transform .25s ease,box-shadow .25s ease}
+.vsupport-bubble:hover{transform:translateY(-3px);box-shadow:0 24px 50px -12px rgba(15,31,22,.7)}
+.vsupport-bubble svg{grid-area:1/1;transition:opacity .2s ease,transform .2s ease}
+.vsupport-bubble .ic-close{opacity:0;transform:rotate(-45deg) scale(.6)}
+.vsupport.open .vsupport-bubble .ic-chat{opacity:0;transform:rotate(45deg) scale(.6)}
+.vsupport.open .vsupport-bubble .ic-close{opacity:1;transform:none}
+.vsupport-panel{position:absolute;right:0;bottom:72px;width:min(320px,calc(100vw - 32px));background:var(--card);color:var(--ink);border-radius:18px;padding:20px;box-shadow:var(--shadow-lg);border:1px solid var(--border);opacity:0;transform:translateY(12px) scale(.96);transform-origin:bottom right;pointer-events:none;transition:opacity .28s ease,transform .28s cubic-bezier(.2,.8,.2,1)}
+.vsupport.open .vsupport-panel{opacity:1;transform:none;pointer-events:auto}
+.vsupport-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.vsupport-head strong{display:block;font-family:var(--font-display);font-weight:500;font-size:1.18rem;line-height:1.15;color:var(--ink)}
+.vsupport-head span{display:block;margin-top:3px;font-size:.82rem;color:var(--mute)}
+.vsupport-x{border:none;background:var(--muted-bg);color:var(--ink);width:28px;height:28px;border-radius:999px;cursor:pointer;font-size:13px;line-height:1;flex:none;transition:background .2s}
+.vsupport-x:hover{background:var(--border-strong)}
+.vsupport-copy{font-size:.9rem;line-height:1.5;color:var(--ink-soft);margin-bottom:16px}
+.vsupport-cta{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:13px 16px;border-radius:12px;background:var(--forest);color:var(--cream);font-weight:600;font-size:.95rem;text-decoration:none;transition:transform .2s ease,filter .2s ease}
+.vsupport-cta:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.vsupport-copybtn{margin-top:10px;width:100%;padding:9px 12px;border-radius:10px;border:1px dashed var(--border-strong);background:transparent;color:var(--mute);font-family:var(--font-mono);font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s,color .2s}
+.vsupport-copybtn:hover{background:var(--muted-bg);color:var(--ink)}
+.vsupport-copybtn span{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;opacity:.7}
+@media (max-width:520px){.vsupport-panel{width:calc(100vw - 32px)}}
+</style>
+<div class="vsupport" id="vsupport">
+  <div class="vsupport-panel" id="vsupportPanel" role="dialog" aria-label="Ayuda y contacto" aria-hidden="true">
+    <div class="vsupport-head">
+      <div>
+        <strong>¿Necesitás ayuda?</strong>
+        <span>Te responde el fundador, de verdad.</span>
+      </div>
+      <button class="vsupport-x" id="vsupportClose" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="vsupport-copy">Escribinos por lo que sea: precios, cómo funciona, tu cuenta o una consulta comercial.</p>
+    <a class="vsupport-cta" id="vsupportMail" href="mailto:soporte@vendilatam.com?subject=Consulta%20desde%20la%20web%20de%20Vend%C3%AD">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+      Escribir un correo
+    </a>
+    <button class="vsupport-copybtn" id="vsupportCopy" type="button" aria-label="Copiar correo soporte@vendilatam.com">soporte@vendilatam.com <span id="vsupportCopyLbl">copiar</span></button>
+  </div>
+  <button class="vsupport-bubble" id="vsupportBubble" aria-label="Abrir ayuda y contacto" aria-expanded="false">
+    <svg class="ic-chat" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.6-.8L3 21l1.9-5.4A8.5 8.5 0 1 1 21 11.5Z"/></svg>
+    <svg class="ic-close" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+</div>
+<script>
+(function(){
+  var root=document.getElementById('vsupport');
+  var bubble=document.getElementById('vsupportBubble');
+  var panel=document.getElementById('vsupportPanel');
+  var closeBtn=document.getElementById('vsupportClose');
+  var copyBtn=document.getElementById('vsupportCopy');
+  if(!root||!bubble)return;
+  function openP(){root.classList.add('open');bubble.setAttribute('aria-expanded','true');if(panel)panel.setAttribute('aria-hidden','false');}
+  function closeP(){root.classList.remove('open');bubble.setAttribute('aria-expanded','false');if(panel)panel.setAttribute('aria-hidden','true');}
+  bubble.addEventListener('click',function(e){e.stopPropagation();root.classList.contains('open')?closeP():openP();});
+  if(closeBtn)closeBtn.addEventListener('click',closeP);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeP();});
+  document.addEventListener('click',function(e){if(root.classList.contains('open')&&!root.contains(e.target))closeP();});
+  if(copyBtn)copyBtn.addEventListener('click',function(){
+    var lbl=document.getElementById('vsupportCopyLbl');
+    var done=function(){if(lbl){lbl.textContent='copiado ✓';setTimeout(function(){lbl.textContent='copiar';},1800);}};
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText('soporte@vendilatam.com').then(done,done);}else{done();}
+  });
+})();
+</script>
+<!-- ===== FIN SOPORTE / CONTACTO ===== -->
 </body>
 </html>

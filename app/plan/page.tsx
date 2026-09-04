@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
-import { getProduct } from "@/lib/mercadopago/catalog";
+import { getProduct } from "@/lib/billing/catalog";
 import { AppBackground } from "@/components/dashboard/app-background";
 import { PlanClient } from "./plan-client";
 
@@ -24,19 +24,21 @@ import { PlanClient } from "./plan-client";
  *  - logueado SIN pagar   -> VE LA PANTALLA. Es su razon de existir.
  *  - logueado que ya pago -> /dashboard (no se le re-cobra).
  *
- * PRECIO: sale del catalogo server-side (`lib/mercadopago/catalog.ts`, que es
+ * PRECIO: sale del catalogo server-side (`lib/billing/catalog.ts`, que es
  * `server-only`) y baja al cliente ya formateado. NUNCA hardcodeado, y NUNCA
  * viaja desde el cliente hacia el checkout: al POST /api/checkout solo se le
  * manda `productId`.
  *
- * 🔴 DOS MONEDAS EN PANTALLA, UNA SOLA QUE SE COBRA.
- * El numero GRANDE es `US$10` (`priceUsdDisplay`, que ya vivia en el catalogo):
- * es el ancla que el mercado entiende. Pero Mercado Pago cobra SOLES, asi que el
- * monto real (`S/ 39`) aparece TRES veces y ninguna en letra chica —
- * 16px bold debajo del precio, 15px bold en el texto del boton, y 12px en el
- * pie. Nadie puede llegar al checkout sorprendido por la moneda.
- * ⚠️ El monto cobrado NO cambio: `lifetime-pass` sigue siendo S/39 en el
- * catalogo. Esto es SOLO presentacion.
+ * 🟢 UNA SOLA MONEDA (2026-09-04, migracion Mercado Pago -> Whop).
+ * Antes habia DOS: el ancla `US$10` grande y el `S/ 39` que MP cobraba de
+ * verdad. Whop cobra en USD (con adaptive pricing: el comprador ve su moneda
+ * local), asi que el precio mostrado y el cobrado son el MISMO numero y el
+ * bloque de dos monedas ya no tiene razon de existir.
+ * ⚠️ PENDIENTE FASE 4 (Frontero/Davinci): `chargeLabel` y `perPhotoLabel`
+ * siguen existiendo como props de PlanClient solo para no romper su contrato en
+ * este commit; el copy que los rodea todavia dice "Mercado Pago" en
+ * `plan-client.tsx`. Colapsar el bloque de cobro y borrar esas props es trabajo
+ * de la Fase 4, no de este cambio de riel.
  */
 
 export const metadata: Metadata = {
@@ -45,15 +47,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * "S/ 39" cuando es entero, "S/ 119.90" cuando tiene centavos.
+ * "US$10" cuando es entero, "US$9.50" cuando tiene centavos.
  *
- * El ESPACIO no es cosmetico: este label ya no es un numero grande al lado de su
- * simbolo, es una frase corrida ("Se cobra S/ 39 en Mercado Pago") y el texto de
- * un boton. Pegado, "S/39" se lee como una sola palabra rara; con espacio se lee
- * como monto.
+ * Reemplaza al viejo `formatSoles`: el riel es Whop y cobra en dolares.
  */
-function formatSoles(amount: number): string {
-  return Number.isInteger(amount) ? `S/ ${amount}` : `S/ ${amount.toFixed(2)}`;
+function formatUsd(amount: number): string {
+  return Number.isInteger(amount) ? `US$${amount}` : `US$${amount.toFixed(2)}`;
 }
 
 export default async function PlanPage() {
@@ -69,8 +68,8 @@ export default async function PlanPage() {
     // ROMPE-LOOP (critico): tiene que ser `?direct=1`. `/comprar` ahora manda al
     // no-pagador ACA, asi que un `redirect("/comprar")` pelado seria
     // /comprar -> /plan -> /comprar -> ... infinito, y el usuario quedaria SIN
-    // camino a pagar. Con ?direct=1 el handler crea la Preference y salta a
-    // Mercado Pago: degradamos exactamente al comportamiento historico.
+    // camino a pagar. Con ?direct=1 el handler crea el checkout de Whop del
+    // Pase Fundador y salta derecho a pagar.
     redirect("/comprar?direct=1");
   }
 
@@ -81,18 +80,18 @@ export default async function PlanPage() {
           // El id viaja al cliente para que `startCheckout` siga siendo generica
           // (recibe el productId), en vez de hardcodear el string en el onClick.
           id: lifetime.id,
-          // El numero GRANDE. Sale de `priceUsdDisplay` del catalogo, que ya
-          // existia — no se invento ni se hardcodeo un dolar nuevo.
-          usdBig: `US$${lifetime.priceUsdDisplay}`,
-          // Lo que Mercado Pago cobra DE VERDAD. Se muestra 3 veces y ninguna en
-          // letra chica (ver el bloque de arriba).
-          chargeLabel: formatSoles(lifetime.priceSoles),
-          // Aritmetica sobre el precio REAL del catalogo: S/39 / 60 = S/0.65.
+          // El numero GRANDE. Sale de `priceUsd` del catalogo — que ahora es el
+          // precio REAL, no un ancla de vitrina.
+          usdBig: formatUsd(lifetime.priceUsd),
+          // Lo que se cobra. Con Whop es el MISMO numero que el grande (una sola
+          // moneda), asi que este label quedo redundante -> lo colapsa la Fase 4.
+          chargeLabel: formatUsd(lifetime.priceUsd),
+          // Aritmetica sobre el precio REAL del catalogo: US$10 / 60 = US$0.17.
           // NUNCA hardcodeado — si cambia el precio o los creditos, cambia solo.
-          // ⚠️ Va en SOLES a proposito: US$10 / 60 = US$0.17, y 0.17 × 60 =
-          // US$10.20, que NO cierra con el precio mostrado. El soles cierra
-          // exacto porque es el monto que se cobra.
-          perPhotoLabel: `S/${(lifetime.priceSoles / lifetime.credits).toFixed(2)}`,
+          // ⚠️ 0.17 × 60 = US$10.20, o sea que NO cierra exacto contra el precio
+          // mostrado (es un redondeo hacia arriba de 0.1666...). La Fase 4 decide
+          // si se muestra "aprox." o si se cambia la metrica.
+          perPhotoLabel: `US$${(Math.ceil((lifetime.priceUsd / lifetime.credits) * 100) / 100).toFixed(2)}`,
           credits: lifetime.credits,
           analysisCredits: lifetime.analysisCredits ?? 0,
         }}
