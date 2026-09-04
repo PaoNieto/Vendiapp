@@ -1,7 +1,34 @@
 import "server-only";
 import { Preference } from "mercadopago";
 import { getMercadoPagoClient } from "./client";
-import { getProduct } from "./catalog";
+import { getProduct } from "@/lib/billing/catalog";
+
+/**
+ * ⚠️ LEGACY — ESTE ARCHIVO YA NO SE USA (2026-09-04).
+ *
+ * El riel de cobro de Vendí pasó a WHOP (`lib/whop/create-checkout.ts`).
+ * `/api/checkout` y `/comprar` ya NO llaman a `createPreference`. Este módulo
+ * queda en el árbol solo como red de seguridad reversible por git hasta que
+ * Whop cobre de verdad en producción; después se borra entero (Fase 6 del plan),
+ * junto con `lib/mercadopago/client.ts` y el webhook de MP.
+ *
+ * NO agregar features acá.
+ */
+
+/**
+ * Precios en SOLES (PEN) que cobraba Mercado Pago Perú.
+ *
+ * Vivían en el catálogo como `priceSoles`, pero el catálogo se volvió agnóstico
+ * del riel y quedó en USD puro (Whop cobra dólares con adaptive pricing). Como
+ * el precio en soles es una preocupación EXCLUSIVA de este riel legacy, se mudó
+ * acá en vez de ensuciar `lib/billing/catalog.ts`. Muere con este archivo.
+ */
+const LEGACY_PRICE_PEN: Record<string, number> = {
+  "lifetime-pass": 39.0,
+  "pack-inicial": 24.9,
+  "pack-pro": 54.9,
+  "pack-negocio": 119.9,
+};
 
 export type CreatePreferenceErrorCode =
   | "PRODUCT_NOT_FOUND"
@@ -35,7 +62,8 @@ export async function createPreference(
   // Resolver el producto del catálogo server-side (precio + créditos). El
   // cliente NUNCA fija el monto: solo manda el id del pack.
   const product = getProduct(productId);
-  if (!product) {
+  const priceSoles = LEGACY_PRICE_PEN[productId];
+  if (!product || priceSoles === undefined) {
     throw new CreatePreferenceError(
       "PRODUCT_NOT_FOUND",
       "Producto no encontrado",
@@ -56,7 +84,7 @@ export async function createPreference(
           title: product.title,
           description: product.description,
           quantity: 1,
-          unit_price: product.priceSoles,
+          unit_price: priceSoles,
           currency_id: "PEN",
         },
       ],

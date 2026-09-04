@@ -1335,10 +1335,8 @@ body.no-floats .hero-floats{display:none !important}
           <h3>Lifetime Pass</h3>
           <p class="plan-sub">Acceso completo a Vendí, de por vida.</p>
           <div class="plan-price">
-            <span class="amt-old">$27</span>
             <span class="amt">$10</span>
             <span class="per">USD · pago único</span>
-            <span class="plan-save">Ahorrás $17</span>
           </div>
           <div class="plan-tags">
             <span class="plan-tag">⚡ Pago único</span>
@@ -1975,10 +1973,13 @@ if(rail){
 (function(){
   // Dominio de la app (cross-domain: la landing es estática en otro dominio).
   const APP_URL = 'https://vendilatam.com';
-  const MP_PAYMENT_LINK = ''; // VACIO A PROPOSITO. Un link MP estatico NO lleva external_reference: el cliente paga y NO se le acreditan creditos. El cobro real va por cuenta-primero: /comenzar -> /comprar -> /signup -> POST /api/checkout (precio server-side + external_reference = userId de Clerk).
-  // Acción de COMPRA: si hay link de Mercado Pago, va directo al pago; si no, al registro de la app.
+  // NO usar un checkout link estatico de Whop: no lleva el clerk_user_id, asi que
+  // el cliente pagaria y el webhook no sabria a quien acreditarle los creditos.
+  // El cobro va SIEMPRE por el embudo cuenta-primero:
+  //   /comenzar -> /comprar -> (signup si es anonimo) -> /plan -> checkout de Whop
+  // /plan es la pestana pre-checkout branded de Vendi; recien desde ahi se sale a pagar.
   function buy(){
-    window.location.href = MP_PAYMENT_LINK ? MP_PAYMENT_LINK : (APP_URL + '/signup');
+    window.location.href = APP_URL + '/comenzar';
   }
   // Captura de leads en Supabase. La anon/publishable key es PÚBLICA (va embebida en estático, está OK):
   // la tabla `leads` tiene RLS insert-only (insert anónimo permitido, lectura bloqueada).
@@ -2424,10 +2425,8 @@ if(rail){
         <span class="co-badge">🎁 Oferta de lanzamiento</span>
         <span class="co-name">Lifetime Pass</span>
         <div class="co-price">
-          <span class="co-old">$27</span>
           <span class="co-now">$10</span>
           <span class="co-cur">USD</span>
-          <span class="co-save">Ahorrás $17</span>
         </div>
         <div class="co-tags">
           <span class="co-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5V4a1 1 0 011-1h7.5L21 12.5l-8.5 8.5L3 11.5z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor" stroke="none"/></svg> Pago único</span>
@@ -2457,8 +2456,8 @@ if(rail){
     const escCo=(e)=>{ if(e.key==='Escape'){ closeCo(); document.removeEventListener('keydown',escCo); } };
     document.addEventListener('keydown',escCo);
     const cta=wrap.querySelector('#vqCoCta');
-    // CTA de COMPRA del checkout card: va al pago (Mercado Pago si MP_PAYMENT_LINK existe;
-    // si no, fallback al registro de la app /signup → arranca con 60 fotos de regalo).
+    // CTA de COMPRA del checkout card: entra al embudo cuenta-primero via /comenzar.
+    // Termina en /plan (pre-checkout branded) y de ahi al checkout de Whop.
     if(cta)cta.addEventListener('click',()=>{ closeCo(); buy(); });
   }
 

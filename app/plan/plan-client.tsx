@@ -58,12 +58,11 @@ type LifetimeCopy = {
   /** "US$10" — el NUMERO GRANDE. Sale de `priceUsdDisplay` del catalogo. */
   usdBig: string;
   /**
-   * "S/ 39" — lo que Mercado Pago cobra de verdad. Se muestra TRES veces
-   * (bloque de cobro 16px bold · texto del boton 15px bold · pie 12px) y ninguna
-   * en letra chica. NO lo escondas.
+   * Lo que se cobra. Con Whop hay UNA SOLA MONEDA (USD), asi que es el mismo
+   * numero que `usdBig`. Se conserva para el texto del boton.
    */
   chargeLabel: string;
-  /** S/39 / 60 = "S/0.65". Lo calcula el server desde el catalogo. Vive en el pie. */
+  /** US$10 / 60 = "US$0.17", redondeado ARRIBA. Se muestra como "menos de X". */
   perPhotoLabel: string;
   credits: number;
   analysisCredits: number;
@@ -387,9 +386,10 @@ export function PlanClient({ lifetime }: PlanClientProps) {
 
               {/*
                 ── BLOQUE DE COBRO ── el requisito duro de esta pantalla.
-                Mercado Pago cobra SOLES, no dolares. Este bloque existe para que
-                nadie llegue al checkout sorprendido: el monto real va en 16px
-                BOLD, no en letra chica.
+                Con Whop hay UNA SOLA MONEDA (USD): el monto que se muestra es el
+                que se cobra. Igual va en 16px BOLD, no en letra chica, para que
+                nadie llegue al checkout sorprendido. Si el comprador esta en
+                Peru, Whop le muestra el equivalente en soles en su checkout.
                 ⚠️ `noRise` obligatorio: esto es informacion de PRECIO y aplica la
                 misma regla que el precio y el CTA (framer-motion serializa
                 `initial` en el HTML del server; con un initial que oculte, nace
@@ -409,9 +409,6 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 <p className="vd-plan-charge-note">
                   {lifetime.credits} fotos + {lifetime.analysisCredits} análisis
                   con IA{" "}
-                  <span className="vd-plan-charge-soles">
-                    · se cobra {lifetime.chargeLabel} en Mercado Pago
-                  </span>
                 </p>
               </motion.div>
 
@@ -424,9 +421,7 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                   onClick={() => startCheckout(lifetime.id)}
                 >
                   {/*
-                    El monto REAL en el texto del boton (15px bold, lo pone
-                    `.vd-plan-cta`). Es la 2da de las 3 apariciones del S/ 39:
-                    el ultimo cartel antes de irse a Mercado Pago.
+                    Ultimo cartel antes de salir al checkout de Whop.
                   */}
                   {busy ? "Redirigiendo…" : "Pagar y entrar"}
                 </PillButton>
@@ -438,8 +433,8 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 ) : null}
 
                 <p className="mt-3 text-[13px] leading-relaxed text-mute">
-                  Pago seguro con Mercado Pago. Es un solo pago: no se renueva ni
-                  se te vuelve a cobrar.
+                  Pago seguro con Whop: tarjeta, Yape o Mercado Pago. Es un solo
+                  pago: no se renueva ni se te vuelve a cobrar.
                 </p>
               </motion.div>
 
@@ -474,9 +469,8 @@ export function PlanClient({ lifetime }: PlanClientProps) {
                 lugar donde vive el S/0.65 por foto que dejo la capsula.
               */}
               <p className="mt-5 text-[11px] leading-relaxed text-mute">
-                {lifetime.perPhotoLabel} por foto · el cobro se hace en soles a
-                través de Mercado Pago ({lifetime.chargeLabel}). Los créditos no
-                vencen.
+                Menos de {lifetime.perPhotoLabel} por foto · pago único de{" "}
+                {lifetime.usdBig}. Los créditos no vencen.
               </p>
             </section>
           </div>

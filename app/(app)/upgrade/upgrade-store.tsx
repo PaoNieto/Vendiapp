@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Coins, Loader2 } from "lucide-react";
 import { useCreditos } from "@/lib/creditos/use-creditos";
-import type { Product } from "@/lib/mercadopago/catalog";
+import type { Product } from "@/lib/billing/catalog";
 
 /**
  * Vitrina de compra (cliente). Recibe los productos del catálogo server-side
@@ -91,7 +91,7 @@ export function UpgradeStore({
                 <div className="mt-2 flex items-baseline gap-1.5">
                   <span className="text-sm font-semibold text-mute">US$</span>
                   <span className="card-value font-mono text-3xl font-semibold text-foreground dark:text-gold">
-                    {formatUsd(lifetime.priceUsdDisplay)}
+                    {formatUsd(lifetime.priceUsd)}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     pago único · {lifetime.credits} créditos
@@ -141,7 +141,7 @@ export function UpgradeStore({
             </p>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
               {packs.map((pack) => {
-                const perCredit = pack.priceUsdDisplay / pack.credits;
+                const perCredit = pack.priceUsd / pack.credits;
                 return (
                   <div
                     key={pack.id}
@@ -160,7 +160,7 @@ export function UpgradeStore({
                     <div className="mt-2 flex items-baseline gap-1.5">
                       <span className="text-sm font-semibold text-mute">US$</span>
                       <span className="card-value font-mono text-3xl font-semibold text-foreground dark:text-gold">
-                        {formatUsd(pack.priceUsdDisplay)}
+                        {formatUsd(pack.priceUsd)}
                       </span>
                     </div>
                     <p className="mt-1 text-sm font-medium text-foreground">
@@ -200,9 +200,9 @@ export function UpgradeStore({
         ) : null}
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
-          Los precios están en dólares (USD). El cobro se procesa en soles (PEN)
-          por Mercado Pago: te redirige a su página segura para completar el
-          pago.
+          Precios en dólares (USD). El pago se procesa con Whop: podés pagar con
+          tarjeta, Yape, Mercado Pago o PagoEfectivo, y si estás en Perú ves el
+          precio en soles. Los créditos no vencen y podés recargar cuando quieras.
         </p>
       </div>
     </div>

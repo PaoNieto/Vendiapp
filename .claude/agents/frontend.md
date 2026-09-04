@@ -23,7 +23,13 @@ No asumas de memoria vieja. **Next.js 16 tiene breaking changes** vs lo que cono
 - **Framer Motion** (`motion`) para animaciones
 - **Auth = Clerk** (`@clerk/nextjs`: `useUser`/`useAuth` en cliente, componentes `<SignIn>`/`<SignUp>`). `/login` y `/signup` son rutas catch-all de Clerk (`[[...rest]]`). La sesión NO vive en un store propio.
 - **Data:** NO hay TanStack Query. El estado vive en **stores propios (React Context + localStorage/Supabase)** en `lib/*/store.tsx` (products, versions, generations, analyses, negocio, creditos…). La generación/análisis/cobro pega a las **API routes** (`/api/generations`, `/api/analyze`, `/api/checkout`) con `fetch`.
-- **Cobro:** `/upgrade` llama a `/api/checkout` (Mercado Pago, EN PRODUCCIÓN) y redirige al `init_point` que devuelve; `/upgrade/resultado` es la página de retorno (UX, NO acredita — eso lo hace el webhook).
+- **Cobro: el riel es WHOP** (migración desde Mercado Pago, 2026-09-04). Dos superficies distintas — no las mezcles:
+  - **`/plan`** = paywall del que todavía NO pagó. Vende el **Pase Fundador: US$10, PAGO ÚNICO** (`prod_LQ9BVMZXTD6t2` / `plan_Cgn3jEiaucHkf`) = 60 créditos + 10 análisis + plan `founder`. Es el **ticket de entrada**: sin comprarlo no se entra a la app.
+  - **`/upgrade`** = vitrina de RECARGAS, dentro de la app, para el que ya pagó. Muestra solo los 3 packs de créditos: **Inicial US$9 / 30 créditos** (`plan_uX5zoWJBeIDEP`), **Pro US$19 / 80** (`plan_Au5BdLxtu3nJK`), **Negocio US$39 / 200** (`plan_0NIsyszmcO8dd`). Se compran las veces que el usuario quiera. El Pase NO se muestra acá (`listProducts()` filtra `kind !== "lifetime"`).
+  - **Ninguno es suscripción** — los 4 planes de Whop son `one_time`. **Los precios en soles están MUERTOS** (S/39, S/24.90, S/54.90, S/119.90 son historia): todo se muestra en **USD** y Whop hace *adaptive pricing* (detecta país por IP; el peruano ve soles en el checkout). Vos NO convertís monedas en el front.
+  - **Flujo:** `/upgrade` y `/plan` postean a `/api/checkout` mandando **solo el `productId`** (nunca el precio — eso se resuelve server-side en `lib/billing/catalog.ts`) y redirigen a la URL que devuelve. El campo de la respuesta sigue llamándose `initPoint`, pero ahora trae el `purchase_url` de Whop (`https://whop.com/checkout/plan_XXX/?session=ch_YYY`) en vez del `init_point` de Mercado Pago. La página de retorno es **`/pago/resultado`** (`app/pago/resultado/page.tsx`, FUERA del grupo `(app)` para que no la gatee el paywall — **NO es `/upgrade/resultado`, esa ruta no existe**); es solo UX, **NO acredita** — eso lo hace el webhook `/api/webhooks/whop`.
+  - **Estado honesto: el riel Whop se está escribiendo AHORA y TODAVÍA NO se probó un cobro real.** Falta que Paolo cree la API key y el webhook en el dashboard de Whop y cargue `WHOP_API_KEY`, `WHOP_WEBHOOK_SECRET` y `WHOP_ACCOUNT_ID=biz_k4v3iljkFYxhCO` en Vercel. Mercado Pago está SALIENDO (de la app y de la landing) — no construyas UI nueva contra MP. ⚠️ El MCP server `mercadopago` de `.mcp.json` **SE QUEDA** (orden explícita de Paolo): lo que se saca es el cobro de Vendí, no el MCP.
+  - **Lo que NO cambia:** la plomería de créditos es agnóstica al riel. `grant_credits`, `credit_ledger` y el gate `userHasPaidAccess` (`lib/auth/paid-access.ts`) quedan INTACTOS, y `credit_ledger.reason='purchase'` sigue siendo la señal que abre o cierra el paywall.
 - Imágenes: `next/image` para assets; `<img>` crudo para URLs firmadas de Storage cuando aplique.
 
 ## Reglas no negociables
@@ -38,12 +44,21 @@ No asumas de memoria vieja. **Next.js 16 tiene breaking changes** vs lo que cono
 ```
 app/(app)/   → dashboard, productos, productos/[id], productos/[id]/versiones/[versionId],
                fabrica, fabrica/[versionId], referencias, estilo, formato,
-               analisis, mi-negocio, ajustes, upgrade, upgrade/resultado
+               analisis, mi-negocio, ajustes, upgrade   (NO existe upgrade/resultado)
 app/(auth)/  → login/[[...rest]], signup/[[...rest]] (Clerk catch-all), recuperar
-app/comenzar/route.ts  → route handler auth-aware (botón "Comenzar" de la landing)
-app/api/     → generations, generations/[id], analyze, checkout, webhooks/mercadopago
+app/plan/    → paywall del no-pagador (vende el Pase Fundador). Vive FUERA del grupo (app)
+app/pago/resultado/ → página de retorno del checkout (UX, NO acredita). FUERA del grupo (app)
+app/comprar/route.ts   → destino universal del embudo: anónimo→/signup · pagador→/dashboard ·
+               no-pagador→/plan. Con ?direct=1 crea el checkout Whop directo (escotilla
+               anti-loop de /plan). Tiene que apuntar al MISMO riel que /api/checkout
+app/comenzar/route.ts  → alias del botón "Comenzar" de la landing → redirige a /comprar
+app/api/     → generations, generations/[id], analyze, checkout,
+               webhooks/whop (riel nuevo), webhooks/mercadopago (saliendo), webhooks/shopify
 components/  → app/ (shell), dashboard/, fabrica/, ui/
-lib/         → */store.tsx (stores), supabase/, ai/, mercadopago/, auth/ensure-profile, validations/, constants, styles, utils
+lib/         → */store.tsx (stores), supabase/, ai/, billing/catalog.ts (catálogo de productos,
+               fuente de verdad de precios y créditos), whop/ (client, create-checkout,
+               verify-webhook), shopify/, mercadopago/ (saliendo),
+               auth/ensure-profile + auth/paid-access, validations/, constants, styles, utils
 ```
 
 ## Qué NO hacés

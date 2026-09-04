@@ -1316,16 +1316,9 @@
      salta a 2 líneas: +17px = te comiste los 8px de aire y el CTA se cae del
      fold. A 375px baja a 11.6px y entra con margen; de 390px para arriba
      vuelve a 12px. */
-  /* El monto en soles: presente pero deliberadamente discreto (decision de
-     Paolo, 2026-08-22). Es el dato mas chico y mas callado de la card. Se
-     mantiene en el DOM a proposito: Mercado Pago cobra SOLES, y quitarlo del
-     todo dejaria al comprador sin ningun aviso previo del monto real. */
-  .vd-plan-charge-soles {
-    font-size: 0.82em;
-    font-weight: 400;
-    opacity: 0.62;
-    white-space: nowrap;
-  }
+  /* `.vd-plan-charge-soles` se elimino el 2026-09-04 con la migracion a Whop:
+     existia SOLO porque el numero grande era US$ y Mercado Pago cobraba S/.
+     Con Whop hay una sola moneda y ese segundo monto ya no tiene razon de ser. */
 
   .vd-plan-charge-note {
     font-family: var(--font-sans);

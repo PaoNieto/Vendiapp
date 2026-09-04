@@ -1,28 +1,34 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import {
-  createPreference,
-  CreatePreferenceError,
-} from "@/lib/mercadopago/create-preference";
+  createWhopCheckout,
+  CreateCheckoutError,
+} from "@/lib/whop/create-checkout";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { checkoutRequestSchema } from "@/lib/validations/checkout";
 
-// El SDK de Mercado Pago + la creación de Preference necesitan runtime Node
-// (no Edge). force-dynamic: nunca prerenderizar, siempre correr en el request.
+// La creación del checkout necesita runtime Node (no Edge).
+// force-dynamic: nunca prerenderizar, siempre correr en el request.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/checkout — crea una Preference de Checkout Pro y devuelve el
- * `init_point` (URL de Mercado Pago a la que el front redirige para pagar).
+ * POST /api/checkout — crea un checkout de WHOP y devuelve el `initPoint` (la
+ * URL a la que el front redirige para pagar).
+ *
+ * 🔴 EL NOMBRE `initPoint` SE CONSERVA A PROPÓSITO. Era el `init_point` de
+ * Mercado Pago; con Whop es el `purchase_url` de la checkout configuration. Al
+ * mantener la forma de la respuesta, los 3 clientes que hacen
+ * `window.location.href = data.initPoint` (upgrade-store, plan-client,
+ * fundador-client) NO se tocan.
  *
  * Seguridad: el cliente solo manda `productId`. Precio y créditos se resuelven
  * server-side desde el catálogo — el cliente NUNCA fija el monto. El usuario
- * Clerk viaja como `external_reference` (y en metadata) para que el webhook
- * sepa a quién acreditar sin sesión.
+ * Clerk viaja en el `metadata` del checkout para que el webhook sepa a quién
+ * acreditar sin sesión.
  *
- * El cobro real lo confirma el webhook /api/webhooks/mercadopago (fuente de
- * verdad). Las back_urls son solo UX y NO acreditan créditos.
+ * El cobro real lo confirma el webhook /api/webhooks/whop (fuente de verdad).
+ * El `redirect_url` es solo UX y NO acredita créditos.
  */
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string).
@@ -44,17 +50,17 @@ export async function POST(req: Request) {
     );
   }
 
-  // 3. Crear la Preference (resuelve producto + appUrl adentro y arma el cobro).
-  // Los fallos previsibles vienen como CreatePreferenceError tipado y se mapean
-  // a su HTTP status; cualquier otra cosa (incl. fallo de MP) cae en 502.
+  // 3. Crear el checkout (resuelve producto + appUrl adentro y arma el cobro).
+  // Los fallos previsibles vienen como CreateCheckoutError tipado y se mapean a
+  // su HTTP status; cualquier otra cosa (incl. WHOP_FAILED) cae en 502.
   try {
-    const { initPoint, preferenceId } = await createPreference(
+    const { initPoint, sessionId } = await createWhopCheckout(
       userId,
       parsed.data.productId,
     );
-    return NextResponse.json({ initPoint, preferenceId }, { status: 200 });
+    return NextResponse.json({ initPoint, sessionId }, { status: 200 });
   } catch (err) {
-    if (err instanceof CreatePreferenceError) {
+    if (err instanceof CreateCheckoutError) {
       if (err.code === "PRODUCT_NOT_FOUND")
         return NextResponse.json(
           { error: "Producto no encontrado" },
@@ -66,7 +72,7 @@ export async function POST(req: Request) {
           { status: 503 },
         );
     }
-    console.error("[checkout] Error creando Preference de MP:", err);
+    console.error("[checkout] Error creando el checkout de Whop:", err);
     return NextResponse.json(
       { error: "No se pudo crear el checkout" },
       { status: 502 },

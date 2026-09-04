@@ -117,7 +117,7 @@ Un audit que solo lista problemas miente por omisión. Esto es genuinamente buen
 |---|---|
 | **Confirmación de costo antes de gastar.** "0 videos × 2 créditos = 0 créditos · Saldo: 594" | Vendí cobra 1 crédito por imagen y por regeneración. Mostrar la cuenta **antes** del botón mata el reclamo de "me cobraste sin avisar" |
 | **"Si ningún competidor tiene ads activos, no se cobra nada"** | La promesa de no-cobro dicha en voz alta compra más confianza que el reembolso silencioso. Vendí ya reembolsa las imágenes que fallan — **no lo dice en ningún lado** |
-| **El botón de la verdad del Vault:** "al comprar aceptás que no tiene reembolso" | Decirlo antes del pago y no en los términos. Vendí vende packs sin política de devolución visible |
+| **El botón de la verdad del Vault:** "al comprar aceptás que no tiene reembolso" | Decirlo antes del pago y no en los términos. Vendí vende sus packs de créditos (US$9 / US$19 / US$39) sin política de devolución visible — y en Whop un contracargo cuesta **US$15**, así que el reclamo que no se previene ahora tiene precio de lista |
 | **Empty states que explican el siguiente paso**, no solo "no hay nada" | El de `/assets` explica el mecanismo entero en un párrafo |
 | **El copy de Video Studio:** "Se pega ENTERO después del hook (no lo recortamos), así que si es largo el video final queda largo" | Explica la **consecuencia**, no la función. Es el mejor texto de toda la app y el modelo de cómo debería escribir Vendí |
 | **Cero errores de consola en 23 pantallas** | El listón técnico del rubro es alto |
@@ -161,7 +161,28 @@ Cada anti-patrón de 100ads es una regla gratis para Vendí. Esta es la parte qu
 
 **Para Paolo, hoy:** no puede elegir Perú en Espionaje, no tiene pago local, y las voces de reels no suenan como su mercado.
 
-**Para Vendí, estratégicamente:** el competidor más cercano tiene un agujero con forma de Perú. Vendí cobra en soles por Mercado Pago, habla el mercado y está en Lima. Eso no es una feature — es el argumento comercial. Pasáselo a El Comerciante (comercial) y a Metapod (metapod) cuando toque escribir el ángulo del primer anuncio.
+**Para Vendí, estratégicamente:** el competidor más cercano tiene un agujero con forma de Perú. Vendí va a cobrar por **Whop** (riel en construcción, ver abajo), cuyo checkout trae Yape, Mercado Pago y PagoEfectivo nativos y le muestra el precio en soles al peruano (adaptive pricing: detecta el país por IP y procesa en moneda local), habla el mercado y está en Lima. Eso no es una feature — es el argumento comercial. Pasáselo a El Comerciante (comercial) y a Metapod (metapod) cuando toque escribir el ángulo del primer anuncio.
+
+### El riel de cobro de Vendí cambió: Mercado Pago → Whop (decisión del 04/09/2026)
+
+Contexto mínimo para no dar consejo con el precio viejo. Cuenta Whop: `biz_k4v3iljkFYxhCO` ("Vendi App"). **Ninguno de los 4 productos es suscripción: los cuatro son pago único** (`one_time`, sin renovación).
+
+| Producto | Precio | Qué da | Dónde se vende | IDs |
+|---|---|---|---|---|
+| **Pase Fundador** — ticket de entrada, sin él no se entra a la app | **US$10 pago único** | 60 créditos + 10 análisis, plan `founder` | Paywall `/plan`. **No se muestra dentro de la app** | `prod_LQ9BVMZXTD6t2` / `plan_Cgn3jEiaucHkf` |
+| Pack Inicial — recarga repetible | US$9 | 30 créditos | `/upgrade`, solo para quien ya pagó | `prod_gNuk5bWqX1Wn3` / `plan_uX5zoWJBeIDEP` |
+| Pack Pro — recarga repetible | US$19 | 80 créditos | `/upgrade` | `prod_HuFo9GgVBmUdO` / `plan_Au5BdLxtu3nJK` |
+| Pack Negocio — recarga repetible | US$39 | 200 créditos | `/upgrade` | `prod_ac0JmR7Kw0b5F` / `plan_0NIsyszmcO8dd` |
+
+**Los precios en soles quedaron obsoletos** (eran S/39 el pase, S/24.90 inicial, S/54.90 pro, S/119.90 negocio). Ahora todo se cotiza en USD y el soles lo pone el adaptive pricing de Whop, no el catálogo.
+
+**Por qué Whop y no Mercado Pago:** los 4 planes salen con 31 métodos de pago habilitados (tarjeta, Apple/Google Pay, Mercado Pago, **Yape**, PagoEfectivo, Pix, SPEI, OXXO, Nequi, PSE y más), o sea que no se pierde al comprador peruano — Yape estaba descartado por difícil de integrar y con Whop viene de fábrica — y además suma tarjeta internacional de cualquier país, que con MP Perú no se podía. Payouts a Perú verificados: 20+ bancos, 1-2 días, **comisión de retiro fija de US$2.20** — retirar US$100 cuesta 2,2%, retirar US$10 cuesta 22%. **Regla: acumular y retirar de a ~US$200+.** Comisión de venta: piso realista ~3,5% + US$0.30; un contracargo cuesta **US$15**.
+
+⚠️ **Todavía no cobró un peso.** El código se está escribiendo ahora (`lib/whop/*`, `app/api/webhooks/whop/route.ts`, migración `0024_whop_processed_payments.sql`, el catálogo mudándose a `lib/billing/catalog.ts`) y **no se probó ni un cobro real por Whop**. Falta que Paolo cree en el dashboard de Whop la API key y el webhook a `https://vendilatam.com/api/webhooks/whop` (evento `payment.succeeded`) y setee `WHOP_API_KEY`, `WHOP_WEBHOOK_SECRET` y `WHOP_ACCOUNT_ID` en Vercel. Hasta que eso pase, **no digas que el cobro por Whop funciona** — Mercado Pago está saliendo, Whop todavía no entró del todo.
+
+⚠️ **El MCP server `mercadopago` de `.mcp.json` SE QUEDA** — orden explícita de Paolo. Lo que sale es Mercado Pago como riel de cobro de la app Vendí y de la landing, no la herramienta.
+
+**Sin resolver (decisión comercial abierta):** Whop prende por default un programa de afiliados al 30%. El Pase y el Pack Inicial quedaron en 30% habilitado; Pro y Negocio en 0 deshabilitado. Si el tema aparece, es de El Comerciante (comercial), no tuyo.
 
 **Contra-advertencia honesta:** que 100ads no cubra Perú no prueba que haya demanda en Perú. Sigue sin haber canal. Este dato sirve para el mensaje, no para saltearse la validación a mano.
 
