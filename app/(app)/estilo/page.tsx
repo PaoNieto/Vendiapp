@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { StationShell } from "@/components/app/station-shell";
+import { ForkedVersionNotice } from "@/components/app/forked-version-notice";
 import { StyleCard } from "@/components/app/style-card";
 import { LookSummary } from "@/components/app/look-summary";
 import { ImageUploader, type UploadedImage } from "@/components/fabrica";
@@ -103,6 +104,11 @@ function EstiloContent({
       nextLabel="Continuar a Formato"
       wide
     >
+      {/* Si llegaste acá editando una versión que ya tenía fotos, la hoja de
+          versión bifurcó y estás sobre una copia. El cartel lo dice y ofrece
+          deshacer. No renderiza nada si no hubo bifurcación. */}
+      <ForkedVersionNotice />
+
       {/* Comanda mobile: arriba del todo, se llena a medida que elegís. */}
       <div className="mb-6 lg:hidden">
         <LookSummary

@@ -112,6 +112,44 @@ function isOutputRatio(v: unknown): v is OutputRatio {
   return typeof v === "string" && (ALLOWED_RATIOS as readonly string[]).includes(v);
 }
 
+/** Tope de `versionBriefSchema.name` — lo repetimos acá para no importar el
+ *  módulo de validaciones (que ya importa el tipo `Version` de este archivo). */
+const MAX_VERSION_NAME = 60;
+
+/** Sufijo " · v12" al final de un nombre de versión. */
+const VERSION_SUFFIX_RE = /^(.*?)\s*·\s*v(\d+)\s*$/i;
+
+/**
+ * Nombre para una versión derivada de otra: `"Campaña 0"` → `"Campaña 0 · v2"`,
+ * y desde `"Campaña 0 · v2"` → `"Campaña 0 · v3"`.
+ *
+ * Antes la copia se llamaba `"{nombre} (copia)"`, que al bifurcar dos veces
+ * daba `"Campaña 0 (copia) (copia)"` — ilegible y sin orden. Numerar deja claro
+ * cuál vino después y mantiene todas las derivadas bajo el mismo nombre base.
+ */
+function nextVersionName(all: Version[], source: Version): string {
+  const base = (source.name.match(VERSION_SUFFIX_RE)?.[1] ?? source.name).trim();
+  if (base.length === 0) return source.name;
+
+  // El próximo número libre mirando a las hermanas del mismo producto: si ya
+  // existen v2 y v3, la nueva es v4 aunque bifurques desde la v2.
+  let highest = 1;
+  for (const v of all) {
+    if (v.product_id !== source.product_id) continue;
+    const match = v.name.trim().match(VERSION_SUFFIX_RE);
+    if (match && match[1].trim() === base) {
+      highest = Math.max(highest, Number(match[2]));
+    }
+  }
+
+  const suffix = ` · v${highest + 1}`;
+  // El nombre tiene tope de 60: si no entra, recortamos la base, nunca el
+  // sufijo — perder el número rompería el orden.
+  const room = MAX_VERSION_NAME - suffix.length;
+  const trimmedBase = base.length > room ? base.slice(0, room).trimEnd() : base;
+  return `${trimmedBase}${suffix}`;
+}
+
 /**
  * Sube las referencias que sean dataURL/blob a `references-uploads`. Las que
  * ya sean URLs http(s) pasan sin tocar. Si una falla, conserva el input
@@ -448,7 +486,7 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
       // de duplicar la lógica de insert. La copia arranca sin gens ni images.
       return createVersion({
         product_id: source.product_id,
-        name: `${source.name} (copia)`,
+        name: nextVersionName(state.versions, source),
         description: source.description ?? undefined,
         reference_images: [...source.reference_images],
         output_ratio: source.output_ratio,
