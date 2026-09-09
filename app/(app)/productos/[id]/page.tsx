@@ -250,7 +250,6 @@ function ProductVersionsSection({
               .filter((img) => completedGenIds.has(img.generation_id))
               .map((img) => img.image_url)
               .filter(Boolean);
-            const hasImages = versionImageUrls.length > 0;
 
             const thumbnailUrl =
               versionImageUrls[0] ?? version.reference_images[0] ?? undefined;
@@ -259,11 +258,15 @@ function ProductVersionsSection({
               ? formatRelativeTime(latestGen.created_at)
               : null;
 
-            // Con imágenes → la Fábrica (catálogo). Sin imágenes (borrador) →
-            // la página de setup para configurar y generar la primera tanda.
-            const href = hasImages
-              ? `/fabrica/${version.id}`
-              : `/productos/${version.product_id}/versiones/${version.id}`;
+            // SIEMPRE a la hoja de versión, tenga imágenes o no. Antes esto
+            // bifurcaba a `/fabrica/<id>` cuando ya había fotos, y como casi
+            // toda versión real las tiene, la hoja rediseñada quedaba
+            // prácticamente inalcanzable: sólo la veías en un borrador recién
+            // creado. Peor, lo que el rediseño vino a resolver —que las ranuras
+            // se llenen EN EL LUGAR— era justo lo que nunca se podía ver.
+            // La Fábrica sigue estando: se entra desde "Ver todas" en la ficha
+            // técnica de la hoja, que es su rol real (el acumulado de tandas).
+            const href = `/productos/${version.product_id}/versiones/${version.id}`;
 
             return (
               <VersionCard
