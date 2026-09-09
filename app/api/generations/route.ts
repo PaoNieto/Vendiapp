@@ -34,6 +34,18 @@ import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
 // y la función muere ENTRE el deduct y el refund → el cliente pierde créditos.
 export const maxDuration = 300;
 
+/**
+ * Frase que aclara el reembolso, SÓLO cuando de verdad hubo uno.
+ *
+ * Los usuarios de la allowlist (`unlimited_users`) no reciben refund porque su
+ * deduct es no-op server-side; prometerles créditos de vuelta sería mentirles, y
+ * un refund real les acuñaría saldo de la nada (ya pasó en prod: +2 sin deduct).
+ */
+function refundNote(amount: number, isUnlimited: boolean): string {
+  if (isUnlimited || amount <= 0) return "";
+  return ` Te devolvimos ${amount} ${amount === 1 ? "crédito" : "créditos"}.`;
+}
+
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
   // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
@@ -250,7 +262,16 @@ export async function POST(req: Request) {
       .update({ status: "failed", error_message: result.error.kind })
       .eq("id", generationId);
     return NextResponse.json(
-      { error: "generation_failed", detail: result.error },
+      {
+        error: "generation_failed",
+        detail: result.error,
+        // `message` en castellano y para humanos. Sin esto el cliente cae a
+        // `data.error` y le muestra al usuario el literal "generation_failed"
+        // — que es exactamente lo que reportó Paolo el 2026-09-09. Y además
+        // nadie le decía que la plata volvía.
+        message: `No pudimos generar las imágenes.${refundNote(variations, isUnlimited)} Probá de nuevo.`,
+        refunded: isUnlimited ? 0 : variations,
+      },
       { status: 502 },
     );
   }
@@ -329,7 +350,12 @@ export async function POST(req: Request) {
       .update({ status: "failed", error_message: "upload_failed" })
       .eq("id", generationId);
     return NextResponse.json(
-      { error: "generation_failed", detail: { kind: "upload_failed" } },
+      {
+        error: "generation_failed",
+        detail: { kind: "upload_failed" },
+        message: `Las imágenes se generaron pero no pudimos guardarlas.${refundNote(variations, isUnlimited)} Probá de nuevo.`,
+        refunded: isUnlimited ? 0 : variations,
+      },
       { status: 502 },
     );
   }
@@ -350,6 +376,10 @@ export async function POST(req: Request) {
       images: urls,
       delivered,
       requested: variations,
+      // Cuántos créditos volvieron por las variaciones que no salieron. El
+      // cliente lo necesita para no prometerle un reembolso a un ilimitado,
+      // que nunca pagó por esa tanda.
+      refunded: isUnlimited ? 0 : refundCount,
       creditsRemaining: finalProfile?.credits_remaining ?? null,
     },
     { status: 201 },

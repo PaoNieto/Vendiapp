@@ -132,6 +132,7 @@ export default function VersionDetailPage() {
   const [partialDelivery, setPartialDelivery] = useState<{
     delivered: number;
     requested: number;
+    refunded: number;
   } | null>(null);
   useEffect(() => {
     try {
@@ -145,8 +146,17 @@ export default function VersionDetailPage() {
         typeof (parsed as { delivered?: unknown }).delivered === "number" &&
         typeof (parsed as { requested?: unknown }).requested === "number"
       ) {
+        const note = parsed as {
+          delivered: number;
+          requested: number;
+          refunded?: number;
+        };
         // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura de sessionStorage post-mount; el SSR no tiene acceso. Mismo patrón que la hidratación de los stores.
-        setPartialDelivery(parsed as { delivered: number; requested: number });
+        setPartialDelivery({
+          delivered: note.delivered,
+          requested: note.requested,
+          refunded: typeof note.refunded === "number" ? note.refunded : 0,
+        });
       }
     } catch {
       // Storage bloqueado o JSON corrupto: sin aviso, sin romper la pantalla.
@@ -199,7 +209,7 @@ export default function VersionDetailPage() {
       // contabas 3 fotos donde pediste 5 pensando que habías contado mal.
       // Lo dejamos anotado para mostrarlo del otro lado de la recarga.
       const data = (await res.json().catch(() => null)) as
-        | { delivered?: number; requested?: number }
+        | { delivered?: number; requested?: number; refunded?: number }
         | null;
       if (
         typeof data?.delivered === "number" &&
@@ -212,6 +222,9 @@ export default function VersionDetailPage() {
             JSON.stringify({
               delivered: data.delivered,
               requested: data.requested,
+              // Puede ser 0: los ilimitados no reciben reembolso porque nunca
+              // se les descontó. No les prometemos créditos de vuelta.
+              refunded: typeof data.refunded === "number" ? data.refunded : 0,
             }),
           );
         } catch {
@@ -317,6 +330,7 @@ export default function VersionDetailPage() {
           <PartialDeliveryBanner
             delivered={partialDelivery.delivered}
             requested={partialDelivery.requested}
+            refunded={partialDelivery.refunded}
             onDismiss={() => setPartialDelivery(null)}
           />
         ) : null}
@@ -912,10 +926,13 @@ function VersionSkeleton() {
 function PartialDeliveryBanner({
   delivered,
   requested,
+  refunded,
   onDismiss,
 }: {
   delivered: number;
   requested: number;
+  /** Créditos devueltos. Es 0 para ilimitados: a ellos nunca se les descontó. */
+  refunded: number;
   onDismiss: () => void;
 }) {
   const faltaron = requested - delivered;
@@ -937,9 +954,10 @@ function PartialDeliveryBanner({
         </p>
         <p className="mt-0.5 text-xs text-mute">
           {faltaron === 1 ? "La que faltó" : "Las que faltaron"} no{" "}
-          {faltaron === 1 ? "pasó" : "pasaron"} el control de calidad del
-          modelo. Ya te devolvimos {faltaron === 1 ? "ese crédito" : "esos créditos"}
-          , así que podés tirar otra tanda sin costo extra.
+          {faltaron === 1 ? "pasó" : "pasaron"} el control de calidad del modelo.
+          {refunded > 0
+            ? ` Te devolvimos ${refunded} ${refunded === 1 ? "crédito" : "créditos"}: podés tirar otra tanda sin costo extra.`
+            : " Podés tirar otra tanda cuando quieras."}
         </p>
       </div>
       <button
