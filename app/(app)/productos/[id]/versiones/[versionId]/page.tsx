@@ -341,28 +341,30 @@ export default function VersionDetailPage() {
           resultado). Antes eran cuatro tarjetas sueltas del mismo peso, que es
           lo que hacía ver la pantalla plana.
         */}
-        <div className="glass-card flex flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[248px_1px_minmax(0,1fr)]">
-          <ProductPanel
+        <div className="glass-card flex flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[252px_1px_minmax(0,1fr)]">
+          <RecipeRail
             product={product}
             version={version}
+            ratioLabel={ratioInfo?.label ?? null}
+            styleLabel={styleLabel}
+            totalImagesCount={totalImagesCount}
+            hasImages={hasGenerated}
             forks={totalImagesCount > 0}
+            isSubmitting={isSubmitting}
             onEditReferences={() => openRecipeStation("/estilo")}
+            onEditFormato={() => openRecipeStation("/formato")}
+            onEditStyle={() => openRecipeStation("/estilo")}
+            onGenerate={handleGenerate}
           />
 
           <div aria-hidden className="hidden bg-border lg:block" />
 
-          <BatchPanel
+          <Vitrina
             version={version}
             versionSettings={versionSettings}
             images={latestBatchImages}
-            totalImagesCount={totalImagesCount}
-            styleLabel={styleLabel}
             ratioLabel={ratioInfo?.label ?? null}
-            isSubmitting={isSubmitting}
-            forks={totalImagesCount > 0}
             onGenerate={handleGenerate}
-            onEditFormato={() => openRecipeStation("/formato")}
-            onEditStyle={() => openRecipeStation("/estilo")}
           />
         </div>
       </div>
@@ -403,32 +405,66 @@ function Breadcrumb({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Panel izquierdo — el producto, su identidad y sus referencias              */
+/*  Rail izquierdo — la receta completa, de arriba abajo                       */
 /* -------------------------------------------------------------------------- */
 
-function ProductPanel({
+/**
+ * Producto → identidad de la versión → ficha → botón, en una sola columna que
+ * se lee de corrido.
+ *
+ * La ficha (Referencias, Ratio, Por tanda, Estilo, Generadas) vivía cruzada al
+ * PIE del panel derecho y le competía el ancho a las fotos. Pedido de Paolo
+ * (2026-09-09): baja al rail, apilada debajo de "Esta versión", y toda la
+ * derecha queda libre para la vitrina.
+ */
+function RecipeRail({
   product,
   version,
+  ratioLabel,
+  styleLabel,
+  totalImagesCount,
+  hasImages,
   forks,
+  isSubmitting,
   onEditReferences,
+  onEditFormato,
+  onEditStyle,
+  onGenerate,
 }: {
   product: Product;
   version: Version;
+  ratioLabel: string | null;
+  styleLabel: string | null;
+  totalImagesCount: number;
+  hasImages: boolean;
   /** `true` si tocar "cambiar" va a crear una versión nueva en vez de pisar. */
   forks: boolean;
+  isSubmitting: boolean;
   onEditReferences: () => void;
+  onEditFormato: () => void;
+  onEditStyle: () => void;
+  onGenerate: () => void;
 }) {
   const cover = product.cover_image_url ?? product.product_images[0];
   const photosCount = product.product_images.length;
   const refs = version.reference_images;
+  const editLabel = forks ? "Cambiar" : "Editar";
+
+  const ready = isVersionReady(version);
+  const canGenerate = ready && !isSubmitting;
+  const ctaLabel = isSubmitting
+    ? "Generando…"
+    : hasImages
+      ? "Más variaciones"
+      : "Generar primera tanda";
 
   return (
-    <div className="flex flex-col gap-5 p-5 sm:p-6">
+    <div className="flex flex-col gap-4 p-5 sm:p-6">
       <div>
         {/*
           La foto lleva sombra propia para despegarse de la hoja: es el único
-          elemento "físico" de la pantalla y tiene que leerse como tal. En dark
-          la sombra va más profunda porque sobre near-black se pierde antes.
+          elemento "físico" del rail. En dark va más profunda porque sobre
+          near-black la sombra se pierde antes.
         */}
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-border bg-card-cream/60 shadow-[0_18px_36px_-18px_rgba(15,31,22,0.45)] dark:shadow-[0_22px_44px_-20px_rgba(0,0,0,0.9)]">
           {cover ? (
@@ -447,7 +483,7 @@ function ProductPanel({
 
         <div className="mt-3 flex items-baseline justify-between gap-3">
           <div
-            className="min-w-0 truncate font-display text-[24px] italic leading-tight text-foreground"
+            className="min-w-0 truncate font-display text-[23px] italic leading-tight text-foreground"
             title={product.name}
           >
             {product.name}
@@ -466,57 +502,150 @@ function ProductPanel({
 
       <VersionIdentity version={version} />
 
-      <div className="mt-auto">
-        <div className="flex items-center justify-between gap-3">
-          <span className="eyebrow">REFERENCIAS</span>
+      <div className="border-t border-border pt-1">
+        <FichaRow label="REFERENCIAS">
+          {refs.length > 0 ? (
+            <span className="flex items-center gap-1">
+              {refs.slice(0, 3).map((url) => (
+                <span
+                  key={url}
+                  className="h-5 w-5 shrink-0 overflow-hidden rounded border border-border bg-card-cream/60"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                </span>
+              ))}
+              {refs.length > 3 ? (
+                <span className="font-mono text-[10px] font-bold text-mute">
+                  +{refs.length - 3}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <span className="text-[11.5px] font-medium text-mute">Ninguna</span>
+          )}
           <button
             type="button"
             onClick={onEditReferences}
-            className="text-[11.5px] font-bold text-sage-strong hover:underline"
+            className="shrink-0 text-[11px] font-bold text-sage-strong hover:underline"
           >
-            {forks ? "Cambiar" : "Editar"}
+            {editLabel}
           </button>
-        </div>
+        </FichaRow>
 
-        {refs.length > 0 ? (
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            {refs.slice(0, 4).map((url) => (
-              <div
-                key={url}
-                className="relative h-[46px] w-[46px] shrink-0 overflow-hidden rounded-lg border border-border bg-card-cream/60"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt="Referencia"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-            {refs.length > 4 ? (
-              <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-lg border border-border bg-card-cream/60 font-mono text-[12px] font-bold text-mute">
-                +{refs.length - 4}
-              </div>
-            ) : null}
-          </div>
-        ) : (
+        <FichaRow label="RATIO">
+          <span className="font-mono text-[13px] font-bold tabular-nums text-foreground">
+            {version.output_ratio}
+          </span>
+          {ratioLabel ? (
+            <span className="truncate text-[10.5px] font-medium text-mute">
+              {ratioLabel}
+            </span>
+          ) : null}
           <button
             type="button"
-            onClick={onEditReferences}
-            aria-label="Agregar referencias"
-            className="mt-2.5 flex h-[46px] w-[46px] items-center justify-center rounded-lg border border-dashed border-foreground/20 bg-card-cream/40 text-mute transition-colors hover:border-sage-strong/50 hover:text-foreground"
+            onClick={onEditFormato}
+            className="shrink-0 text-[11px] font-bold text-sage-strong hover:underline"
           >
-            <ImageIcon className="h-4 w-4" strokeWidth={1.6} />
+            {editLabel}
           </button>
-        )}
+        </FichaRow>
 
-        {forks ? (
-          <p className="mt-2.5 text-[11px] font-medium leading-snug text-mute">
-            Cambiar la receta crea una versión nueva. Estas fotos quedan como
-            están.
-          </p>
+        <FichaRow label="POR TANDA">
+          <span className="font-mono text-[13px] font-bold tabular-nums text-foreground">
+            {version.variations_default}
+          </span>
+          <span className="text-[10.5px] font-medium text-mute">
+            {version.variations_default === 1 ? "imagen" : "imágenes"}
+          </span>
+        </FichaRow>
+
+        <FichaRow label="ESTILO">
+          <span className="truncate text-[12px] font-semibold text-foreground">
+            {styleLabel ?? "Sin estilo"}
+          </span>
+          <button
+            type="button"
+            onClick={onEditStyle}
+            className="shrink-0 text-[11px] font-bold text-sage-strong hover:underline"
+          >
+            {styleLabel ? editLabel : "Elegir"}
+          </button>
+        </FichaRow>
+
+        {totalImagesCount > 0 ? (
+          <FichaRow label="GENERADAS">
+            <span className="font-mono text-[13px] font-bold tabular-nums text-foreground">
+              {totalImagesCount}
+            </span>
+            <Link
+              href={`/fabrica/${version.id}`}
+              className="group inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-sage-strong hover:underline"
+            >
+              Ver todas
+              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </FichaRow>
         ) : null}
       </div>
+
+      {forks ? (
+        <p className="text-[11px] font-medium leading-snug text-mute">
+          Cambiar la receta crea una versión nueva. Las fotos de esta quedan como
+          están.
+        </p>
+      ) : null}
+
+      {/* El botón cierra el rail: es donde termina de leerse la receta. */}
+      <div className="mt-auto pt-2">
+        <div className="flex justify-center">
+          {/* `HeroCTAButton` no expone `disabled` (es compartido) — lo apagamos
+              desde el wrapper, igual que en el resto de la app. */}
+          <div
+            className={
+              !canGenerate ? "pointer-events-none opacity-50" : undefined
+            }
+            aria-disabled={!canGenerate}
+          >
+            {hasImages ? (
+              <PillButton size="md" onClick={onGenerate}>
+                <Sparkles className="h-4 w-4" />
+                {ctaLabel}
+              </PillButton>
+            ) : (
+              <HeroCTAButton icon={Sparkles} onClick={onGenerate}>
+                {ctaLabel}
+              </HeroCTAButton>
+            )}
+          </div>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-mute">
+          {isSubmitting
+            ? "Tarda 5-30s según cantidad de variaciones."
+            : !ready
+              ? /* El texto viejo decía "subí al menos 1 referencia", pero
+                   `isVersionReady` NO pide referencias (son opcionales desde
+                   que el estilo profesional puede ir solo). */
+                "Completá nombre y formato para habilitar."
+              : "Tarda alrededor de un minuto."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Una fila de la ficha: etiqueta a la izquierda, valor y acción a la derecha. */
+function FichaRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-border py-2 last:border-b-0">
+      <span className="eyebrow shrink-0">{label}</span>
+      <div className="flex min-w-0 items-center gap-2">{children}</div>
     </div>
   );
 }
@@ -607,54 +736,33 @@ function VersionIdentity({ version }: { version: Version }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Panel derecho — la tanda: molde vacío o imágenes, + ficha técnica          */
+/*  Vitrina — las variaciones, en columnas, con todo el ancho principal        */
 /* -------------------------------------------------------------------------- */
 
 /** Las imágenes que consume `VersionGallery` — tomamos su tipo de la prop. */
 type BatchImages = React.ComponentProps<typeof VersionGallery>["images"];
 
-function BatchPanel({
+function Vitrina({
   version,
   versionSettings,
   images,
-  totalImagesCount,
-  styleLabel,
   ratioLabel,
-  isSubmitting,
-  forks,
   onGenerate,
-  onEditFormato,
-  onEditStyle,
 }: {
   version: Version;
   versionSettings: VersionSettings;
   images: BatchImages;
-  totalImagesCount: number;
-  styleLabel: string | null;
   ratioLabel: string | null;
-  isSubmitting: boolean;
-  forks: boolean;
   onGenerate: () => void;
-  onEditFormato: () => void;
-  onEditStyle: () => void;
 }) {
   const hasImages = images.length > 0;
   const count = version.variations_default;
-  const ready = isVersionReady(version);
-  const canGenerate = ready && !isSubmitting;
-
-  const ctaLabel = isSubmitting
-    ? "Generando…"
-    : hasImages
-      ? "Más variaciones"
-      : "Generar primera tanda";
+  const shownCount = hasImages ? images.length : count;
 
   // "Vertical historia" → "verticales": el label del ratio ya nombra la forma,
-  // así el título se lee como una frase ("5 verticales 9:16") en vez de repetir
-  // "imágenes" al lado del número.
-  //
-  // Con singular de verdad: antes pluralizaba siempre y salía "1 cuadrados".
-  const shownCount = hasImages ? images.length : count;
+  // así el título se lee como frase ("5 verticales 9:16") en vez de repetir
+  // "imágenes" al lado del número. Con singular de verdad: antes pluralizaba
+  // siempre y salía "1 cuadrados".
   const shape = ratioLabel ? ratioLabel.split(" ")[0].toLowerCase() : null;
   const shapeWord = !shape
     ? shownCount === 1
@@ -673,78 +781,31 @@ function BatchPanel({
         <span className="eyebrow">
           {hasImages ? "ESTA TANDA" : "VAS A GENERAR"}
         </span>
-        <h2 className="mt-1 font-display text-[28px] italic leading-tight text-foreground">
+        <h2 className="mt-1 font-display text-[27px] italic leading-tight text-foreground">
           <span className="tabular-nums">{shownCount}</span> {shapeWord}
-          <span className="ml-2 rounded-md border border-border bg-card-cream/60 px-1.5 py-0.5 align-middle font-mono text-[15px] font-bold not-italic">
+          <span className="ml-2 rounded-md border border-border bg-card-cream/60 px-1.5 py-0.5 align-middle font-mono text-[14px] font-bold not-italic">
             {version.output_ratio}
           </span>
         </h2>
         <p className="mt-1.5 max-w-md text-xs font-medium leading-relaxed text-mute-on-bg">
           {hasImages
             ? "Tocá cualquiera para verla en grande, descargarla o regenerarla."
-            : "Se llenan acá mismo, una por una. Tarda alrededor de un minuto."}
+            : "Se llenan acá mismo, una por una."}
         </p>
       </div>
 
-      <div className="mt-5 flex flex-1 items-start">
+      <div className="mt-4">
         {hasImages ? (
-          <div className="w-full">
-            <VersionGallery
-              images={images}
-              versionSettings={versionSettings}
-              variant="batch"
-              onGenerateMore={onGenerate}
-            />
-          </div>
+          <VersionGallery
+            images={images}
+            versionSettings={versionSettings}
+            variant="batch"
+            onGenerateMore={onGenerate}
+          />
         ) : (
           <GhostSlots count={count} ratio={version.output_ratio} />
         )}
       </div>
-
-      <SpecBar
-        version={version}
-        ratioLabel={ratioLabel}
-        styleLabel={styleLabel}
-        totalImagesCount={totalImagesCount}
-        forks={forks}
-        onEditFormato={onEditFormato}
-        onEditStyle={onEditStyle}
-      >
-        <div className="flex flex-col gap-1.5 sm:items-end">
-          {/* `HeroCTAButton` no expone `disabled` (es compartido) — lo apagamos
-              desde el wrapper, igual que en el resto de la app. */}
-          <div
-            className={
-              !canGenerate ? "pointer-events-none opacity-50" : undefined
-            }
-            aria-disabled={!canGenerate}
-          >
-            {hasImages ? (
-              <PillButton size="md" onClick={onGenerate}>
-                <Sparkles className="h-4 w-4" />
-                {ctaLabel}
-              </PillButton>
-            ) : (
-              <HeroCTAButton icon={Sparkles} onClick={onGenerate}>
-                {ctaLabel}
-              </HeroCTAButton>
-            )}
-          </div>
-          {isSubmitting ? (
-            <span className="text-[11px] text-mute">
-              Tarda 5-30s según cantidad de variaciones.
-            </span>
-          ) : !ready ? (
-            /* El texto viejo decía "subí al menos 1 referencia", pero
-               `isVersionReady` NO pide referencias (son opcionales desde que el
-               estilo profesional puede ir solo). Valida nombre, ratio y
-               cantidad de variaciones. */
-            <span className="text-[11px] text-mute">
-              Completá nombre y formato para habilitar.
-            </span>
-          ) : null}
-        </div>
-      </SpecBar>
     </div>
   );
 }
@@ -763,15 +824,15 @@ function BatchPanel({
  * Van HUNDIDAS (sombra interior) a propósito: son el contrapunto que hace que
  * la hoja se lea como levantada. Sin nada hundido todo queda al mismo nivel y
  * la pantalla se ve plana — que era justamente el problema a resolver.
+ *
+ * Columnas FIJAS y las MISMAS que la vitrina: con `auto-fit` las columnas
+ * vacías colapsan y una sola ranura se estiraba al ancho completo.
  */
 function GhostSlots({ count, ratio }: { count: number; ratio: string }) {
   const aspect = ratio.replace(":", " / ");
 
   return (
-    // Columnas FIJAS, igual que la galería. Con `auto-fit` las columnas vacías
-    // colapsan y la ranura que queda se estira al ancho completo: con 1 sola
-    // variación quedaba un bloque gigante que se salía de la pantalla.
-    <div className="grid w-full grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+    <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -784,117 +845,14 @@ function GhostSlots({ count, ratio }: { count: number; ratio: string }) {
           )}
         >
           {i === 0 ? (
-            <Sparkles className="h-4 w-4 text-sage-strong" strokeWidth={1.8} />
+            <Sparkles className="h-5 w-5 text-sage-strong" strokeWidth={1.8} />
           ) : (
-            <span className="font-mono text-[11px] font-bold text-mute/60">
+            <span className="font-mono text-[12px] font-bold text-mute/60">
               {i + 1}
             </span>
           )}
         </div>
       ))}
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Ficha técnica — una línea fina en vez de tres tarjetas del mismo peso      */
-/* -------------------------------------------------------------------------- */
-
-function SpecBar({
-  version,
-  ratioLabel,
-  styleLabel,
-  totalImagesCount,
-  forks,
-  onEditFormato,
-  onEditStyle,
-  children,
-}: {
-  version: Version;
-  ratioLabel: string | null;
-  styleLabel: string | null;
-  totalImagesCount: number;
-  forks: boolean;
-  onEditFormato: () => void;
-  onEditStyle: () => void;
-  /** Slot del CTA, a la derecha de la ficha. */
-  children: React.ReactNode;
-}) {
-  const editLabel = forks ? "Cambiar" : "Editar";
-
-  return (
-    <div className="mt-5 flex flex-wrap items-end gap-x-6 gap-y-4 border-t border-border pt-4">
-      <SpecItem label="RATIO" value={version.output_ratio} mono>
-        <span className="text-[11px] font-medium text-mute">{ratioLabel}</span>
-        <button
-          type="button"
-          onClick={onEditFormato}
-          className="text-[11px] font-bold text-sage-strong hover:underline"
-        >
-          {editLabel}
-        </button>
-      </SpecItem>
-
-      <SpecItem
-        label="POR TANDA"
-        value={String(version.variations_default)}
-        mono
-      >
-        <span className="text-[11px] font-medium text-mute">
-          {version.variations_default === 1 ? "imagen" : "imágenes"}
-        </span>
-      </SpecItem>
-
-      <SpecItem label="ESTILO" value={styleLabel ?? "Sin estilo"}>
-        <button
-          type="button"
-          onClick={onEditStyle}
-          className="text-[11px] font-bold text-sage-strong hover:underline"
-        >
-          {styleLabel ? editLabel : "Elegir"}
-        </button>
-      </SpecItem>
-
-      {totalImagesCount > 0 ? (
-        <SpecItem label="GENERADAS" value={String(totalImagesCount)} mono>
-          <Link
-            href={`/fabrica/${version.id}`}
-            className="group inline-flex items-center gap-1 text-[11px] font-bold text-sage-strong hover:underline"
-          >
-            Ver todas
-            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </SpecItem>
-      ) : null}
-
-      <div className="ml-auto">{children}</div>
-    </div>
-  );
-}
-
-function SpecItem({
-  label,
-  value,
-  mono,
-  children,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col">
-      <span className="eyebrow">{label}</span>
-      <span
-        className={cn(
-          "mt-0.5 truncate text-[17px] font-bold text-foreground",
-          mono && "font-mono tabular-nums",
-        )}
-      >
-        {value}
-      </span>
-      <div className="mt-0.5 flex items-center gap-2">{children}</div>
     </div>
   );
 }
