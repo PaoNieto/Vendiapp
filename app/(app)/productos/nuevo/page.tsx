@@ -41,11 +41,14 @@ export default function NuevoProductoPage() {
   const [photos, setPhotos] = useState<UploadedImage[]>([]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
+  /** Falla del guardado en el server (RLS, red, sesión). Distinta de `errors`,
+   *  que son las de validación del form. */
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const trimmedName = name.trim();
   const canSubmit = trimmedName.length > 0 && !submitting;
 
-  function handleCreate() {
+  async function handleCreate() {
     const parsed = productSchema.safeParse({
       name,
       description,
@@ -64,14 +67,27 @@ export default function NuevoProductoPage() {
 
     setSubmitting(true);
     setErrors({});
-    const created = products.addProduct({
+    setSaveError(null);
+
+    // ESPERAMOS el guardado antes de navegar. Antes acá se navegaba con el
+    // producto optimista: si el INSERT fallaba, el store hacía rollback, el
+    // detalle no encontraba el producto y `productos/[id]` rebotaba al
+    // catálogo. Al usuario se le veía como "lo creé y se borró solo", sin un
+    // solo mensaje. Ahora, si falla, se queda acá con sus datos y ve por qué.
+    const result = await products.addProductAsync({
       name: parsed.data.name,
       description: parsed.data.description
         ? parsed.data.description
         : undefined,
       product_images: photos.map((p) => p.previewUrl),
     });
-    router.push(`/productos/${created.id}`);
+
+    if (!result.ok) {
+      setSaveError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    router.push(`/productos/${result.product.id}`);
   }
 
   return (
@@ -151,6 +167,15 @@ export default function NuevoProductoPage() {
             />
           </div>
 
+          {saveError ? (
+            <p
+              role="alert"
+              className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+            >
+              {saveError}
+            </p>
+          ) : null}
+
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <Link
               href="/productos"
@@ -160,10 +185,12 @@ export default function NuevoProductoPage() {
             </Link>
             <PillButton
               size="md"
-              onClick={handleCreate}
+              onClick={() => {
+                void handleCreate();
+              }}
               disabled={!canSubmit}
             >
-              Crear producto
+              {submitting ? "Guardando…" : "Crear producto"}
             </PillButton>
           </div>
         </div>

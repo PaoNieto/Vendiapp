@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ImageIcon, Plus } from "lucide-react";
+import { AlertTriangle, ImageIcon, Plus } from "lucide-react";
 import { motion } from "motion/react";
 
 import {
@@ -67,6 +67,11 @@ export default function ProductosPage() {
         <div className="mx-auto w-full max-w-6xl">
           {!allHydrated ? (
             <CatalogSkeleton />
+          ) : products.error && items.length === 0 ? (
+            // Si la query falló NO decimos "no tenés productos": es mentira y
+            // asusta (parece que se borró todo). Decimos que no los pudimos
+            // traer, que es lo que realmente pasó.
+            <CatalogError message={products.error} />
           ) : items.length === 0 ? (
             <EmptyCatalog />
           ) : (
@@ -331,6 +336,34 @@ function EmptyCatalog() {
             <Plus className="h-4 w-4" />
             Nuevo Producto
           </Link>
+        </PillButton>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * El catálogo no se pudo LEER (RLS/sesión/red). Es distinto de estar vacío, y
+ * la diferencia importa: ver "no tenés productos" cuando en realidad tenés 9
+ * hace pensar que se borró todo. Acá decimos la verdad y tranquilizamos.
+ */
+function CatalogError({ message }: { message: string }) {
+  return (
+    <div className="glass-card mx-auto mt-4 flex max-w-md flex-col items-center gap-3 p-8 text-center sm:p-10">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <AlertTriangle className="h-5 w-5" strokeWidth={1.6} />
+      </div>
+      <h2 className="font-display text-2xl italic text-foreground">
+        No pude cargar tu catálogo
+      </h2>
+      <p className="max-w-sm text-sm text-mute">{message}</p>
+      <p className="max-w-sm text-xs text-mute">
+        Tus productos siguen guardados. Esto es un problema para leerlos, no una
+        pérdida de datos.
+      </p>
+      <div className="mt-2">
+        <PillButton size="md" onClick={() => window.location.reload()}>
+          Reintentar
         </PillButton>
       </div>
     </div>

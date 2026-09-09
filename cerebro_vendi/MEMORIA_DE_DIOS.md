@@ -1227,3 +1227,34 @@ El riel MP resultó ser una **cáscara delgada**: 4 archivos de código, 1 depen
 - **NINGUNO es suscripción.** Los 4 planes en Whop son `plan_type: "one_time"` con `billing_period: null` y `renewal_price: 0` (verificado en la respuesta de la API al crearlos). Nada se renueva solo, a nadie se le vuelve a cobrar.
 - `unlimited_stock: true` en los 4 — es lo que habilita la recompra.
 - ⚠️ **SIN VERIFICAR TODAVÍA:** que Whop permita **recomprar el mismo pack** con la misma cuenta (podría bloquear por membresía existente). **Prueba obligatoria en sandbox antes de prod:** comprar Pack Inicial DOS veces con la misma cuenta → deben acreditarse 60 créditos, no 30. Si Whop lo bloquea, hay que replantear la forma de vender recargas.
+
+### ⚠️ 2026-09-05 — LA LANDING VIVA NO SALE DEL REPO (trampa que ya costó una vez)
+
+**`landing.html` del repo NO es la landing que ve el público.** Son dos proyectos de Vercel distintos:
+
+| | dominio | proyecto Vercel | fuente |
+|---|---|---|---|
+| App | `vendilatam.com` | `vendiapp` | repo, auto-deploy desde `main` |
+| **Landing** | **`www.vendilatam.com`** (con www) | **`vendilanding`** | **`C:\Users\Usuario\.vendi-landing-deploy\index.html`** — deploy MANUAL por `vercel deploy --prod`, **sin conexión a GitHub** |
+
+Son archivos DISTINTOS, no copias: la viva tiene **0** referencias a `estilos/`, la del repo tiene **64**. **Publicar `landing.html` del repo en `vendilanding` rompe las 64 rutas de imágenes.** El deploy sale SOLO desde `~/.vendi-landing-deploy`.
+
+Backups en `C:\Users\Usuario\.vendi-landing-backups\` (patrón `index.html.bak-<fecha>-<motivo>`).
+
+**Esto ya causó un error real:** en la migración a Whop se limpió `landing.html` del repo creyendo que era la landing viva. No lo era. La landing siguió diciendo *"El cobro se procesa en soles (S/ 39) vía Mercado Pago"* durante todo el trabajo, hasta que se detectó al verificar en vivo.
+
+**REGLA: cualquier cambio de landing se hace en `~/.vendi-landing-deploy/` y se verifica con `curl https://www.vendilatam.com`. Nunca dar por hecho que el repo es lo publicado.**
+
+### 2026-09-05 — Landing + legales pasados a Whop (deployado y verificado)
+Editados y publicados en `~/.vendi-landing-deploy/`:
+- **`index.html`**: fuera las 2 apariciones de *"Precio de lanzamiento · luego $27"* (decisión de Paolo: sacarlo — prometía una suba que quizá no ocurra y era riesgo con Meta). Las 4 menciones a Mercado Pago como PASARELA pasan a Whop, nombrando a Mercado Pago solo como MÉTODO junto a tarjeta, Yape y PagoEfectivo.
+- **`terminos.html`**: declaraba que los pagos se procesan por Mercado Pago y **se cobran en soles (PEN)**. Ahora: Whop, en **USD**, con conversión visible a soles en el checkout.
+- **`privacidad.html`**: nombraba a Mercado Pago como procesador de los datos de tarjeta y lo listaba en la tabla de terceros. Ahora Whop. **Esto no era cosmética: es la declaración pública de quién maneja datos de pago bajo la Ley 29733.**
+
+Verificado en vivo sobre las 3 URLs: 0 hits de `$27`, `S/ 39`, "vía Mercado Pago" y "cobran/procesa en soles". El botón sigue yendo a `/comenzar` y las 214 referencias a imágenes intactas.
+
+**Nota:** el `buy()` de la landing VIVA ya apuntaba a `/comenzar` — el bug de `/signup` pelado que se arregló en el repo NO existía en producción.
+
+### 🔴 ESTADO REAL DEL COBRO POR WHOP (2026-09-05)
+Todo construido, deployado y verificado por partes. **Pero `whop_processed_payments` = 0 filas: Vendí NUNCA cobró un dólar por Whop.** La última compra de la historia sigue siendo la de Mercado Pago del 2026-06-28.
+**Falta la compra real de prueba** (Pack Inicial US$9 desde `/upgrade`) — y con ella, confirmar si Whop permite **recomprar el mismo pack** más de una vez, que es como funcionan las recargas. Sin eso, no se puede afirmar que el cobro funciona.

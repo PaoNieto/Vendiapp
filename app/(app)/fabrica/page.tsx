@@ -173,7 +173,13 @@ function FabricaContent() {
                     )}
                     status={statusFor(effectiveStatus.get(v.id) ?? "draft")}
                     images={generations.state.images}
-                    onOpen={() => router.push(`/fabrica/${v.id}`)}
+                    // A la hoja de versión, no al catálogo acumulado: es la
+                    // misma pantalla que se abre desde el detalle del producto,
+                    // así se entra por donde se entre se ve lo mismo. El
+                    // acumulado vive en `/fabrica/<id>`, un click más adentro.
+                    onOpen={() =>
+                      router.push(`/productos/${v.product_id}/versiones/${v.id}`)
+                    }
                   />
                 ))}
               </section>
