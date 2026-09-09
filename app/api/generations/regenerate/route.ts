@@ -7,7 +7,7 @@ import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { regenerateImageRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
-import type { OutputRatio } from "@/lib/constants";
+import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
 
 /**
  * POST /api/generations/regenerate — REGENERACIÓN por imagen con PROMPT ESTRICTO.
@@ -223,10 +223,9 @@ export async function POST(req: Request) {
       { status: 502 },
     );
   }
-  const ONE_YEAR = 60 * 60 * 24 * 365;
   const { data: signed } = await admin.storage
     .from("generated-images")
-    .createSignedUrl(path, ONE_YEAR);
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
   const url = signed?.signedUrl ?? "";
   if (!url) {
     // Se subió pero no pudo firmarse la URL: sin imagen visible no hay
