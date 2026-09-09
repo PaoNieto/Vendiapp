@@ -7,7 +7,7 @@ import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { serverGenerationRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
-import type { OutputRatio } from "@/lib/constants";
+import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
 
 /**
  * POST /api/generations — generación SERVER-SIDE (modelo de créditos).
@@ -33,6 +33,18 @@ import type { OutputRatio } from "@/lib/constants";
 // paralelo) + sharp + uploads a Storage. Sin techo explícito Vercel corta antes
 // y la función muere ENTRE el deduct y el refund → el cliente pierde créditos.
 export const maxDuration = 300;
+
+/**
+ * Frase que aclara el reembolso, SÓLO cuando de verdad hubo uno.
+ *
+ * Los usuarios de la allowlist (`unlimited_users`) no reciben refund porque su
+ * deduct es no-op server-side; prometerles créditos de vuelta sería mentirles, y
+ * un refund real les acuñaría saldo de la nada (ya pasó en prod: +2 sin deduct).
+ */
+function refundNote(amount: number, isUnlimited: boolean): string {
+  if (isUnlimited || amount <= 0) return "";
+  return ` Te devolvimos ${amount} ${amount === 1 ? "crédito" : "créditos"}.`;
+}
 
 export async function POST(req: Request) {
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
@@ -114,6 +126,41 @@ export async function POST(req: Request) {
   // Cliente admin (service_role): se usa para el chequeo de ilimitados y para
   // las mutaciones de créditos (deduct/grant) más abajo.
   const admin = createAdminClient();
+
+  // 2.b Tope de generaciones por usuario (migración 0025). Va ANTES del
+  // pre-check de créditos y de cualquier llamada a Google: cada tanda cuesta
+  // plata real y la ruta no tenía ningún freno para un bucle automatizado. A
+  // los que pagan los frena el saldo; a un usuario de `unlimited_users`, nada.
+  //
+  // Los topes son holgados (30/hora, 100/día): están para cortar un script, no
+  // para racionar el uso legítimo.
+  //
+  // FAIL-OPEN a propósito: si la RPC falla, dejamos pasar. Mismo criterio que
+  // `userHasPaidAccess` — un limitador roto no puede convertirse en una app
+  // rota para el que sí quiere generar.
+  const { data: rateRaw, error: rateErr } = await admin.rpc(
+    "check_generation_rate_limit",
+    { p_user_id: userId },
+  );
+  if (!rateErr) {
+    // PostgREST devuelve el jsonb de una función escalar como objeto, pero
+    // aceptamos [objeto] también: si eso cambiara y sólo leyéramos una forma,
+    // el limitador quedaría mudo (siempre "allowed") sin que nadie se entere.
+    const rate = (Array.isArray(rateRaw) ? rateRaw[0] : rateRaw) as {
+      allowed?: boolean;
+      limit_hour?: number;
+      limit_day?: number;
+    } | null;
+    if (rate?.allowed === false) {
+      return NextResponse.json(
+        {
+          error: "rate_limited",
+          message: `Llegaste al máximo de tandas por ahora (${rate.limit_hour ?? 30} por hora). Esperá un rato y seguí.`,
+        },
+        { status: 429 },
+      );
+    }
+  }
 
   // 3. Pre-check de créditos (early reject, no gastamos en Google)
   const { data: profile, error: profileErr } = await supabase
@@ -215,7 +262,16 @@ export async function POST(req: Request) {
       .update({ status: "failed", error_message: result.error.kind })
       .eq("id", generationId);
     return NextResponse.json(
-      { error: "generation_failed", detail: result.error },
+      {
+        error: "generation_failed",
+        detail: result.error,
+        // `message` en castellano y para humanos. Sin esto el cliente cae a
+        // `data.error` y le muestra al usuario el literal "generation_failed"
+        // — que es exactamente lo que reportó Paolo el 2026-09-09. Y además
+        // nadie le decía que la plata volvía.
+        message: `No pudimos generar las imágenes.${refundNote(variations, isUnlimited)} Probá de nuevo.`,
+        refunded: isUnlimited ? 0 : variations,
+      },
       { status: 502 },
     );
   }
@@ -248,10 +304,9 @@ export async function POST(req: Request) {
       index += 1;
       continue;
     }
-    const ONE_YEAR = 60 * 60 * 24 * 365;
     const { data: signed } = await admin.storage
       .from("generated-images")
-      .createSignedUrl(path, ONE_YEAR);
+      .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
     const url = signed?.signedUrl ?? "";
     if (!url) {
       // Sin signed URL no hay imagen visible: la contamos como fallida (se
@@ -295,7 +350,12 @@ export async function POST(req: Request) {
       .update({ status: "failed", error_message: "upload_failed" })
       .eq("id", generationId);
     return NextResponse.json(
-      { error: "generation_failed", detail: { kind: "upload_failed" } },
+      {
+        error: "generation_failed",
+        detail: { kind: "upload_failed" },
+        message: `Las imágenes se generaron pero no pudimos guardarlas.${refundNote(variations, isUnlimited)} Probá de nuevo.`,
+        refunded: isUnlimited ? 0 : variations,
+      },
       { status: 502 },
     );
   }
@@ -316,6 +376,10 @@ export async function POST(req: Request) {
       images: urls,
       delivered,
       requested: variations,
+      // Cuántos créditos volvieron por las variaciones que no salieron. El
+      // cliente lo necesita para no prometerle un reembolso a un ilimitado,
+      // que nunca pagó por esa tanda.
+      refunded: isUnlimited ? 0 : refundCount,
       creditsRemaining: finalProfile?.credits_remaining ?? null,
     },
     { status: 201 },

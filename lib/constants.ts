@@ -17,6 +17,27 @@ export const OUTPUT_RATIOS = [
 
 export type OutputRatio = (typeof OUTPUT_RATIOS)[number]["value"];
 
+/**
+ * Vida de las URLs firmadas que se GUARDAN en la base (`generated_images.image_url`,
+ * `versions.reference_images`, `projects.product_images`).
+ *
+ * Estaba en 1 año, y eso era una bomba de tiempo: la URL queda escrita en la
+ * fila, nadie la vuelve a firmar, y al año la foto empieza a dar error sola. Al
+ * 2026-09-09 había 113 URLs guardadas venciendo entre mayo y septiembre de 2027.
+ *
+ * 10 años cubre la vida útil realista de la app sin tocar el modelo de datos.
+ * El arreglo DEFINITIVO es otro —guardar el PATH y firmar al leer, así la vida
+ * de la firma deja de importar— pero toca schema y todos los consumidores; esto
+ * compra el tiempo para hacerlo bien.
+ *
+ * OJO: las filas viejas siguen venciendo en 2027. Cambiar esta constante NO las
+ * arregla: necesitan un backfill que las re-firme.
+ *
+ * Vive acá y no en `lib/supabase/storage.ts` porque ese módulo es "use client"
+ * y las rutas de API la necesitan del lado server.
+ */
+export const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365 * 10;
+
 export const MAX_PRODUCT_IMAGES = 5;
 export const MAX_REFERENCE_IMAGES = 5;
 export const DEFAULT_VARIATIONS = 5;

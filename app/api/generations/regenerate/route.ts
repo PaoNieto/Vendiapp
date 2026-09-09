@@ -7,7 +7,7 @@ import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { regenerateImageRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
-import type { OutputRatio } from "@/lib/constants";
+import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
 
 /**
  * POST /api/generations/regenerate — REGENERACIÓN por imagen con PROMPT ESTRICTO.
@@ -169,6 +169,13 @@ export async function POST(req: Request) {
     });
   };
 
+  // Frase que aclara el reembolso, sólo cuando de verdad lo hay (ver `refund`).
+  // Va pegada a TODOS los mensajes de fallo: antes las respuestas de error no
+  // traían `message` para humanos, el cliente caía a `data.error` y mostraba en
+  // pantalla el literal "generation_failed" — sin decir jamás que la plata
+  // volvía. Reportado por Paolo el 2026-09-09.
+  const refundNote = isUnlimited ? "" : " Te devolvimos el crédito.";
+
   // 5. Generar 1 variación con el prompt estricto. Pasamos el estilo de la
   //    versión (style_id) para MANTENERLO: en estricto el texto del usuario gana
   //    solo donde haya conflicto, pero el estilo elegido se sigue honrando.
@@ -185,7 +192,11 @@ export async function POST(req: Request) {
   if (!result.ok) {
     await refund();
     return NextResponse.json(
-      { error: "generation_failed", detail: result.error },
+      {
+        error: "generation_failed",
+        detail: result.error,
+        message: `No pudimos regenerar la imagen.${refundNote} Probá de nuevo.`,
+      },
       { status: 502 },
     );
   }
@@ -194,7 +205,11 @@ export async function POST(req: Request) {
   if (!generated) {
     await refund();
     return NextResponse.json(
-      { error: "generation_failed", detail: { kind: "unknown" } },
+      {
+        error: "generation_failed",
+        detail: { kind: "unknown" },
+        message: `El modelo no devolvió ninguna imagen.${refundNote} Probá de nuevo.`,
+      },
       { status: 502 },
     );
   }
@@ -219,21 +234,28 @@ export async function POST(req: Request) {
   if (upErr) {
     await refund();
     return NextResponse.json(
-      { error: "upload_failed", message: upErr.message },
+      {
+        error: "upload_failed",
+        detail: { kind: "upload_failed", raw: upErr.message },
+        message: `La imagen se generó pero no pudimos guardarla.${refundNote} Probá de nuevo.`,
+      },
       { status: 502 },
     );
   }
-  const ONE_YEAR = 60 * 60 * 24 * 365;
   const { data: signed } = await admin.storage
     .from("generated-images")
-    .createSignedUrl(path, ONE_YEAR);
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
   const url = signed?.signedUrl ?? "";
   if (!url) {
     // Se subió pero no pudo firmarse la URL: sin imagen visible no hay
     // entrega. Reembolsar y avisar, en vez de insertar una fila rota.
     await refund();
     return NextResponse.json(
-      { error: "upload_failed", message: "No se pudo firmar la URL de la imagen" },
+      {
+        error: "upload_failed",
+        detail: { kind: "sign_failed" },
+        message: `La imagen se guardó pero no pudimos generar su enlace.${refundNote} Probá de nuevo.`,
+      },
       { status: 502 },
     );
   }

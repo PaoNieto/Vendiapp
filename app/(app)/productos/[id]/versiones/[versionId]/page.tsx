@@ -56,6 +56,12 @@ import { cn } from "@/lib/utils";
  * Además, editar la receta (refs/estilo/formato) de una versión que YA generó
  * **bifurca** en vez de pisar — ver `openRecipeStation`.
  */
+/**
+ * Key efímera de `sessionStorage` para pasar el aviso de entrega parcial a
+ * través de la recarga que hacemos al terminar de generar.
+ */
+const PARTIAL_DELIVERY_KEY = "vendi:partial-delivery";
+
 export default function VersionDetailPage() {
   const params = useParams<{ id: string; versionId: string }>();
   const router = useRouter();
@@ -120,6 +126,43 @@ export default function VersionDetailPage() {
   // Lock para evitar dobles clicks mientras una tanda está en curso.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Aviso de entrega parcial, sobreviviendo a la recarga que hacemos al
+  // terminar de generar. Se lee UNA vez y se borra: no queremos que reaparezca
+  // en cada visita a la pantalla.
+  const [partialDelivery, setPartialDelivery] = useState<{
+    delivered: number;
+    requested: number;
+    refunded: number;
+  } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(PARTIAL_DELIVERY_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(PARTIAL_DELIVERY_KEY);
+      const parsed = JSON.parse(raw) as unknown;
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        typeof (parsed as { delivered?: unknown }).delivered === "number" &&
+        typeof (parsed as { requested?: unknown }).requested === "number"
+      ) {
+        const note = parsed as {
+          delivered: number;
+          requested: number;
+          refunded?: number;
+        };
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura de sessionStorage post-mount; el SSR no tiene acceso. Mismo patrón que la hidratación de los stores.
+        setPartialDelivery({
+          delivered: note.delivered,
+          requested: note.requested,
+          refunded: typeof note.refunded === "number" ? note.refunded : 0,
+        });
+      }
+    } catch {
+      // Storage bloqueado o JSON corrupto: sin aviso, sin romper la pantalla.
+    }
+  }, []);
+
   async function handleGenerate() {
     if (!product || !version) return;
     if (!isVersionReady(version)) return;
@@ -158,6 +201,35 @@ export default function VersionDetailPage() {
           data?.message ?? data?.error ?? "No se pudo generar. Intentá de nuevo.",
         );
         return;
+      }
+
+      // Entrega PARCIAL: el server puede entregar menos de lo pedido (una
+      // variación que Gemini rechazó, un post-proceso que falló) y ya te
+      // reembolsó la diferencia — pero hasta ahora no te lo decía nadie, y
+      // contabas 3 fotos donde pediste 5 pensando que habías contado mal.
+      // Lo dejamos anotado para mostrarlo del otro lado de la recarga.
+      const data = (await res.json().catch(() => null)) as
+        | { delivered?: number; requested?: number; refunded?: number }
+        | null;
+      if (
+        typeof data?.delivered === "number" &&
+        typeof data?.requested === "number" &&
+        data.delivered < data.requested
+      ) {
+        try {
+          sessionStorage.setItem(
+            PARTIAL_DELIVERY_KEY,
+            JSON.stringify({
+              delivered: data.delivered,
+              requested: data.requested,
+              // Puede ser 0: los ilimitados no reciben reembolso porque nunca
+              // se les descontó. No les prometemos créditos de vuelta.
+              refunded: typeof data.refunded === "number" ? data.refunded : 0,
+            }),
+          );
+        } catch {
+          // Modo privado / storage bloqueado: perder el aviso no es crítico.
+        }
       }
 
       // Nos QUEDAMOS acá: las imágenes llenan el molde que el usuario ya está
@@ -251,6 +323,15 @@ export default function VersionDetailPage() {
           <ErrorBanner
             message={errorBanner}
             onDismiss={() => setErrorBanner(null)}
+          />
+        ) : null}
+
+        {partialDelivery ? (
+          <PartialDeliveryBanner
+            delivered={partialDelivery.delivered}
+            requested={partialDelivery.requested}
+            refunded={partialDelivery.refunded}
+            onDismiss={() => setPartialDelivery(null)}
           />
         ) : null}
 
@@ -828,6 +909,65 @@ function VersionSkeleton() {
         <div className="hidden w-[248px] animate-pulse rounded-xl bg-foreground/5 lg:block" />
         <div className="flex-1 animate-pulse rounded-xl bg-foreground/5" />
       </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Aviso de entrega parcial                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * "Pediste 5, salieron 3." El server ya reembolsó la diferencia, pero antes no
+ * lo decía nadie: el usuario contaba las fotos y quedaba pensando que había
+ * elegido mal. No es un error —las que salieron están bien— así que va en tono
+ * informativo, no de alerta.
+ */
+function PartialDeliveryBanner({
+  delivered,
+  requested,
+  refunded,
+  onDismiss,
+}: {
+  delivered: number;
+  requested: number;
+  /** Créditos devueltos. Es 0 para ilimitados: a ellos nunca se les descontó. */
+  refunded: number;
+  onDismiss: () => void;
+}) {
+  const faltaron = requested - delivered;
+
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-3 rounded-xl border border-border bg-card-cream/70 px-4 py-3 text-sm text-foreground"
+    >
+      <Sparkles
+        className="mt-0.5 h-4 w-4 shrink-0 text-sage-strong"
+        strokeWidth={1.8}
+        aria-hidden
+      />
+      <div className="flex-1">
+        <p className="font-medium leading-snug">
+          Salieron <span className="font-mono font-bold">{delivered}</span> de{" "}
+          <span className="font-mono font-bold">{requested}</span> imágenes.
+        </p>
+        <p className="mt-0.5 text-xs text-mute">
+          {faltaron === 1 ? "La que faltó" : "Las que faltaron"} no{" "}
+          {faltaron === 1 ? "pasó" : "pasaron"} el control de calidad del modelo.
+          {refunded > 0
+            ? ` Te devolvimos ${refunded} ${refunded === 1 ? "crédito" : "créditos"}: podés tirar otra tanda sin costo extra.`
+            : " Podés tirar otra tanda cuando quieras."}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Descartar aviso"
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

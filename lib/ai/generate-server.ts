@@ -99,13 +99,20 @@ export async function generateOnServer(
   // 1. Imágenes → inlineData base64 (server-safe). Producto + referencias en
   //    AMBOS modos (en estricto las refs quedan disponibles para que el prompt
   //    del usuario las dirija).
+  // Las fotos del PRODUCTO son obligatorias: sin ellas no hay nada que
+  // fotografiar y abortar es lo correcto. Las REFERENCIAS son opcionales por
+  // diseño (una versión puede generar con estilo solo, o sin nada), así que una
+  // referencia ilegible se saltea en vez de tumbar la tanda entera — que es lo
+  // que hacía antes, con un `Promise.all` que moría en el primer error.
+  //
+  // No es teórico: las URLs firmadas que guardamos duran un año, y basta que el
+  // usuario borre un archivo del bucket para dejar una versión imposible de
+  // generar, con un mensaje genérico que no dice cuál imagen es la del problema.
+  // Dos pasos más abajo, el post-proceso con sharp ya usa este mismo criterio:
+  // si una imagen falla, la saltea y sigue.
   let productParts: GeminiPart[];
-  let referenceParts: GeminiPart[];
   try {
-    [productParts, referenceParts] = await Promise.all([
-      urlsToParts(productImages),
-      urlsToParts(referenceImages),
-    ]);
+    productParts = await urlsToParts(productImages);
   } catch (err) {
     return {
       ok: false,
@@ -113,11 +120,12 @@ export async function generateOnServer(
         kind: "unknown",
         message:
           err instanceof Error
-            ? `No pudimos leer las imágenes: ${err.message}`
-            : "No pudimos leer las imágenes.",
+            ? `No pudimos leer las fotos del producto: ${err.message}`
+            : "No pudimos leer las fotos del producto.",
       },
     };
   }
+  const referenceParts = await urlsToPartsBestEffort(referenceImages);
 
   // 2. El Director (best-effort). Si falla, fallback a userPrompt/genérico.
   //    En modo ESTRICTO no corre: el texto del usuario ES el prompt base.
@@ -149,7 +157,10 @@ export async function generateOnServer(
       ? `\n\nStyle direction: ${styleFragment.trim()}`
       : "";
   const productCount = productImages.length;
-  const refCount = referenceImages.length;
+  // Contamos las referencias que REALMENTE viajan, no las que pidió la versión:
+  // si alguna se salteó por ilegible, decirle a Gemini que hay 3 cuando le
+  // mandamos 2 le hace buscar una imagen que no existe.
+  const refCount = referenceParts.length;
   // El prompt se adapta a si hay o no referencias. Sin refs, no mencionamos
   // imagenes inexistentes (confunde al modelo): solo describimos el producto y
   // blindamos su identidad. En estricto las refs son "de escena" (el usuario
@@ -299,13 +310,15 @@ async function enrichPromptServer(input: {
   userPrompt?: string;
   brand?: BrandContext;
 }): Promise<string> {
-  const [productParts, referenceParts] = await Promise.all([
-    urlsToParts(input.productImages),
-    urlsToParts(input.referenceImages),
-  ]);
+  // Mismo criterio que en la generación: el producto es obligatorio (si no se
+  // lee, que reviente y el caller caiga al fallback), las referencias van
+  // best-effort. Antes una referencia rota tiraba el Director entero y se
+  // perdía la dirección de arte sin que nadie se enterara.
+  const productParts = await urlsToParts(input.productImages);
+  const referenceParts = await urlsToPartsBestEffort(input.referenceImages);
 
   const userMessage = `${buildBrandBlock(input.brand)}Producto del usuario: ${input.productImages.length} foto(s) (las primeras imagenes adjuntas).
-Referencias visuales: ${input.referenceImages.length} imagen(es) (despues del producto).
+Referencias visuales: ${referenceParts.length} imagen(es) (despues del producto).
 Ratio de salida: ${input.ratio}
 ${input.userPrompt ? `\nInstrucciones extra del usuario:\n${input.userPrompt}` : ""}
 
@@ -358,6 +371,28 @@ async function urlsToParts(urls: string[]): Promise<GeminiPart[]> {
     const mime = res.headers.get("content-type") || "image/png";
     const data = Buffer.from(arrayBuffer).toString("base64");
     out.push({ inlineData: { mimeType: mime, data } });
+  }
+  return out;
+}
+
+/**
+ * Igual que `urlsToParts` pero TOLERANTE: la imagen que no se pueda leer se
+ * saltea y devolvemos las que sí. Para las REFERENCIAS, que son opcionales:
+ * perder una inspiración es molesto, perder la tanda entera es un bug.
+ */
+async function urlsToPartsBestEffort(urls: string[]): Promise<GeminiPart[]> {
+  const out: GeminiPart[] = [];
+  for (const url of urls) {
+    try {
+      const [part] = await urlsToParts([url]);
+      if (part) out.push(part);
+    } catch (err) {
+      // Sin throw: dejamos rastro en los logs de la función y seguimos.
+      console.error(
+        "Referencia ilegible, se saltea:",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
   return out;
 }

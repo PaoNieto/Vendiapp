@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import { SIGNED_URL_TTL_SECONDS } from "@/lib/constants";
 
 /**
  * Buckets disponibles en Supabase Storage (migración 0006).
@@ -194,13 +195,10 @@ export async function uploadImageToBucket(opts: {
     return { ok: true, url: data.publicUrl, path };
   }
 
-  // Bucket privado → URL firmada de larga duración (1 año). En fase 2, cuando
-  // rotemos firmas o usemos un proxy con permisos, esto se reemplaza por
-  // signedUrls de minutos + refresh.
-  const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+  // Bucket privado → URL firmada de larga duración.
   const { data: signed, error: signError } = await supabase.storage
     .from(bucket)
-    .createSignedUrl(path, ONE_YEAR_SECONDS);
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
   if (signError || !signed?.signedUrl) {
     return {
       ok: false,

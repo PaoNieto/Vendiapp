@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StationShell } from "@/components/app/station-shell";
 import { ForkedVersionNotice } from "@/components/app/forked-version-notice";
 import {
@@ -39,6 +39,49 @@ export default function FormatoPage() {
   const { productId, versionId } = recorrido.state;
   const version = versionId ? versions.getById(versionId) : undefined;
 
+  /*
+   * Stepper de variaciones: el número se mueve al instante en pantalla, pero se
+   * GUARDA una sola vez, cuando dejás de tocar.
+   *
+   * Antes cada click escribía su propio PATCH. Bajar de 5 a 2 son tres
+   * escrituras en carrera (5→4, 4→3, 3→2) sin garantía de orden de llegada, y
+   * gana la última en ejecutarse, no la última que tocaste. Pasó en prod el
+   * 2026-09-09: el usuario dejó el stepper en 2, la versión quedó guardada en 4
+   * y la tanda salió con 4 imágenes.
+   */
+  const persistedVariations = version?.variations_default ?? 1;
+  const [variations, setVariations] = useState(persistedVariations);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pending = useRef<{ versionId: string; value: number } | null>(null);
+  const syncedFor = useRef<string | null>(null);
+
+  // Sincronizamos el stepper UNA vez por versión (cubre la hidratación).
+  // Re-sincronizar en cada cambio pisaría lo que el usuario acaba de tocar.
+  useEffect(() => {
+    if (!versionId || syncedFor.current === versionId) return;
+    syncedFor.current = versionId;
+    setVariations(persistedVariations);
+  }, [versionId, persistedVariations]);
+
+  // Si te vas antes de que corra el debounce, guardamos igual: navegar a la
+  // hoja de versión no puede costarte el número que acabás de elegir.
+  const versionsRef = useRef(versions);
+  useEffect(() => {
+    versionsRef.current = versions;
+  }, [versions]);
+  useEffect(() => {
+    return () => {
+      if (!saveTimer.current) return;
+      clearTimeout(saveTimer.current);
+      const last = pending.current;
+      if (last) {
+        versionsRef.current.updateVersion(last.versionId, {
+          variations_default: last.value,
+        });
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!allHydrated) return;
     if (!productId || !versionId || !version) {
@@ -55,7 +98,18 @@ export default function FormatoPage() {
   }
 
   function handleVariationsChange(n: number) {
-    versions.updateVersion(versionId!, { variations_default: n });
+    // El número se mueve YA en pantalla; la escritura espera a que pares.
+    setVariations(n);
+    pending.current = { versionId: versionId!, value: n };
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      const last = pending.current;
+      if (!last) return;
+      versions.updateVersion(last.versionId, {
+        variations_default: last.value,
+      });
+    }, 400);
   }
 
   // Href dinámico al detalle de versión. El gate de arriba garantiza que
@@ -108,7 +162,7 @@ export default function FormatoPage() {
             </p>
           </div>
           <NumberStepper
-            value={version.variations_default}
+            value={variations}
             onChange={handleVariationsChange}
             min={1}
             max={10}
