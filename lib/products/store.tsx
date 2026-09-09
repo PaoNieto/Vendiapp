@@ -62,6 +62,14 @@ type ProductsState = {
   products: Product[];
 };
 
+/**
+ * Resultado de persistir un producto. Lo devuelve `addProductAsync` para que la
+ * UI pueda decidir con la verdad en la mano en vez de asumir que salió bien.
+ */
+export type ProductSaveResult =
+  | { ok: true; product: Product }
+  | { ok: false; error: string };
+
 const INITIAL: ProductsState = {
   products: [],
 };
@@ -72,6 +80,18 @@ type ProductsContextValue = {
   /** Última operación que falló. Null si la última corrió OK. */
   error: string | null;
   addProduct: (input: ProductCreateInput) => Product;
+  /**
+   * Igual que `addProduct`, pero devuelve una promesa que resuelve cuando el
+   * INSERT terminó de verdad.
+   *
+   * POR QUÉ EXISTE: `addProduct` devuelve el producto optimista al instante y
+   * persiste en segundo plano. Si el INSERT falla, el store hace rollback y lo
+   * saca del state — así que quien haya navegado al detalle a ciegas se
+   * encuentra sin producto y `productos/[id]` lo rebota al catálogo. Al usuario
+   * eso se le ve como "lo creé y se borró solo", sin ningún mensaje.
+   * Con esto la UI puede esperar el guardado y mostrar el error real.
+   */
+  addProductAsync: (input: ProductCreateInput) => Promise<ProductSaveResult>;
   updateProduct: (id: string, partial: Partial<Product>) => void;
   removeProduct: (id: string) => void;
   addImagesToProduct: (productId: string, urls: string[]) => void;
@@ -143,6 +163,27 @@ async function uploadProductImages(
 }
 
 /**
+ * Traduce un error de Supabase a algo que un comerciante pueda leer.
+ *
+ * El caso que importa es el de SESIÓN: si el token de Clerk no llega o Supabase
+ * no lo puede validar (third-party auth mal configurado), `auth.jwt()` queda
+ * NULL, RLS niega la fila y PostgREST devuelve 401 `PGRST301` — o 42501 en un
+ * INSERT bloqueado por policy. Sin este mapeo el usuario ve el catálogo vacío o
+ * el producto desaparecer, y concluye que se le borraron los datos. No se le
+ * borró nada: no lo está pudiendo leer.
+ */
+function describeSupabaseError(err: {
+  message?: string;
+  code?: string;
+}): string {
+  const code = err.code ?? "";
+  if (code === "PGRST301" || code === "42501") {
+    return "Tu sesión no está siendo aceptada por la base de datos, así que no pude guardar. Tus datos están intactos. Cerrá sesión, volvé a entrar y probá de nuevo; si sigue igual, es la conexión Clerk↔Supabase.";
+  }
+  return err.message ?? "No pude guardar el producto. Probá de nuevo.";
+}
+
+/**
  * Parser defensivo de una row Supabase a `Product`. Si llega algo inesperado
  * por la red (jsonb null, columnas faltantes en una migración intermedia),
  * caemos a defaults razonables en lugar de crashear el render.
@@ -203,7 +244,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         if (queryError) {
           console.error("Failed to fetch products:", queryError);
-          setError(queryError.message);
+          setError(describeSupabaseError(queryError));
           setHydrated(true);
           return;
         }
@@ -222,8 +263,15 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, supabase]);
 
-  const addProduct = useCallback(
-    (input: ProductCreateInput): Product => {
+  /**
+   * Mete el producto en el state optimista y arranca la persistencia.
+   * Devuelve el producto optimista (sync, para el caller viejo) y la promesa
+   * del guardado (para quien necesite ESPERARLO antes de navegar).
+   */
+  const startAddProduct = useCallback(
+    (
+      input: ProductCreateInput,
+    ): { optimistic: Product; saved: Promise<ProductSaveResult> } => {
       const currentUser = user;
       const now = new Date().toISOString();
       // Generamos el id en cliente para devolver `Product` sync (la API
@@ -247,7 +295,13 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
         setLocalState((prev) => ({
           products: prev.products.filter((p) => p.id !== optimistic.id),
         }));
-        return optimistic;
+        return {
+          optimistic,
+          saved: Promise.resolve({
+            ok: false,
+            error: "No hay sesión activa. Volvé a iniciar sesión.",
+          }),
+        };
       }
 
       // Pipeline async: 1) subir imágenes a Storage (no bloqueante para la UI
@@ -255,7 +309,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       // URLs reales, 3) reemplazar el optimistic por la row del server.
       // Si Storage falla parcial o totalmente, igual insertamos lo que tenemos
       // (URLs + dataURLs degradados) para no perder el producto entero.
-      void (async () => {
+      const saved: Promise<ProductSaveResult> = (async () => {
         const inputs = optimistic.product_images;
         const { urls, failures } = await uploadProductImages(
           currentUser.id,
@@ -291,10 +345,14 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
           setLocalState((prev) => ({
             products: prev.products.filter((p) => p.id !== optimistic.id),
           }));
-          return;
+          return { ok: false, error: describeSupabaseError(insertError) };
         }
         const parsed = parseProductRow(data);
-        if (!parsed) return;
+        if (!parsed) {
+          // El INSERT entró pero la row volvió ilegible: no revertimos (el dato
+          // existe), pero tampoco mentimos diciendo que salió todo bien.
+          return { ok: true, product: optimistic };
+        }
         // Reemplazamos el optimistic por la row real (timestamps del server).
         setLocalState((prev) => ({
           products: prev.products.map((p) =>
@@ -302,11 +360,28 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
           ),
         }));
         if (failures.length === 0) setError(null);
+        return { ok: true, product: parsed };
       })();
 
-      return optimistic;
+      return { optimistic, saved };
     },
     [supabase, user],
+  );
+
+  const addProduct = useCallback(
+    (input: ProductCreateInput): Product => {
+      const { optimistic, saved } = startAddProduct(input);
+      // Fire-and-forget: el `saved` ya deja el mensaje en `error` si falla.
+      void saved;
+      return optimistic;
+    },
+    [startAddProduct],
+  );
+
+  const addProductAsync = useCallback(
+    (input: ProductCreateInput): Promise<ProductSaveResult> =>
+      startAddProduct(input).saved,
+    [startAddProduct],
   );
 
   const updateProduct = useCallback(
@@ -523,6 +598,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       hydrated,
       error,
       addProduct,
+      addProductAsync,
       updateProduct,
       removeProduct,
       addImagesToProduct,
@@ -536,6 +612,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       hydrated,
       error,
       addProduct,
+      addProductAsync,
       updateProduct,
       removeProduct,
       addImagesToProduct,
