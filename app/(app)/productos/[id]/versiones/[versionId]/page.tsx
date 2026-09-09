@@ -247,7 +247,11 @@ export default function VersionDetailPage() {
   }
 
   /**
-   * Abre una estación de receta (`/estilo` o `/formato`) para esta versión.
+   * Abre la estación de receta para esta versión.
+   *
+   * Es UNA sola: `/estilo` fusionó inspiración, formato y estilo (2026-09-09).
+   * Los tres links de la ficha —Referencias, Ratio, Estilo— llevan al mismo
+   * lado; `/formato` sigue existiendo como redirect por si algo viejo apunta ahí.
    *
    * Si la versión YA produjo imágenes, editar su receta en el lugar dejaría un
    * registro que miente: la ficha diría "3 referencias" mientras las fotos se
@@ -258,7 +262,7 @@ export default function VersionDetailPage() {
    *
    * Si todavía no generó nada no hay nada que invalidar: se edita en el lugar.
    */
-  function openRecipeStation(station: "/estilo" | "/formato") {
+  function openRecipeStation() {
     if (!product || !version) return;
 
     if (totalImagesCount > 0) {
@@ -269,7 +273,7 @@ export default function VersionDetailPage() {
           versionId: fork.id,
           forkedFrom: version.id,
         });
-        router.push(station);
+        router.push("/estilo");
         return;
       }
       // Si la duplicación falla seguimos derecho a editar la original: es
@@ -281,7 +285,7 @@ export default function VersionDetailPage() {
       versionId: version.id,
       forkedFrom: null,
     });
-    router.push(station);
+    router.push("/estilo");
   }
 
   if (!allHydrated || !product || !version) {
@@ -351,9 +355,9 @@ export default function VersionDetailPage() {
             hasImages={hasGenerated}
             forks={totalImagesCount > 0}
             isSubmitting={isSubmitting}
-            onEditReferences={() => openRecipeStation("/estilo")}
-            onEditFormato={() => openRecipeStation("/formato")}
-            onEditStyle={() => openRecipeStation("/estilo")}
+            onEditReferences={() => openRecipeStation()}
+            onEditFormato={() => openRecipeStation()}
+            onEditStyle={() => openRecipeStation()}
             onGenerate={handleGenerate}
           />
 

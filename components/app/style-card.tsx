@@ -43,6 +43,16 @@ export type StyleCardProps = {
   selected: boolean;
   /** Callback al togglear seleccion. La grilla decide single vs multi. */
   onSelect: () => void;
+  /**
+   * Alto de la foto de ejemplo.
+   *
+   * `sm` (default) — franja de 104/120px, el tamaño histórico de la grilla.
+   * `lg` — vitrina: la foto manda y el estilo se aprecia sin abrir nada.
+   *
+   * Es opcional y default `sm` a propósito: así ningún consumidor existente
+   * cambia de aspecto por agregar esta prop.
+   */
+  size?: "sm" | "lg";
   /** className passthrough sobre el button wrapper. */
   className?: string;
 };
@@ -71,6 +81,7 @@ export function StyleCard({
   previewImage,
   selected,
   onSelect,
+  size = "sm",
   className,
 }: StyleCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -103,7 +114,13 @@ export function StyleCard({
         className,
       )}
     >
-      <div aria-hidden className="relative w-full overflow-hidden h-[104px] sm:h-[120px]">
+      <div
+        aria-hidden
+        className={cn(
+          "relative w-full overflow-hidden",
+          size === "lg" ? "h-[190px] sm:h-[228px]" : "h-[104px] sm:h-[120px]",
+        )}
+      >
         {showImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element -- thumbnail estatico en /public con fallback a wash; next/image es innecesario aca. */}
