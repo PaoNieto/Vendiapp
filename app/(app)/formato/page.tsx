@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { StationShell } from "@/components/app/station-shell";
+import { ForkedVersionNotice } from "@/components/app/forked-version-notice";
 import {
   NumberStepper,
   RatioSelector,
@@ -75,6 +76,11 @@ export default function FormatoPage() {
       nextHref={nextHref}
       nextLabel="Revisar y generar"
     >
+      {/* Si llegaste acá editando una versión que ya tenía fotos, la hoja de
+          versión bifurcó y estás sobre una copia. No renderiza nada si no
+          hubo bifurcación. */}
+      <ForkedVersionNotice />
+
       <div className="flex flex-col gap-8">
         <section className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between gap-3">

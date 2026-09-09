@@ -21,11 +21,23 @@ import {
 export type RecorridoState = {
   productId: string | null;
   versionId: string | null;
+  /**
+   * Id de la versión ORIGINAL cuando `versionId` es una bifurcación recién
+   * creada. Lo setea la hoja de versión al tocar "editar receta" sobre una
+   * versión que ya generó imágenes: en vez de pisar la receta que produjo esas
+   * fotos, duplica y manda a editar la copia.
+   *
+   * Las estaciones (`/estilo`, `/formato`) lo leen para mostrar el aviso con
+   * "Deshacer". Vuelve a `null` apenas se descarta o se deshace — no queremos
+   * que un blob viejo de localStorage reviva el cartel en otra sesión.
+   */
+  forkedFrom: string | null;
 };
 
 const INITIAL: RecorridoState = {
   productId: null,
   versionId: null,
+  forkedFrom: null,
 };
 
 const STORAGE_KEY = "vendi:recorrido";
@@ -46,6 +58,7 @@ const RecorridoContext = createContext<RecorridoContextValue | null>(null);
 const KNOWN_KEYS: ReadonlyArray<keyof RecorridoState> = [
   "productId",
   "versionId",
+  "forkedFrom",
 ];
 
 function filterKnown(parsed: Record<string, unknown>): Partial<RecorridoState> {

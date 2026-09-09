@@ -62,10 +62,18 @@ export function VersionGallery({
   images,
   versionSettings,
   onGenerateMore,
+  variant = "grid",
 }: {
   images: GeneratedImage[];
   versionSettings: VersionSettings;
   onGenerateMore: () => void;
+  /**
+   * `grid` — catálogo acumulado de la versión (lo que muestra `/fabrica/[id]`).
+   * `batch` — UNA tanda en fila, con cada tile en el ratio de salida real. Es
+   * el molde de la hoja de versión: las mismas ranuras que estaban vacías antes
+   * de generar, ahora llenas.
+   */
+  variant?: "grid" | "batch";
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const activeImage = activeId
@@ -76,14 +84,37 @@ export function VersionGallery({
     return <EmptyImagesState onGenerateMore={onGenerateMore} />;
   }
 
+  const isBatch = variant === "batch";
+  // "9:16" → "9 / 16" para `aspect-ratio`. En el catálogo mandamos cuadrado
+  // para que la grilla quede pareja aunque haya tandas de ratios distintos.
+  const aspect = isBatch
+    ? versionSettings.outputRatio.replace(":", " / ") || "1 / 1"
+    : "1 / 1";
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4">
+      <div
+        className={cn(
+          isBatch
+            ? "grid gap-3"
+            : "grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4",
+        )}
+        // En `batch` las columnas salen de `auto-fit`, no de un número fijo:
+        // la tanda puede tener de 1 a 10 imágenes (MAX_VARIATIONS) y así
+        // mantienen ancho parejo y bajan de línea cuando no entran, en vez de
+        // desbordar el panel.
+        style={
+          isBatch
+            ? { gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))" }
+            : undefined
+        }
+      >
         {images.map((img, idx) => (
           <CatalogTile
             key={img.id}
             image={img}
             index={idx + 1}
+            aspect={aspect}
             onOpen={() => setActiveId(img.id)}
           />
         ))}
@@ -108,10 +139,15 @@ function CatalogTile({
   image,
   index,
   onOpen,
+  aspect = "1 / 1",
+  className,
 }: {
   image: GeneratedImage;
   index: number;
   onOpen: () => void;
+  /** Valor de `aspect-ratio` (ej. "9 / 16"). Dinámico: viene del ratio de la versión. */
+  aspect?: string;
+  className?: string;
 }) {
   const { toggleFavorite, markDownloaded } = useGenerations();
 
@@ -131,7 +167,11 @@ function CatalogTile({
       aria-label={`Ver detalle de la variación ${index}`}
       onClick={onOpen}
       onKeyDown={handleKeyDown}
-      className="glass-card-compact group relative aspect-square cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+      style={{ aspectRatio: aspect }}
+      className={cn(
+        "glass-card-compact group relative cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40",
+        className,
+      )}
     >
       {image.image_url ? (
         <Image
