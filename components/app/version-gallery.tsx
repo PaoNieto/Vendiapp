@@ -93,21 +93,25 @@ export function VersionGallery({
 
   return (
     <>
+      {/*
+        Columnas FIJAS, no `auto-fit`. Con `auto-fit` las columnas vacías
+        colapsan y la imagen que queda se estira al ancho completo: una tanda de
+        1 sola imagen se convertía en un bloque gigante que se salía de la
+        pantalla (reportado por Paolo, 2026-09-09). Con número fijo, una imagen
+        ocupa una celda y ya — que es como se comportaba el catálogo de siempre.
+      */}
+      {/*
+        En `batch` van POCAS columnas a propósito: la variación es el producto
+        terminado y tiene que apreciarse sin abrir el modal (pedido de Paolo,
+        2026-09-09). Con 5 columnas quedaban miniaturas.
+      */}
       <div
         className={cn(
+          "grid",
           isBatch
-            ? "grid gap-3"
-            : "grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4",
+            ? "grid-cols-2 gap-3 sm:grid-cols-3"
+            : "grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4",
         )}
-        // En `batch` las columnas salen de `auto-fit`, no de un número fijo:
-        // la tanda puede tener de 1 a 10 imágenes (MAX_VARIATIONS) y así
-        // mantienen ancho parejo y bajan de línea cuando no entran, en vez de
-        // desbordar el panel.
-        style={
-          isBatch
-            ? { gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))" }
-            : undefined
-        }
       >
         {images.map((img, idx) => (
           <CatalogTile
@@ -115,6 +119,7 @@ export function VersionGallery({
             image={img}
             index={idx + 1}
             aspect={aspect}
+            format={versionSettings.outputRatio}
             onOpen={() => setActiveId(img.id)}
           />
         ))}
@@ -140,6 +145,7 @@ function CatalogTile({
   index,
   onOpen,
   aspect = "1 / 1",
+  format,
   className,
 }: {
   image: GeneratedImage;
@@ -147,6 +153,8 @@ function CatalogTile({
   onOpen: () => void;
   /** Valor de `aspect-ratio` (ej. "9 / 16"). Dinámico: viene del ratio de la versión. */
   aspect?: string;
+  /** Ratio legible (ej. "9:16") para el sello de formato en la esquina. */
+  format?: string;
   className?: string;
 }) {
   const { toggleFavorite, markDownloaded } = useGenerations();
@@ -191,6 +199,21 @@ function CatalogTile({
       >
         V{index}
       </span>
+
+      {/*
+        Sello de formato, abajo a la izquierda: la esquina opuesta al número y
+        lejos de las acciones de hover (arriba a la derecha), así no se pisan.
+        Sirve para saber de un vistazo en qué proporción salió cada foto sin
+        tener que abrirla.
+      */}
+      {format ? (
+        <span
+          className="absolute bottom-2.5 left-2.5 inline-flex items-center rounded-md bg-foreground/60 px-2 py-1 font-mono text-[10px] text-background backdrop-blur-sm"
+          style={{ letterSpacing: "0.06em" }}
+        >
+          {format}
+        </span>
+      ) : null}
 
       <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         <button
