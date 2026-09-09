@@ -93,21 +93,20 @@ export function VersionGallery({
 
   return (
     <>
+      {/*
+        Columnas FIJAS, no `auto-fit`. Con `auto-fit` las columnas vacías
+        colapsan y la imagen que queda se estira al ancho completo: una tanda de
+        1 sola imagen se convertía en un bloque gigante que se salía de la
+        pantalla (reportado por Paolo, 2026-09-09). Con número fijo, una imagen
+        ocupa una celda y ya — que es como se comportaba el catálogo de siempre.
+      */}
       <div
         className={cn(
+          "grid",
           isBatch
-            ? "grid gap-3"
-            : "grid grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4",
+            ? "grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5"
+            : "grid-cols-2 gap-[18px] sm:grid-cols-3 lg:grid-cols-4",
         )}
-        // En `batch` las columnas salen de `auto-fit`, no de un número fijo:
-        // la tanda puede tener de 1 a 10 imágenes (MAX_VARIATIONS) y así
-        // mantienen ancho parejo y bajan de línea cuando no entran, en vez de
-        // desbordar el panel.
-        style={
-          isBatch
-            ? { gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))" }
-            : undefined
-        }
       >
         {images.map((img, idx) => (
           <CatalogTile

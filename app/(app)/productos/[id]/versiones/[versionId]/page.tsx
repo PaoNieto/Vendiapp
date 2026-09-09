@@ -652,9 +652,20 @@ function BatchPanel({
   // "Vertical historia" → "verticales": el label del ratio ya nombra la forma,
   // así el título se lee como una frase ("5 verticales 9:16") en vez de repetir
   // "imágenes" al lado del número.
-  const shapeWord = ratioLabel
-    ? `${ratioLabel.split(" ")[0].toLowerCase()}es`.replace(/oes$/, "os")
-    : "imágenes";
+  //
+  // Con singular de verdad: antes pluralizaba siempre y salía "1 cuadrados".
+  const shownCount = hasImages ? images.length : count;
+  const shape = ratioLabel ? ratioLabel.split(" ")[0].toLowerCase() : null;
+  const shapeWord = !shape
+    ? shownCount === 1
+      ? "imagen"
+      : "imágenes"
+    : shownCount === 1
+      ? shape
+      : // "vertical"/"horizontal" → +es; "cuadrado" → +s.
+        shape.endsWith("l")
+        ? `${shape}es`
+        : `${shape}s`;
 
   return (
     <div className="flex min-w-0 flex-col p-5 sm:p-6">
@@ -663,10 +674,7 @@ function BatchPanel({
           {hasImages ? "ESTA TANDA" : "VAS A GENERAR"}
         </span>
         <h2 className="mt-1 font-display text-[28px] italic leading-tight text-foreground">
-          <span className="tabular-nums">
-            {hasImages ? images.length : count}
-          </span>{" "}
-          {shapeWord}
+          <span className="tabular-nums">{shownCount}</span> {shapeWord}
           <span className="ml-2 rounded-md border border-border bg-card-cream/60 px-1.5 py-0.5 align-middle font-mono text-[15px] font-bold not-italic">
             {version.output_ratio}
           </span>
@@ -760,13 +768,10 @@ function GhostSlots({ count, ratio }: { count: number; ratio: string }) {
   const aspect = ratio.replace(":", " / ");
 
   return (
-    // Grid con `auto-fit` en vez de una fila flex: con `variations_default` en
-    // su máximo (10) una fila sin envolver se desbordaba del panel. Así las
-    // ranuras mantienen ancho parejo y bajan de línea cuando no entran.
-    <div
-      className="grid w-full gap-3"
-      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))" }}
-    >
+    // Columnas FIJAS, igual que la galería. Con `auto-fit` las columnas vacías
+    // colapsan y la ranura que queda se estira al ancho completo: con 1 sola
+    // variación quedaba un bloque gigante que se salía de la pantalla.
+    <div className="grid w-full grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
