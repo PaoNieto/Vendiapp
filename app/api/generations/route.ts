@@ -210,7 +210,7 @@ export async function POST(req: Request) {
         p_reason: "refund",
       });
     }
-    await supabase
+    await admin
       .from("generations")
       .update({ status: "failed", error_message: result.error.kind })
       .eq("id", generationId);
@@ -220,12 +220,27 @@ export async function POST(req: Request) {
     );
   }
 
-  // 7. Subir imágenes OK a Storage + insert en generated_images
+  // 7. Subir imágenes OK a Storage + insert en generated_images.
+  //
+  // TODO lo que va de acá para abajo usa el cliente ADMIN (service_role), no el
+  // del usuario. Motivo, con evidencia de prod (2026-09-09): el token de sesión
+  // de Clerk vive ~60s, pero esta ruta puede tardar hasta 300s (maxDuration). El
+  // token llega con la request y NO se renueva mientras corre, así que para
+  // cuando el Director + las imágenes terminan, ya venció. Storage rechazaba las
+  // subidas con `400 · "exp" claim timestamp check failed` y la tanda entera
+  // moría en `upload_failed` — con las imágenes YA generadas y pagadas (230KB
+  // cada una, tiradas a la basura). Intermitente por naturaleza: dependía de
+  // cuánta vida le quedaba al token al entrar.
+  //
+  // El ownership ya quedó probado ARRIBA: la versión y el producto se leyeron
+  // con el token del usuario bajo RLS, y el `path` va namespaceado por `userId`,
+  // que sale de `auth()` y no del body. El service_role acá no afloja ningún
+  // borde de seguridad; sólo evita depender de un token que puede vencer.
   const urls: string[] = [];
   let index = 0;
   for (const img of result.images) {
     const path = `${userId}/${generationId}/${index}.jpg`;
-    const { error: upErr } = await supabase.storage
+    const { error: upErr } = await admin.storage
       .from("generated-images")
       .upload(path, img.buffer, { contentType: img.contentType, upsert: false });
     if (upErr) {
@@ -234,7 +249,7 @@ export async function POST(req: Request) {
       continue;
     }
     const ONE_YEAR = 60 * 60 * 24 * 365;
-    const { data: signed } = await supabase.storage
+    const { data: signed } = await admin.storage
       .from("generated-images")
       .createSignedUrl(path, ONE_YEAR);
     const url = signed?.signedUrl ?? "";
@@ -245,7 +260,7 @@ export async function POST(req: Request) {
       continue;
     }
 
-    await supabase.from("generated_images").insert({
+    await admin.from("generated_images").insert({
       generation_id: generationId,
       user_id: userId,
       image_url: url,
@@ -275,7 +290,7 @@ export async function POST(req: Request) {
   // queda failed (el costo entero ya se reembolsó arriba) y el cliente recibe
   // el mismo contrato de error que un fallo total de generación.
   if (delivered === 0) {
-    await supabase
+    await admin
       .from("generations")
       .update({ status: "failed", error_message: "upload_failed" })
       .eq("id", generationId);
@@ -284,12 +299,12 @@ export async function POST(req: Request) {
       { status: 502 },
     );
   }
-  await supabase
+  await admin
     .from("generations")
     .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("id", generationId);
 
-  const { data: finalProfile } = await supabase
+  const { data: finalProfile } = await admin
     .from("profiles")
     .select("credits_remaining")
     .eq("id", userId)

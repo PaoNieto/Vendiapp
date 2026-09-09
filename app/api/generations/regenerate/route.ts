@@ -201,8 +201,16 @@ export async function POST(req: Request) {
 
   // 6. Subir a Storage (path único por timestamp para no colisionar con las
   // variaciones existentes de esta misma generación).
+  //
+  // De acá para abajo va todo con el cliente ADMIN, no con el del usuario:
+  // el token de Clerk vive ~60s y no se renueva durante la request, así que
+  // después de esperar a la imagen ya puede estar vencido y Storage responde
+  // `400 · "exp" claim timestamp check failed`. Pasó en prod en la ruta
+  // hermana (`/api/generations`) el 2026-09-09. El ownership del `imageId` ya
+  // se resolvió arriba bajo RLS y el `path` va namespaceado por `userId` de
+  // `auth()`, así que no se afloja ningún borde de seguridad.
   const path = `${userId}/${generationId}/regen-${Date.now()}.jpg`;
-  const { error: upErr } = await supabase.storage
+  const { error: upErr } = await admin.storage
     .from("generated-images")
     .upload(path, generated.buffer, {
       contentType: generated.contentType,
@@ -216,7 +224,7 @@ export async function POST(req: Request) {
     );
   }
   const ONE_YEAR = 60 * 60 * 24 * 365;
-  const { data: signed } = await supabase.storage
+  const { data: signed } = await admin.storage
     .from("generated-images")
     .createSignedUrl(path, ONE_YEAR);
   const url = signed?.signedUrl ?? "";
@@ -231,7 +239,7 @@ export async function POST(req: Request) {
   }
 
   // variation_index: siguiente al máximo de la generación (columna NOT NULL).
-  const { data: maxRow } = await supabase
+  const { data: maxRow } = await admin
     .from("generated_images")
     .select("variation_index")
     .eq("generation_id", generationId)
@@ -244,7 +252,7 @@ export async function POST(req: Request) {
 
   // Insert de la nueva imagen. Arrastra el strict_prompt para que el usuario
   // pueda seguir iterando desde ahí. `base_prompt` = prompt final read-only.
-  const { data: inserted, error: insertErr } = await supabase
+  const { data: inserted, error: insertErr } = await admin
     .from("generated_images")
     .insert({
       generation_id: generationId,
@@ -265,7 +273,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { data: finalProfile } = await supabase
+  const { data: finalProfile } = await admin
     .from("profiles")
     .select("credits_remaining")
     .eq("id", userId)
