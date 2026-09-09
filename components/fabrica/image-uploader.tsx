@@ -2,14 +2,7 @@
 
 /** Drag & drop + click uploader with preview grid, removal, counter and clear states. */
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ImagePlus, Loader2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -70,13 +63,24 @@ export function ImageUploader({
   const [error, setError] = useState<string | null>(null);
   const dragCounter = useRef(0);
 
-  // Revoke object URLs that are no longer present
-  useEffect(() => {
-    return () => {
-      value.forEach((img) => URL.revokeObjectURL(img.previewUrl));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // NO revocamos los object URLs al desmontar. Parece una fuga, pero revocarlos
+  // acá ROMPÍA la carga de referencias (bug en prod, 2026-09-09: el usuario subía
+  // una referencia y la versión quedaba con `reference_images: []`, sin un solo
+  // archivo en el bucket).
+  //
+  // Por qué: el `previewUrl` es un `blob:` y la subida a Storage que dispara
+  // `updateVersion` es fire-and-forget — hace `fetch(blobUrl)` en segundo plano.
+  // Al tocar "Continuar a Formato", esta pantalla se desmontaba, este cleanup
+  // revocaba el blob, y la subida en vuelo se quedaba sin nada que leer. La
+  // referencia se perdía en silencio.
+  //
+  // El costo de no revocar es que los blobs viven hasta que se descarga el
+  // documento, o sea hasta la próxima navegación dura o el cierre de la pestaña:
+  // unos pocos MB como mucho, acotados por `max` y `maxSizeMb`. Barato al lado
+  // de perder la referencia que el usuario acaba de elegir.
+  //
+  // El revoke deliberado de `handleRemove` SÍ se conserva: ahí el usuario dijo
+  // explícitamente que no quiere esa imagen.
 
   const remaining = useMemo(() => Math.max(0, max - value.length), [
     max,
