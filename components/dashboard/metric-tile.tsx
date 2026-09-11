@@ -86,7 +86,7 @@ export function MetricTile({
       <div className="mt-4 flex items-end justify-between gap-4 sm:gap-6">
         <span
           className={cn(
-            "display-serif numeric-tabular text-ink leading-none",
+            "vd-metric-value display-serif numeric-tabular text-ink leading-none",
             "text-[44px] sm:text-[52px] lg:text-[56px]",
           )}
         >

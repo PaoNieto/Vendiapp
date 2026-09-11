@@ -495,7 +495,7 @@ function EmptyGallery({ onStartNew }: { onStartNew: () => void }) {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
         <ScanSearch className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         Sin análisis todavía
       </h2>
       <p className="max-w-sm text-sm text-mute">
@@ -588,7 +588,7 @@ function CreatingFlow({
         <div className="glass-card flex flex-col gap-7 p-6 sm:p-9">
           <header className="flex flex-col gap-2">
             <span className="eyebrow">Análisis</span>
-            <h2 className="font-display text-2xl italic leading-tight text-foreground sm:text-[28px]">
+            <h2 className="text-2xl leading-tight text-foreground sm:text-[28px]">
               Subí una imagen para analizar
             </h2>
             <p className="max-w-xl text-sm text-mute">
@@ -681,7 +681,7 @@ function NoAnalysisCredits() {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
         <ScanSearch className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         Te quedaste sin análisis
       </h2>
       <p className="max-w-sm text-sm text-mute">

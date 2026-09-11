@@ -785,7 +785,7 @@ function Vitrina({
         <span className="eyebrow">
           {hasImages ? "ESTA TANDA" : "VAS A GENERAR"}
         </span>
-        <h2 className="mt-1 font-display text-[27px] italic leading-tight text-foreground">
+        <h2 className="mt-1 text-[27px] leading-tight text-foreground">
           <span className="tabular-nums">{shownCount}</span> {shapeWord}
           <span className="ml-2 rounded-md border border-border bg-card-cream/60 px-1.5 py-0.5 align-middle font-mono text-[14px] font-bold not-italic">
             {version.output_ratio}

@@ -337,7 +337,7 @@ function EmptyState() {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
         <Factory className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         Tu Fábrica está limpia
       </h2>
       <p className="max-w-sm text-sm text-mute">

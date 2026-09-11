@@ -67,7 +67,7 @@ export function UpgradeStore({
             Tenés {stats.balance} {stats.balance === 1 ? "crédito" : "créditos"}
           </span>
           <span className="eyebrow-on-bg mt-5">Tienda</span>
-          <h1 className="mt-2 font-display text-3xl italic text-foreground sm:text-4xl">
+          <h1 className="mt-2 text-3xl text-foreground sm:text-4xl">
             {title}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
@@ -85,7 +85,7 @@ export function UpgradeStore({
                     {lifetime.badge}
                   </span>
                 ) : null}
-                <h2 className="font-display text-2xl italic text-foreground">
+                <h2 className="text-2xl text-foreground">
                   {lifetime.name}
                 </h2>
                 <div className="mt-2 flex items-baseline gap-1.5">
@@ -133,7 +133,7 @@ export function UpgradeStore({
         {/* Packs de créditos — recarga pura, sin perks. */}
         {packs.length ? (
           <div className="mt-10">
-            <h2 className="font-display text-xl italic text-foreground">
+            <h2 className="text-xl text-foreground">
               Packs de créditos
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -154,7 +154,7 @@ export function UpgradeStore({
                         {pack.badge}
                       </span>
                     ) : null}
-                    <h3 className="font-display text-lg italic text-foreground">
+                    <h3 className="text-lg text-foreground">
                       {pack.name}
                     </h3>
                     <div className="mt-2 flex items-baseline gap-1.5">

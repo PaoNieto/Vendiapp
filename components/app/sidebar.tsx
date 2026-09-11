@@ -61,7 +61,7 @@ export function Sidebar() {
   )}`;
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
+    <aside className="vd-sidebar sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
       {/*
         Branding: "Vendí." en serif italic 30px. El punto pintado en
         sage-strong como acento sutil de marca. font-display resuelve
@@ -208,11 +208,14 @@ function NavItem({ href, label, icon: Icon, active }: NavItemProps) {
   return (
     <Link
       href={href}
+      data-active={active ? "true" : "false"}
       className={cn(
         // Pill activo: bg forest + text cream + weight 600. Radius 8px
         // (el handoff pide rounded suave, no rounded-full pill — esto
         // queda en el border-radius interno de cada item, no su forma).
-        "flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13.5px] transition-colors",
+        // `vd-nav-item` + `data-active`: gancho del modo oscuro "Nube baja
+        // flotante" (definido en globals.css; en modo claro no hace nada).
+        "vd-nav-item flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13.5px] transition-colors",
         active
           ? "bg-primary font-semibold text-primary-foreground"
           : "font-medium text-foreground hover:bg-foreground/5",

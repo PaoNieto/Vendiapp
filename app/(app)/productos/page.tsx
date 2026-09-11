@@ -323,7 +323,7 @@ function EmptyCatalog() {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
         <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         Tu catálogo está vacío
       </h2>
       <p className="max-w-sm text-sm text-mute">
@@ -353,7 +353,7 @@ function CatalogError({ message }: { message: string }) {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <AlertTriangle className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         No pude cargar tu catálogo
       </h2>
       <p className="max-w-sm text-sm text-mute">{message}</p>

@@ -50,7 +50,7 @@ export function GeneratingOverlay({ subtitle }: { subtitle?: string }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <h3 className="font-display text-2xl italic text-ink">
+          <h3 className="text-2xl text-ink">
             Creando tus imágenes…
           </h3>
           <p className="text-sm text-mute">
