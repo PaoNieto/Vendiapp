@@ -44,3 +44,10 @@ next-env.d.ts
 # claude code (local)
 .claude/settings.local.json
 .claude/worktrees/
+
+# local: nunca al repo (token en .mcp.json, 167MB y leads reales en output/)
+.mcp.json
+/output/
+/.agents/
+/oficina/
+*.local-wip-bak

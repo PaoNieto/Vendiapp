@@ -142,7 +142,13 @@ export async function generateOnServer(
         userPrompt,
         brand,
       });
-    } catch {
+    } catch (err) {
+      // Sin saldo en Google: las N llamadas de imagen van a fallar igual. Se
+      // corta acá (la ruta reembolsa y dice la verdad) en vez de mandarlas.
+      const cause = err instanceof Error ? (err.cause as GeminiError | undefined) : undefined;
+      if (cause?.kind === "billing") {
+        return { ok: false, error: cause };
+      }
       basePrompt =
         userPrompt && userPrompt.trim().length > 0
           ? userPrompt
@@ -344,7 +350,9 @@ Devolve SOLO el JSON estructurado, sin texto adicional ni markdown.`;
   });
 
   if (!result.ok) {
-    throw new Error(`Director falló: ${result.error.kind}`);
+    // `cause` lleva el error tipado: el caller distingue "sin saldo" (corta la
+    // tanda) de cualquier otra falla (sigue con el prompt de respaldo).
+    throw new Error(`Director falló: ${result.error.kind}`, { cause: result.error });
   }
 
   const parts = result.response.candidates?.[0]?.content?.parts ?? [];
@@ -469,7 +477,9 @@ function stripCodeFences(text: string): string {
 /*  Aspect ratio enforce (sharp, server-side)                                   */
 /* -------------------------------------------------------------------------- */
 
-const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
+// Exportados (sin cambiar lógica) para que el pipeline v2 (lib/ai/v2/) reuse el
+// MISMO post-proceso en vez de importar sharp por segunda vez.
+export const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
   "1:1": { w: 1024, h: 1024 },
   "4:5": { w: 1024, h: 1280 },
   "9:16": { w: 1080, h: 1920 },
@@ -481,7 +491,7 @@ const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
  * del Canvas browser). `fit: "cover"` escala para llenar y recorta el exceso
  * centrado. Salida JPEG 92%.
  */
-async function enforceRatioServer(input: Buffer, ratio: OutputRatio): Promise<Buffer> {
+export async function enforceRatioServer(input: Buffer, ratio: OutputRatio): Promise<Buffer> {
   const target = RATIO_TARGETS[ratio];
   if (!target) {
     return sharp(input).jpeg({ quality: 92 }).toBuffer();

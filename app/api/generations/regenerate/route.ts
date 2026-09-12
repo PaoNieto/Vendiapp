@@ -8,6 +8,8 @@ import { regenerateImageRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
 import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
+import { isGeminiBillingExhausted } from "@/lib/ai/gemini-client";
+import { formatBillingError } from "@/lib/generations/format";
 
 /**
  * POST /api/generations/regenerate — REGENERACIÓN por imagen con PROMPT ESTRICTO.
@@ -144,6 +146,18 @@ export async function POST(req: Request) {
     );
   }
 
+  // 3.b Sin saldo en Google (visto hace <2 min en esta instancia): cortamos
+  // antes de descontar, así no hay deduct + refund para el mismo error.
+  if (isGeminiBillingExhausted()) {
+    return NextResponse.json(
+      {
+        error: "ai_billing_exhausted",
+        message: formatBillingError({ service: "images", refunded: 0 }),
+      },
+      { status: 503 },
+    );
+  }
+
   // 4. Reservar 1 crédito (deduct atómico vía service_role).
   const { error: deductErr } = await admin.rpc("deduct_credits", {
     p_user_id: userId,
@@ -191,13 +205,18 @@ export async function POST(req: Request) {
 
   if (!result.ok) {
     await refund();
+    // Sin saldo en Google: no se arregla reintentando; el texto dice si el
+    // crédito volvió (a un ilimitado no se le descontó nada).
+    const billing = result.error.kind === "billing";
     return NextResponse.json(
       {
         error: "generation_failed",
         detail: result.error,
-        message: `No pudimos regenerar la imagen.${refundNote} Probá de nuevo.`,
+        message: billing
+          ? formatBillingError({ service: "images", refunded: isUnlimited ? 0 : 1 })
+          : `No pudimos regenerar la imagen.${refundNote} Probá de nuevo.`,
       },
-      { status: 502 },
+      { status: billing ? 503 : 502 },
     );
   }
 

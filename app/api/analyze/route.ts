@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { analyzeImage } from "@/lib/ai/image-analyzer";
+import { isGeminiBillingExhausted } from "@/lib/ai/gemini-client";
+import { formatBillingError } from "@/lib/generations/format";
 import { analyzeRequestSchema } from "@/lib/validations/analyze";
 
 /**
@@ -99,6 +101,18 @@ export async function POST(req: Request) {
     );
   }
 
+  // 3.b Sin saldo en Google (visto hace <2 min en esta instancia): cortamos
+  // antes de descontar el crédito de análisis.
+  if (isGeminiBillingExhausted()) {
+    return NextResponse.json(
+      {
+        error: "ai_billing_exhausted",
+        message: formatBillingError({ service: "analysis", refunded: 0 }),
+      },
+      { status: 503 },
+    );
+  }
+
   // 4. Reservar 1 crédito de análisis (atómico, service_role).
   const { error: deductErr } = await admin.rpc("deduct_analysis_credit", {
     p_user_id: userId,
@@ -119,6 +133,21 @@ export async function POST(req: Request) {
         p_user_id: userId,
         p_amount: 1,
       });
+    }
+    // Sin saldo en Google: la página muestra `message` tal cual. Para el resto
+    // de las fallas sigue su copy genérico, como antes.
+    if (result.error.kind === "billing") {
+      return NextResponse.json(
+        {
+          error: "analysis_failed",
+          detail: result.error,
+          message: formatBillingError({
+            service: "analysis",
+            refunded: isUnlimited ? 0 : 1,
+          }),
+        },
+        { status: 503 },
+      );
     }
     return NextResponse.json(
       { error: "analysis_failed", detail: result.error },
