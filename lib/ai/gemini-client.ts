@@ -45,7 +45,15 @@ export const GEMINI_REASONING_MODEL = "gemini-3.1-pro-preview";
  */
 export const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+const GEMINI_API_ROOT = "https://generativelanguage.googleapis.com";
+
+/**
+ * Versión de la REST API. Default `v1beta` (lo que usa todo v1). La v2 del
+ * pipeline puede pedir `v1` como plan B si Google deja de aceptar `imageConfig`
+ * en v1beta: los ejemplos nuevos de la guía de imagen usan `/v1/` con
+ * `responseFormat.image`.
+ */
+export type GeminiApiVersion = "v1beta" | "v1";
 
 /* -------------------------------------------------------------------------- */
 /*  Tipos públicos                                                              */
@@ -93,13 +101,19 @@ export type GeminiResponse = {
 };
 
 /**
- * Union de errores tipados que devolvemos al caller. La UI los traduce a copy
- * friendly en castellano via `formatGenerationError`.
+ * Union de errores tipados que devolvemos al caller. Las rutas los traducen a
+ * copy en castellano (`message` de la respuesta; ver `formatBillingError` en
+ * lib/generations/format.ts para `billing`).
+ *
+ * `billing` ≠ `rate_limit`: la cuenta de Google de Vendí se quedó SIN SALDO
+ * (prepago agotado, billing deshabilitado). No se arregla solo esperando, así
+ * que no se reintenta y al usuario no se le dice "probá más tarde".
  */
 export type GeminiError =
   | { kind: "missing_key" }
   | { kind: "invalid_key" }
   | { kind: "rate_limit"; retryAfterSec?: number }
+  | { kind: "billing"; message?: string }
   | { kind: "content_blocked"; reason?: string }
   | { kind: "network" }
   | { kind: "unknown"; message: string };
@@ -125,6 +139,8 @@ export type CallGeminiOptions = {
    * de imagen puede tardar 10-30s y queremos margen.
    */
   timeoutMs?: number;
+  /** Versión de la REST API. Default `v1beta`: omitirlo deja todo como estaba. */
+  apiVersion?: GeminiApiVersion;
 };
 
 /**
@@ -138,7 +154,7 @@ export async function callGemini(
     return { ok: false, error: { kind: "missing_key" } };
   }
 
-  const url = `${GEMINI_BASE_URL}/models/${encodeURIComponent(
+  const url = `${GEMINI_API_ROOT}/${opts.apiVersion ?? "v1beta"}/models/${encodeURIComponent(
     opts.model,
   )}:generateContent?key=${encodeURIComponent(opts.apiKey)}`;
 
@@ -182,8 +198,13 @@ export async function callGemini(
   // como JSON con `{ error: { code, message, status, details? } }`.
   if (!res.ok) {
     const errorPayload = await safeReadErrorPayload(res);
-    return { ok: false, error: mapHttpStatusToError(res.status, errorPayload) };
+    const error = mapHttpStatusToError(res.status, errorPayload);
+    if (error.kind === "billing") noteBillingExhausted(res.status, opts.model, error.message);
+    return { ok: false, error };
   }
+  // Una respuesta OK prueba que hay saldo: si alguien recargó, el corte se
+  // levanta ya y no espera a que venza.
+  billingExhaustedUntil = 0;
 
   let parsed: GeminiResponse;
   try {
@@ -252,6 +273,13 @@ function mapHttpStatusToError(
     return { kind: "unknown", message: `HTTP 400: ${message}` };
   }
 
+  // Saldo agotado / billing apagado: Google lo manda como 429 RESOURCE_EXHAUSTED
+  // ("Your prepayment credits are depleted", verificado en vivo 2026-09-10) o
+  // como 403 (BILLING_DISABLED). Va ANTES que invalid_key y rate_limit.
+  if ((status === 429 || status === 403) && isBillingExhaustion(payload)) {
+    return { kind: "billing", message: message.slice(0, 300) };
+  }
+
   if (status === 401 || status === 403) {
     return { kind: "invalid_key" };
   }
@@ -268,6 +296,70 @@ function mapHttpStatusToError(
   }
 
   return { kind: "unknown", message: `HTTP ${status}: ${message}` };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Saldo agotado (billing)                                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Frases de Google que significan "la cuenta no tiene saldo / billing apagado".
+ * Ojo con el falso positivo: el rate limit NORMAL de cuota dice "You exceeded
+ * your current quota, please check your plan and billing details" — nombra
+ * "billing" pero es un límite por minuto/día que se arregla solo. Por eso no se
+ * busca la palabra suelta, sino frases que solo aparecen cuando falta plata.
+ */
+const BILLING_PATTERNS: RegExp[] = [
+  /\bprepay(?:ment|ed)\b/i,
+  /\bcredits?\s+(?:are\s+|is\s+|have\s+been\s+|has\s+been\s+)?(?:depleted|exhausted|used\s+up|insufficient)\b/i,
+  /\binsufficient\s+(?:funds|balance|credits?)\b/i,
+  /\brequires?\s+billing\b/i,
+  /\bbilling\s+(?:account\s+)?(?:is\s+|has\s+been\s+)?(?:disabled|suspended|closed|inactive|not\s+(?:enabled|active|set\s*up))\b/i,
+  /\b(?:enable|set\s*up|link)\s+(?:a\s+)?billing\b/i,
+  /\bBILLING_DISABLED\b/,
+];
+
+function isBillingExhaustion(payload: GeminiErrorPayload): boolean {
+  const reasons = (Array.isArray(payload.error?.details) ? payload.error.details : [])
+    .map((d) => (d && typeof d === "object" ? (d as Record<string, unknown>)["reason"] : null))
+    .filter((r): r is string => typeof r === "string");
+  const haystack = [payload.error?.message ?? "", ...reasons].join(" ");
+  return BILLING_PATTERNS.some((re) => re.test(haystack));
+}
+
+/**
+ * Corte por instancia: después de un `billing`, durante 2 minutos las rutas
+ * pueden cortar ANTES de descontar créditos o reservar cupo de notas
+ * (`isGeminiBillingExhausted`). Se levanta solo al vencer o con la primera
+ * respuesta OK de Gemini (alguien recargó). Es un atajo, no la fuente de verdad:
+ * sin corte, la llamada real igual devuelve `billing`.
+ */
+export const BILLING_BREAKER_MS = 120_000;
+let billingExhaustedUntil = 0;
+
+function noteBillingExhausted(status: number, model: string, message: string | undefined): void {
+  const now = Date.now();
+  const wasOpen = billingExhaustedUntil > now;
+  billingExhaustedUntil = now + BILLING_BREAKER_MS;
+  // Una línea por apertura del corte (no una por imagen de la tanda): es la que
+  // hay que buscar en los logs de Vercel. Sin la key: solo status, modelo y el
+  // texto de Google.
+  if (!wasOpen) {
+    console.error(
+      "[gemini] billing_exhausted",
+      JSON.stringify({ status, model, message: (message ?? "").slice(0, 300) }),
+    );
+  }
+}
+
+/** ¿Esta instancia vio hace menos de 2 min que la cuenta de Google no tiene saldo? */
+export function isGeminiBillingExhausted(now: number = Date.now()): boolean {
+  return billingExhaustedUntil > now;
+}
+
+/** Solo pruebas offline: vuelve el corte a cerrado. */
+export function resetGeminiBillingState(): void {
+  billingExhaustedUntil = 0;
 }
 
 /**

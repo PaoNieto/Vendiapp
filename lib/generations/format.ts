@@ -41,3 +41,29 @@ export function formatRelativeTime(iso: string): string {
   const weeks = Math.floor(diffMs / week);
   return weeks === 1 ? "hace 1 semana" : `hace ${weeks} semanas`;
 }
+
+/**
+ * Mensaje al usuario cuando la IA falla porque la cuenta de Google de Vendí se
+ * quedó SIN SALDO (`GeminiError` kind "billing"). No es un "probá más tarde":
+ * no se arregla solo y la culpa no es del usuario.
+ *
+ * `refunded` = créditos que DE VERDAD volvieron a su saldo. Tiene que ser
+ * honesto: 0 cuando no se descontó nada (corte antes del deduct, o usuario de
+ * `unlimited_users`, cuyo deduct es no-op) → "No se te descontó nada". Si hubo
+ * deduct y refund, se dice cuántos volvieron: "no se te descontó" sería falso.
+ */
+export function formatBillingError(opts: {
+  service: "images" | "analysis";
+  refunded: number;
+}): string {
+  const subject =
+    opts.service === "images" ? "El generador de imágenes" : "El análisis con IA";
+  const n = Math.max(0, Math.floor(opts.refunded));
+  const money =
+    n === 0
+      ? "No se te descontó nada"
+      : n === 1
+        ? `Te devolvimos el crédito${opts.service === "analysis" ? " de análisis" : ""}`
+        : `Te devolvimos los ${n} créditos${opts.service === "analysis" ? " de análisis" : ""}`;
+  return `${subject} está sin saldo en este momento. ${money}; ya estamos avisados.`;
+}

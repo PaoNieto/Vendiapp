@@ -7,7 +7,22 @@ import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { serverGenerationRequestSchema } from "@/lib/validations/generations";
 import { generateOnServer } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
-import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
+import {
+  MAX_VARIATIONS,
+  SIGNED_URL_TTL_SECONDS,
+  type OutputRatio,
+} from "@/lib/constants";
+import { isGeminiBillingExhausted, type GeminiError } from "@/lib/ai/gemini-client";
+import { formatBillingError } from "@/lib/generations/format";
+import { pipelineForUser } from "@/lib/ai/v2/constants";
+import {
+  downloadV2Inputs,
+  prepareV2,
+  renderV2,
+  type V2Downloads,
+  type V2Snapshot,
+} from "@/lib/ai/v2/generate-v2";
+import { createSupabaseV2Store } from "@/lib/ai/v2/store-supabase";
 
 /**
  * POST /api/generations — generación SERVER-SIDE (modelo de créditos).
@@ -20,7 +35,10 @@ import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
  *     en Google.
  *  4. Crear el row `generations` (status processing).
  *  5. RESERVAR créditos (deduct atómico). Si no alcanza, marcar failed + 402.
- *  6. Generar con la key propia de Vendí (generateOnServer).
+ *  6. Generar con la key propia de Vendí: v1 (generateOnServer, default) o v2
+ *     (lib/ai/v2/: notas cacheadas + plan + prompt ensamblado por código) según
+ *     el flag VENDI_PIPELINE / VENDI_PIPELINE_V2_USERS. En v2 las fotos se bajan
+ *     ANTES del deduct (paso 4.b): si ninguna es legible, no se descuenta nada.
  *  7. Subir imágenes OK a Storage + insert en generated_images.
  *  8. Reembolsar los créditos de las variaciones que fallaron.
  *  9. Marcar completed y devolver { generationId, images, creditsRemaining }.
@@ -46,7 +64,33 @@ function refundNote(amount: number, isUnlimited: boolean): string {
   return ` Te devolvimos ${amount} ${amount === 1 ? "crédito" : "créditos"}.`;
 }
 
+/**
+ * Imagen lista para subir, con la MISMA forma para los dos pipelines. Así
+ * créditos, refunds, uploads y respuesta al cliente son un único código: lo
+ * único que cambia entre v1 y v2 es quién produce las imágenes.
+ *   - v1: `variationIndex` = posición en la tanda y `metadata` = { base_prompt }
+ *     (idéntico a como se guardaba antes del flag).
+ *   - v2: `variationIndex` = índice de la imagen en la tanda (el mismo `i` de su
+ *     prompt) y `metadata` = { base_prompt (el prompt final de ESA imagen),
+ *     pipeline, plan_source, shot_index, model } (spec §2.6).
+ */
+type UploadableImage = {
+  buffer: Buffer;
+  contentType: string;
+  variationIndex: number;
+  metadata: Record<string, unknown>;
+};
+
+/** `snapshot` = lo que va a `generations.enriched_prompt` (solo v2; v1 = null). */
+type GenerationOutcome =
+  | { ok: true; images: UploadableImage[]; snapshot: V2Snapshot | null }
+  | { ok: false; error: GeminiError; snapshot: V2Snapshot | null };
+
 export async function POST(req: Request) {
+  // Reloj de la RUTA: el pipeline v2 decide si reintentar al Director mirando
+  // cuánto queda de los 300s, contados desde que entró la request.
+  const startedAt = Date.now();
+
   // 1. Auth (Clerk). El id canónico del usuario es el id de Clerk (string
   // `user_xxx`), que viaja como `sub` en el JWT y resuelve la RLS de Supabase
   // (`auth.jwt()->>'sub'`). El cliente de `lib/supabase/server.ts` ya inyecta
@@ -55,6 +99,10 @@ export async function POST(req: Request) {
   if (!userId) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+  // Pipeline por request: VENDI_PIPELINE (global, default v1) o
+  // VENDI_PIPELINE_V2_USERS (lista de ids de Clerk con v2 forzado). Con v1 todo
+  // lo de abajo corre exactamente como antes del flag.
+  const pipeline = pipelineForUser(userId);
   // Candado PAGA-PRIMERO también en la API (no solo en el proxy de páginas): un
   // usuario logueado que NUNCA pagó no puede generar, aunque arrastre saldo
   // heredado de antes del paywall. Misma fuente de verdad que el middleware:
@@ -93,10 +141,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Versión no encontrada" }, { status: 404 });
   }
 
-  // Producto padre (tabla projects)
+  // Producto padre (tabla projects). `name` y `description` los usa solo la v2
+  // (nota del producto y hashes); para v1 son dos columnas más que no se miran.
   const { data: product, error: productErr } = await supabase
     .from("projects")
-    .select("id, product_images")
+    .select("id, name, description, product_images")
     .eq("id", version.product_id)
     .single();
   if (productErr || !product) {
@@ -110,7 +159,12 @@ export async function POST(req: Request) {
     ? (version.reference_images as string[])
     : [];
   const ratio = version.output_ratio as OutputRatio;
-  const variations = Math.max(1, version.variations_default ?? 1);
+  // Techo server-side (MAX_VARIATIONS = 10, el mismo del stepper). La columna
+  // `variations_default` se escribe directo por PostgREST (RLS FOR ALL): sin
+  // techo, un usuario de `unlimited_users` (o una sesión robada) pedía 1000
+  // imágenes EN PARALELO por tanda y el tope de 30 tandas/hora de la 0025 dejaba
+  // de servir. Para todo valor que la UI puede producir (1..10) no cambia nada.
+  const variations = Math.min(MAX_VARIATIONS, Math.max(1, version.variations_default ?? 1));
   const userPrompt: string | undefined =
     typeof version.user_prompt === "string" && version.user_prompt.trim().length > 0
       ? version.user_prompt
@@ -126,6 +180,21 @@ export async function POST(req: Request) {
   // Cliente admin (service_role): se usa para el chequeo de ilimitados y para
   // las mutaciones de créditos (deduct/grant) más abajo.
   const admin = createAdminClient();
+
+  // 2.a Sin saldo en Google (esta instancia lo vio hace <2 min): cortamos ANTES
+  // del tope por hora (la RPC de abajo anota un intento: un 503 no tiene por qué
+  // gastar una tanda del tope), de crear la fila y de descontar. Mandar la tanda
+  // solo sería deduct + refund para terminar en el mismo error.
+  if (isGeminiBillingExhausted()) {
+    return NextResponse.json(
+      {
+        error: "ai_billing_exhausted",
+        message: formatBillingError({ service: "images", refunded: 0 }),
+        refunded: 0,
+      },
+      { status: 503 },
+    );
+  }
 
   // 2.b Tope de generaciones por usuario (migración 0025). Va ANTES del
   // pre-check de créditos y de cualquier llamada a Google: cada tanda cuesta
@@ -211,6 +280,34 @@ export async function POST(req: Request) {
   }
   const generationId = generation.id as string;
 
+  // 4.b (solo v2) Descarga ÚNICA de fotos y referencias, ANTES de reservar
+  // créditos (spec §2.7): si no hay ninguna foto de producto legible (todas
+  // `blob:`/`data:`, rotas o en un formato que Gemini no lee), no hay producto
+  // que fotografiar y cortamos acá SIN descontar nada. Va después del INSERT
+  // (que usa el token del usuario, mientras está fresco) y antes del deduct.
+  // Los bytes bajados se reusan para las notas y para las N imágenes.
+  let v2Downloads: V2Downloads | null = null;
+  if (pipeline === "v2") {
+    v2Downloads = await downloadV2Inputs({ productImages, referenceImages });
+    if (v2Downloads.productPhotos.length === 0) {
+      // Admin: la descarga pudo tardar y el token de Clerk vive ~60s.
+      await admin
+        .from("generations")
+        .update({ status: "failed", error_message: "no_readable_product_photos" })
+        .eq("id", generationId);
+      return NextResponse.json(
+        {
+          error: "generation_failed",
+          detail: { kind: "no_readable_product_photos" },
+          message:
+            "No pudimos leer ninguna foto del producto. No se descontaron créditos. Volvé a subir las fotos y probá de nuevo.",
+          refunded: 0,
+        },
+        { status: 502 },
+      );
+    }
+  }
+
   // 5. RESERVAR créditos (deduct atómico vía service_role)
   const { error: deductErr } = await admin.rpc("deduct_credits", {
     p_user_id: userId,
@@ -218,7 +315,11 @@ export async function POST(req: Request) {
     p_generation_id: generationId,
   });
   if (deductErr) {
-    await supabase
+    // Admin: en v2 la descarga de fotos (paso 4.b) corre ANTES del deduct y puede
+    // tardar. El token de Clerk vive ~60s: con el cliente del usuario esta marca
+    // podía fallar en silencio y dejar la fila en `processing`. El ownership ya
+    // quedó probado arriba (versión y producto leídos con RLS).
+    await admin
       .from("generations")
       .update({ status: "failed", error_message: "Créditos insuficientes" })
       .eq("id", generationId);
@@ -228,23 +329,109 @@ export async function POST(req: Request) {
     );
   }
 
-  // 6. Generar con la key propia.
-  // El estilo AUTORITATIVO es el persistido en la versión (style_id, migración
-  // 0010): así el server no depende de lo que mande el cliente. Si la versión
-  // no tiene estilo, caemos al styleFragment del body (compat / override).
-  const versionStyleFragment = getStyleFragment(
-    version.style_id as StyleId | null,
-  );
-  const effectiveStyleFragment = versionStyleFragment || styleFragment;
-  const result = await generateOnServer({
-    productImages,
-    referenceImages,
-    ratio,
-    variations,
-    userPrompt,
-    styleFragment: effectiveStyleFragment,
-    brand,
-  });
+  // 6. Generar con la key propia. Las dos ramas terminan en `GenerationOutcome`,
+  // así lo que sigue (refunds, uploads, respuesta) es uno solo para ambas.
+  let result: GenerationOutcome;
+  if (pipeline === "v2" && v2Downloads) {
+    // v2 (lib/ai/v2/): notas cacheadas por hash + plan del Director sin
+    // imágenes + prompt ensamblado por código. Si algo falla usa el fallback
+    // determinístico de la spec (queda en plan_meta), NUNCA el texto de v1.
+    // Las tablas de cache van por admin y son best-effort: sin la 0026 cada
+    // lectura es un miss y la tanda sigue igual.
+    const apiKey = process.env.GOOGLE_API_KEY?.trim() ?? "";
+    if (!apiKey) {
+      // Mismo resultado que v1 sin key: fallo total → refund de abajo.
+      result = { ok: false, error: { kind: "missing_key" }, snapshot: null };
+    } else {
+      const deps = { apiKey, store: createSupabaseV2Store(), startedAt };
+      try {
+        const prep = await prepareV2(
+          {
+            userId,
+            productId: product.id as string,
+            versionId: version.id as string,
+            productName: typeof product.name === "string" ? product.name : "",
+            productDescription:
+              typeof product.description === "string" ? product.description : null,
+            productImages,
+            referenceImages,
+            // Autoritativo: el estilo persistido. El fragment del body solo se
+            // usa si la versión no tiene style_id (búsqueda inversa).
+            styleId: typeof version.style_id === "string" ? version.style_id : null,
+            styleFragment,
+            ratio,
+            variations,
+            userPrompt,
+            brand,
+          },
+          v2Downloads,
+          deps,
+        );
+        if (!prep.ok) {
+          result = { ok: false, error: prep.error, snapshot: null };
+        } else {
+          const rendered = await renderV2(prep.prepared, deps);
+          result = rendered.ok
+            ? {
+                ok: true,
+                snapshot: rendered.snapshot,
+                images: rendered.images.map((img) => ({
+                  buffer: img.buffer,
+                  contentType: img.contentType,
+                  variationIndex: img.index,
+                  metadata: img.metadata,
+                })),
+              }
+            : { ok: false, error: rendered.error, snapshot: rendered.snapshot };
+        }
+      } catch (err) {
+        // prepareV2/renderV2 están hechas para no lanzar. Si igual algo explota,
+        // lo convertimos en fallo total: una excepción suelta ACÁ (entre el
+        // deduct y el refund) le costaría los créditos al usuario.
+        console.error("[pipeline-v2] unexpected_error", err);
+        result = {
+          ok: false,
+          error: {
+            kind: "unknown",
+            message: err instanceof Error ? err.message : String(err),
+          },
+          snapshot: null,
+        };
+      }
+    }
+  } else {
+    // v1 — el motor de siempre, sin cambios.
+    // El estilo AUTORITATIVO es el persistido en la versión (style_id, migración
+    // 0010): así el server no depende de lo que mande el cliente. Si la versión
+    // no tiene estilo, caemos al styleFragment del body (compat / override).
+    const versionStyleFragment = getStyleFragment(
+      version.style_id as StyleId | null,
+    );
+    const effectiveStyleFragment = versionStyleFragment || styleFragment;
+    const v1 = await generateOnServer({
+      productImages,
+      referenceImages,
+      ratio,
+      variations,
+      userPrompt,
+      styleFragment: effectiveStyleFragment,
+      brand,
+    });
+    result = v1.ok
+      ? {
+          ok: true,
+          snapshot: null,
+          images: v1.images.map((img, i) => ({
+            buffer: img.buffer,
+            contentType: img.contentType,
+            variationIndex: i,
+            // El prompt original/base (lo que produjo el modelo) queda
+            // read-only acá; el estricto del usuario arranca vacío.
+            metadata: { base_prompt: v1.finalPrompt },
+          })),
+        }
+      : { ok: false, error: v1.error, snapshot: null };
+  }
 
   // Si falló TODO: reembolsar el total y marcar failed.
   if (!result.ok) {
@@ -259,8 +446,18 @@ export async function POST(req: Request) {
     }
     await admin
       .from("generations")
-      .update({ status: "failed", error_message: result.error.kind })
+      .update({
+        status: "failed",
+        error_message: result.error.kind,
+        // v2: el snapshot (plan, notas, prompts) se guarda también en el fallo:
+        // es justo el caso que hay que poder diagnosticar. v1: no se toca.
+        ...(result.snapshot ? { enriched_prompt: result.snapshot } : {}),
+      })
       .eq("id", generationId);
+    const refunded = isUnlimited ? 0 : variations;
+    // Sin saldo en Google: "probá de nuevo" sería mentira (no se arregla solo).
+    // El reembolso ya corrió arriba, así que el texto dice cuántos volvieron.
+    const billing = result.error.kind === "billing";
     return NextResponse.json(
       {
         error: "generation_failed",
@@ -269,10 +466,12 @@ export async function POST(req: Request) {
         // `data.error` y le muestra al usuario el literal "generation_failed"
         // — que es exactamente lo que reportó Paolo el 2026-09-09. Y además
         // nadie le decía que la plata volvía.
-        message: `No pudimos generar las imágenes.${refundNote(variations, isUnlimited)} Probá de nuevo.`,
-        refunded: isUnlimited ? 0 : variations,
+        message: billing
+          ? formatBillingError({ service: "images", refunded })
+          : `No pudimos generar las imágenes.${refundNote(variations, isUnlimited)} Probá de nuevo.`,
+        refunded,
       },
-      { status: 502 },
+      { status: billing ? 503 : 502 },
     );
   }
 
@@ -292,16 +491,18 @@ export async function POST(req: Request) {
   // con el token del usuario bajo RLS, y el `path` va namespaceado por `userId`,
   // que sale de `auth()` y no del body. El service_role acá no afloja ningún
   // borde de seguridad; sólo evita depender de un token que puede vencer.
+  //
+  // `variationIndex` sale de cada imagen (ver `UploadableImage`): en v1 es la
+  // posición en la tanda, igual que el contador que había acá; en v2 es el `i`
+  // de su prompt, así path, fila y metadata apuntan a la misma toma.
   const urls: string[] = [];
-  let index = 0;
   for (const img of result.images) {
-    const path = `${userId}/${generationId}/${index}.jpg`;
+    const path = `${userId}/${generationId}/${img.variationIndex}.jpg`;
     const { error: upErr } = await admin.storage
       .from("generated-images")
       .upload(path, img.buffer, { contentType: img.contentType, upsert: false });
     if (upErr) {
       // si una falla al subir, la contamos como fallida (se reembolsa abajo)
-      index += 1;
       continue;
     }
     const { data: signed } = await admin.storage
@@ -311,7 +512,6 @@ export async function POST(req: Request) {
     if (!url) {
       // Sin signed URL no hay imagen visible: la contamos como fallida (se
       // reembolsa abajo) en vez de insertar una fila rota en la Fábrica.
-      index += 1;
       continue;
     }
 
@@ -319,14 +519,14 @@ export async function POST(req: Request) {
       generation_id: generationId,
       user_id: userId,
       image_url: url,
-      variation_index: index,
+      variation_index: img.variationIndex,
       // El prompt estricto del usuario arranca vacío; es lo que él edita luego.
       strict_prompt: "",
-      // El prompt original/base (lo que produjo el modelo) queda read-only acá.
-      metadata: { base_prompt: result.finalPrompt },
+      // v1: { base_prompt } (el prompt original, read-only). v2: además
+      // pipeline, plan_source, shot_index y model, para comparar el A/B.
+      metadata: img.metadata,
     });
     urls.push(url);
-    index += 1;
   }
 
   // 8. Reembolsar las variaciones que NO produjeron imagen subida. Ilimitados
@@ -347,7 +547,11 @@ export async function POST(req: Request) {
   if (delivered === 0) {
     await admin
       .from("generations")
-      .update({ status: "failed", error_message: "upload_failed" })
+      .update({
+        status: "failed",
+        error_message: "upload_failed",
+        ...(result.snapshot ? { enriched_prompt: result.snapshot } : {}),
+      })
       .eq("id", generationId);
     return NextResponse.json(
       {
@@ -361,8 +565,29 @@ export async function POST(req: Request) {
   }
   await admin
     .from("generations")
-    .update({ status: "completed", completed_at: new Date().toISOString() })
+    .update({
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      // v2: snapshot completo (versiones de prompt, caso, hashes, plan,
+      // plan_meta, prompts finales) en la columna que v1 nunca escribió.
+      ...(result.snapshot ? { enriched_prompt: result.snapshot } : {}),
+    })
     .eq("id", generationId);
+  if (result.snapshot) {
+    // Una línea por tanda v2 en los logs de Vercel: alcanza para ver en vivo
+    // cuántas salen del Director y cuántas caen al fallback.
+    console.info(
+      "[pipeline-v2] generation_done",
+      JSON.stringify({
+        generationId,
+        case: result.snapshot.case,
+        plan_source: result.snapshot.plan_meta.plan_source,
+        delivered,
+        requested: variations,
+        ms: Date.now() - startedAt,
+      }),
+    );
+  }
 
   const { data: finalProfile } = await admin
     .from("profiles")
