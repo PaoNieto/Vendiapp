@@ -57,6 +57,18 @@ const isPublicRoute = createRouteMatcher([
   // exponerlas es seguro. Sin esto, el proxy las redirige a /login (307) y la
   // notificacion de pago nunca llega al handler -> los creditos NO se acreditan.
   "/api/webhooks/(.*)",
+  // `/.well-known/*`: archivos de verificacion de dominio que los servidores de
+  // terceros leen SIN sesion. Hoy el que importa es
+  // `apple-developer-merchantid-domain-association`, el que habilita Apple Pay y
+  // Google Pay en el checkout EMBEBIDO (/pagar/[productId]); Whop exige que sea
+  // accesible por HTTPS y sin autenticacion.
+  //
+  // 🔴 SIN ESTA LINEA LA VERIFICACION FALLA EN SILENCIO. El `matcher` de abajo
+  // solo excluye assets con extension (svg/png/jpg/...), y este archivo NO tiene
+  // extension -> el proxy corre, no lo encuentra en las rutas publicas y le
+  // devuelve un 307 a /login. El verificador de Apple recibe el HTML del login
+  // en vez del archivo, y las wallets nunca se activan sin decir por que.
+  "/.well-known/(.*)",
 ]);
 
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
