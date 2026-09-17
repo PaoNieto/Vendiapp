@@ -249,6 +249,9 @@ async function notifyCreditsGranted(
       to,
       productName: product.name,
       credits: product.credits,
+      // El monto vuelve al mail un recibo de verdad. Sale del CATÁLOGO, igual
+      // que los créditos: nunca del payload ni del monto que reporte Whop.
+      priceUsd: product.priceUsd,
       analysisCredits: product.analysisCredits ?? 0,
       isLifetime: product.kind === "lifetime",
     });
