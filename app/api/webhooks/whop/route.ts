@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyWhopWebhook } from "@/lib/whop/verify-webhook";
+import { sendCreditsGrantedEmail } from "@/lib/email/credits-granted";
 import {
   getProduct,
   getProductByWhopPlanId,
@@ -34,6 +36,9 @@ export const dynamic = "force-dynamic";
  *   9. `process_whop_payment` acredita idempotente (registro + grant en UNA
  *      transacción). Error -> 500 para que Whop reintente; la idempotencia por
  *      `whop_payment_id` hace que el reintento sea seguro.
+ *  10. Recién DESPUÉS de responder (`after()` de next/server), y SOLO si la RPC
+ *      devolvió 'granted', se manda el mail de "tus créditos ya entraron". Ver
+ *      la nota del mail más abajo.
  *
  * ⏱️ HAY QUE RESPONDER EN MENOS DE 5 SEGUNDOS o Whop reintenta (12 veces, ~71
  * horas). Por eso no se hace ni una llamada de red extra: todo lo que necesitamos
@@ -196,8 +201,70 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Error acreditando" }, { status: 500 });
   }
 
+  // --- 8. Avisarle por mail al comprador, DESPUES de responder ---
+  // ⚠️ UN SOLO MAIL POR COMPRA: la RPC devuelve 'granted' la PRIMERA vez y
+  // 'duplicate' si el pago ya estaba procesado. Enganchando el mail al
+  // 'granted' heredamos la idempotencia de la tabla: si Whop reintenta 12
+  // veces, el comprador recibe UN mail, no doce.
+  //
+  // ⏱️ Va dentro de `after()` (next/server): el callback corre DESPUES de que
+  // la respuesta salio, asi que mandar por SMTP (lento) no come nada del
+  // presupuesto de 5 segundos de Whop. El envio no puede romper la
+  // acreditacion: los creditos ya estan puestos y `notifyCreditsGranted`
+  // atrapa todo.
+  if (result === "granted") {
+    after(() => notifyCreditsGranted(clerkUserId, product));
+  }
+
   // result === 'duplicate' significa que ya se proceso antes (no se re-acredito).
   return NextResponse.json({ result }, { status: 200 });
+}
+
+/**
+ * Manda el mail de "tus créditos ya entraron". NUNCA tira: todo va en
+ * try/catch. Si esto falla, el comprador igual tiene sus créditos.
+ *
+ * El destinatario sale de CLERK, no del evento: el payload de Whop no trae un
+ * email confiable (ver la nota de `data.user` arriba). Sin email, se loguea y
+ * no se manda nada.
+ */
+async function notifyCreditsGranted(
+  clerkUserId: string,
+  product: Product,
+): Promise<void> {
+  try {
+    const client = await clerkClient();
+    const user = await client.users.getUser(clerkUserId);
+    const to = user.primaryEmailAddress?.emailAddress?.trim();
+    if (!to) {
+      console.warn(
+        "[whop-webhook] El comprador no tiene email en Clerk, no se manda aviso:",
+        clerkUserId,
+      );
+      return;
+    }
+
+    // `sendCreditsGrantedEmail` no tira: devuelve sent | skipped | failed.
+    const result = await sendCreditsGrantedEmail({
+      to,
+      productName: product.name,
+      credits: product.credits,
+      // El monto vuelve al mail un recibo de verdad. Sale del CATÁLOGO, igual
+      // que los créditos: nunca del payload ni del monto que reporte Whop.
+      priceUsd: product.priceUsd,
+      analysisCredits: product.analysisCredits ?? 0,
+      isLifetime: product.kind === "lifetime",
+    });
+    console.log(
+      `[whop-webhook] Mail de créditos (${product.id}) -> ${result}`,
+    );
+  } catch (err) {
+    // Clerk caído, id inexistente, lo que sea: se loguea y listo.
+    console.error(
+      "[whop-webhook] No se pudo avisar por mail la acreditación:",
+      err,
+    );
+  }
 }
 
 /**
