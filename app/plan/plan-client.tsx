@@ -148,34 +148,34 @@ export function PlanClient({ lifetime }: PlanClientProps) {
   }, []);
 
   /**
-   * Unico camino de salida de esta pantalla: el Checkout Pro de Mercado Pago.
-   * Mismo patron que /fundador y /upgrade — el precio y los creditos los resuelve
-   * el server desde el catalogo; la acreditacion la confirma el webhook, jamas
-   * el cliente.
+   * Unico camino de salida de esta pantalla: `/pagar/[productId]`, el checkout
+   * de Whop EMBEBIDO en nuestra propia pagina.
+   *
+   * 🔴 ESTA ES LA PANTALLA A LA QUE LLEGA LA LANDING.
+   * La cadena real del comprador nuevo es:
+   *   www.vendilatam.com (landing, proyecto Vercel aparte)
+   *     -> /comenzar -> /comprar -> AQUI (/plan) -> pagar
+   * Hasta el 2026-09-17 este boton hacia `window.location.href = initPoint`, o
+   * sea **se iba a whop.com**: otro logo, otro idioma, otra marca, justo en el
+   * segundo de mas duda. Ese era EL salto que habia que matar, y vive aca — no
+   * en el HTML de la landing, que solo referencia a `/comenzar`.
+   *
+   * Ya no hace falta pedirle el checkout a `/api/checkout` desde el cliente:
+   * `/pagar/[productId]` lo crea EN SERVER al renderizar (y ahi el `ch_...`
+   * nunca pasa por el navegador). Un viaje menos y una pantalla propia.
+   *
+   * ⚠️ `/api/checkout` SIGUE VIVO y no se toca: lo usan `/upgrade` y
+   * `/fundador`. Si hay que volver atras, es restaurar el fetch de antes.
+   *
+   * El precio y los creditos los resuelve el server desde el catalogo; la
+   * acreditacion la confirma el webhook, jamas el cliente.
    */
-  async function startCheckout(productId: string) {
+  function startCheckout(productId: string) {
     setPending(productId);
     setError(null);
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
-      });
-      const data = (await res.json().catch(() => null)) as
-        | { initPoint?: string; error?: string }
-        | null;
-      if (!res.ok || !data?.initPoint) {
-        throw new Error(data?.error ?? "No se pudo iniciar el pago");
-      }
-      // Nos vamos a la pagina segura de Mercado Pago. `pending` queda en true a
-      // proposito: apagarlo hace parpadear el boton justo antes de navegar.
-      window.location.href = data.initPoint;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar el pago");
-      // El CTA mismo es el reintento: se rehabilita y listo, sin segundo boton.
-      setPending(null);
-    }
+    // `pending` queda en true a proposito: apagarlo hace parpadear el boton
+    // justo antes de navegar.
+    window.location.href = `/pagar/${encodeURIComponent(productId)}`;
   }
 
   function chooseExitReason(reason: string) {
