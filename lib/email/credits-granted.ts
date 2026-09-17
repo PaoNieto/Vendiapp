@@ -183,7 +183,13 @@ function buildContent(input: CreditsGrantedEmailInput): Content {
   const appUrl = getAppUrl();
   const common = {
     amount: formatUsd(input.priceUsd),
-    ctaUrl: `${appUrl}/fabrica`,
+    // 🔴 EL BOTÓN VA AL PASO 1, NO A LA FÁBRICA.
+    // El propio correo dice "primeros pasos: 1. Configurá tu negocio", y eso se
+    // hace en /mi-negocio. Apuntar a /fabrica contradecía al correo: lo tiraba
+    // directo a generar, salteando el paso que le acabábamos de pedir — y
+    // generar sin el negocio cargado da fotos genéricas, que es justo la mala
+    // primera impresión que no queremos en el minuto uno del que recién pagó.
+    ctaUrl: `${appUrl}/mi-negocio`,
     creditsUrl: `${appUrl}/ajustes`,
   };
 
