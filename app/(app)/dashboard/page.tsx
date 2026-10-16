@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ImageIcon, Plus } from "lucide-react";
+import { CirclePlay, ImageIcon, Plus } from "lucide-react";
+import { OPEN_TOUR_EVENT } from "@/components/tour/demo-tour";
 import {
   ActivityTimeline,
   AvatarCircle,
@@ -574,6 +575,15 @@ function DashboardContent({
               </>
             )}
           </p>
+          {/* Relanza la demo animada del tour (components/tour/demo-tour.tsx). */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event(OPEN_TOUR_EVENT))}
+            className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-sage-strong underline-offset-4 transition-colors hover:underline dark:text-gold"
+          >
+            <CirclePlay className="h-4 w-4" aria-hidden />
+            Ver cómo funciona
+          </button>
         </div>
 
         <div className="sm:hidden">

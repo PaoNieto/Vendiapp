@@ -4,6 +4,8 @@ import { AppProviders } from "@/components/app/app-providers";
 import { BottomNav } from "@/components/app/bottom-nav";
 import { Sidebar } from "@/components/app/sidebar";
 import { AppBackground } from "@/components/dashboard";
+import { DemoTour } from "@/components/tour/demo-tour";
+import "@/components/tour/demo-tour.css";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
 
@@ -47,6 +49,8 @@ export default async function AppLayout({
           <main className="flex flex-1 flex-col pb-24 lg:pb-0">{children}</main>
         </div>
         <BottomNav />
+        {/* Tour in-app (demo animada): se abre solo la primera vez; ?tour=1 lo relanza. */}
+        <DemoTour />
       </AppBackground>
     </AppProviders>
   );
