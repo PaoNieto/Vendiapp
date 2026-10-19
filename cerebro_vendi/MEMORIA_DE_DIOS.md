@@ -10,7 +10,7 @@
 > - El hook SessionStart (`vendi-context.ps1`) inyecta los DOS archivos al arrancar la sesión principal. Los subagentes NO lo reciben → deben `Read` ambos por ruta absoluta antes de actuar.
 > - Al actualizar: convertí fechas relativas a absolutas, marcá decisiones REVERTIDAS/DESCARTADAS sin borrar el contexto, y no dupliques.
 
-Última actualización: **2026-08-22**.
+Última actualización: **2026-10-18**.
 
 ---
 
@@ -45,6 +45,19 @@ Criterio = qué da mejor resultado, no la formalidad:
 - **USAR agentes** cuando: trabajo grande o paralelo (varias áreas/pantallas), tarea de especialista dedicado, o investigación amplia (barrer muchos archivos → mandar agente y quedarse con las conclusiones).
 - **HACER directo** cuando: cambio chico y conectado donde ya tengo el contexto cargado. Meter un agente en frío ahí es más lento y riesgoso (re-deriva contexto, desincroniza).
 - Riesgo real = descoordinación entre trabajos paralelos (causó el drift de git). Con varias terminales/worktrees: mantener todo sincronizado, `git fetch`/`pull` antes de pushear, una terminal por vez.
+- **Solo los agentes PROPIOS (2026-10-15):** "apoyate de los agentes" = Bujía, Integral, Frontero, Davinci, JonSnow, Hawkeye, El Comerciante, Capataz, Adsioso… **NUNCA Explore ni general-purpose.** Usé Explore y se enojó ("por qué no usaste los nuestros"). Repartir por área y lanzarlos en paralelo; si cruza áreas, Capataz.
+- **Especialista directo, sin preguntar (2026-09-18):** todo lo de 100ads va a Adsioso desde el arranque ("está de más que lo diga"). Lo mismo con cualquier especialista cuando el tema es claramente suyo.
+
+### Reglas de trabajo sumadas en sept–oct 2026 (venían de una carpeta de memoria suelta; ahora viven acá)
+- **Estado primero, en una frase.** Si el trabajo terminó, decirlo antes que nada ("Sí, está listo y en producción"). No mezclar pendientes ajenos a la tarea: el 2026-09-08 una lista de 5 pendientes sueltos le hizo creer que su trabajo NO estaba listo. Si pregunta "qué más", 2-3 como mucho, aclarando qué es de esta tarea y qué es aparte.
+- **Responder SOLO lo preguntado (2026-10-16).** Si pregunta casos, dar casos, sin montos ni análisis extra. "Ponlo y ya" = implementar con las recomendaciones ya propuestas, sin volver a pedir decisiones; los supuestos van en el reporte final. Un hallazgo urgente de paso va en una línea simple y no se insiste.
+- **Mockup ANTES de codear un rediseño de UI (2026-09-08).** Artifact publicado, con los tokens REALES de `app/globals.css`, el "antes" al lado del "después", y esperar el OK. Ese día se tiró un rediseño entero de la pantalla de versión por no mostrarlo primero.
+  - **Para explorar: 10+ opciones, no una** ("no chat, necesito 10 mockups por lo menos", 2026-09-10). Él elige números y se mezcla. Base fija: **verde + dorado + negro** (no sacar el verde/la nube esmeralda).
+  - **Vista PC (~1280px, con sidebar), todas las pestañas** (Dashboard, Catálogo, Fábrica, Análisis con IA, Mi Negocio, Ajustes) **con el nombre de la pestaña a la vista** (título + URL en la barra).
+  - **Rápido (2026-10-16):** un mockup se publica apenas compila y se ve; nada de revisión de Hawkeye ni rondas de corrección antes del primer link ("chat apura mierda solo es un mock up"). La QA queda para el código real.
+  - Tema por defecto desde oct-2026: oscuro **"Nube baja"** (`app/layout.tsx`, bloque `[data-theme="dark"]`): fondo `#060807`, tinta `#f3eedd`, champagne `#efe4c6`→`#e7d6ab`, dorado `#e9c65f`, esmeralda `#46c78d`, sage-strong `#bcd3a4`; fuentes Instrument Serif + Inter + Sora + Geist Mono. `design_handoff_vendi_theme/` es de mayo y quedó viejo: manda el código.
+- **La pantalla de versión CONFIRMA, no crea (2026-09-08).** `/productos/[id]/versiones/[versionId]` es para ver la receta, editarla (bifurca si ya generó) y generar. Mood, ocasión, paleta e instrucciones creativas se deciden ANTES, en referencias → estilo → formato. Un "Brief" con textarea y chips ahí se rechazó y revirtió entero. Que `versions.user_prompt` exista no es razón para exponerlo.
+- **Migraciones: se escriben, NO se aplican a prod sin OK de Paolo.** Lo que falta para salir a producción (variables en Vercel, migración, deploy) se le pasa al final en pasos cortos.
 
 ### Métodos proactivos (de gstack / Garry Tan) — los corro YO, sin slash commands
 Paolo NO tipea slash commands. Detecto el momento y aplico:
@@ -334,6 +347,7 @@ El git-coupling se disparó de nuevo (pushes de la APP a main re-deployaban `ven
 2. **`vercel git disconnect`** sobre `vendilanding` → **los pushes a main ya NO tocan la landing. Landmine MUERTO.**
 - **Consecuencia:** la landing vive 100% del deploy CLI standalone. Para publicar: copiar `landing.html`→`index.html` + `estilos/` a un dir, linkear a `vendilanding`, `vercel deploy --prod --yes`. Al re-deployar SIEMPRE copiar `public/estilos/*.jpg` al `<dir>/estilos/` (si no, imgs 404).
 - Pendiente menor: `/og-image.jpg` da 404 (preview social).
+- 📈 **2026-10-15 — META PIXEL `2212150892981463` en la landing:** código base (PageView) pegado antes de `</head>` en las **13 páginas** de `C:\Users\Usuario\.vendi-landing-deploy` (index, privacidad, terminos, guias/*, plan/*, recursos/hooks). Fuente verificada idéntica a la viva antes de editar. **DEPLOYADO 2026-10-16** (`dpl_4MNuvdpMMfdDUNSihvQ4YgZoFxrS`, READY, www.vendilatam.com) y verificado en vivo. La app NO tiene el Pixel. Eventos de conversión (Lead/Purchase) todavía NO.
 
 ### Paywall /fundador STANDALONE (Lifetime Pass) — VIVO (2026-06-27)
 El paywall del Lifetime Pass pasó de estar DENTRO de la app (`/upgrade/fundador`, route group `(app)`, con nav → el unpaid se escapaba a otras pestañas) a una **página de entrada ENCERRADA estilo Arcads** (`app.arcads.ai/onboarding/paywall`). Construido por **Frontero** (a pedido explícito de Paolo: 'usá a los agentes'), PR #6 (commit `80b4dca`, merge `effbd5b`), deployado y verificado en vivo.
@@ -1429,3 +1443,59 @@ Incluye el **monto** (`priceUsd`, del catálogo, nunca del payload) — sin eso 
 - ⚠️ **SIGUEN LOS 21 ARCHIVOS SIN COMMITEAR** que chocan con `main` (`globals.css`, `sidebar.tsx`, `layout.tsx`, `lib/ai/*`…). Bomba sin desactivar.
 - `plan='founder'` se escribe en la DB pero **no se usa en ninguna pantalla**.
 - **Regla de entorno:** Claude Code bloquea el merge a `main` sin revisión y `gh` no está instalado. Los merges los hace Paolo desde la web.
+
+---
+
+## §28 — 2026-09-30: CORRECCIONES AL §27 + PAQUETE PARA CLAUDE WEB
+
+### Estado real (verificado con git el 2026-09-30)
+- **El mail de "tus créditos ya entraron" SÍ está en `main`**: PR #39 (`c7dd637`, 2026-09-17) mergeó `769c288`, `d16f0c2`, `76d3a55`. El §27 decía "sin mergear": ya no.
+- **El pipeline v2 de prompts** quedó commiteado en `d57d415` sobre `feat/cobro-whop` (pusheado, **NO está en `main`**). La migración `0026` ya estaba aplicada en prod desde el 2026-09-12.
+- **Siguen los ~20 archivos sin commitear** en `feat/cobro-whop` (modo oscuro Nube baja + `lib/ai/*` + `app/api/generations/*`). Bomba sin desactivar.
+- **`SMTP_USER` / `SMTP_PASSWORD` / `MAIL_FROM` en Vercel: SIN VERIFICAR** (el MCP de Vercel da 403 al listar variables). Si no están, en prod no sale ningún mail.
+- **Sigue sin hacerse una compra real** con Whop.
+
+### Regla nueva (2026-09-18)
+- **Todo lo de 100ads va directo a Adsioso**, sin ofrecerlo ni pedir permiso. Paolo: *"está de más que lo diga"*. Lo mismo con cualquier especialista cuando el tema es claramente suyo.
+
+### Paquete para Claude web
+- Fuente: `oficina/para_chat/`. Copia ordenada para subir: `C:\Users\Usuario\Downloads\vendi_claude_web_2026-09-30\` (carpetas numeradas, **nada de zip** — Paolo lo pidió así).
+- `PROMPT_MEMORIA.md` estaba muerto (hablaba de Mercado Pago en soles, fines de agosto). Reescrito el 2026-09-30.
+- El informe de videos de productos digitales (2026-09-19, agente El Panadero) es **otro proyecto**, no Vendí: va en carpeta aparte.
+
+## §29 — 2026-10-12 → 2026-10-18: SANDBOX DE WHOP, ATRIBUCIÓN DE ANUNCIOS, TOUR Y SISTEMA DE AVISOS
+
+### Estado real (verificado con git + Supabase el 2026-10-18)
+- Paolo abrió el repo en la app de Claude (Code) el 2026-10-18 viniendo de VS Code: **la carpeta está completa** (código, `.env.local`, `node_modules`, migraciones, memoria, los 11 agentes).
+- Rama: `feat/cobro-whop`, pusheada. **2 commits adelante de `main`** (`d57d415` pipeline v2, `49e2065` memoria §26-27) y **14 atrás** (casi todo merges de esta misma rama; lo nuevo de verdad en `main` es el tour `cc4d00d`). Antes de un PR, traer `main` primero.
+- 🔴 **73 archivos SIN COMMITEAR** (antes eran ~20): 7 de septiembre (modo oscuro Nube baja, stores), 5 del 12/10 (sandbox + atribución), y todo el sistema de avisos del 16/10. Es la bomba más grande que tuvo el repo: si se pierde la máquina, se pierde todo eso.
+- **Migraciones en prod:** llegan hasta la **0026**. La **0027** (atribución) y la **0028** (avisos) **NO están aplicadas en ninguna base** (`list_migrations`, 2026-10-18). `0023_remap_clerk_prod.sql` no es migración: es un script manual del 20/08, NO re-ejecutar.
+- Sigue **SIN VERIFICAR** la primera compra real con Whop y si `SMTP_*`/`MAIL_FROM` están en Vercel (ver §28).
+
+### 2026-10-12 — Sandbox de Whop + de qué anuncio vino cada cliente (sin commitear)
+- **Interruptor PRODUCCIÓN ↔ SANDBOX** en `lib/whop/env.ts`: `WHOP_ENV=sandbox` + `WHOP_SANDBOX_PLAN_IDS` (JSON `{ "lifetime-pass": "plan_...", ... }`). El sandbox (`sandbox.whop.com`) es un Whop paralelo con su propia cuenta, API key, planes y secret de webhook; se paga con la tarjeta `4242 4242 4242 4242`. Sirve para probar el riel entero sin plata real (incluida la prueba pendiente de recomprar el mismo pack, §25).
+- **Atribución (first-touch):** `proxy.ts` guarda la primera visita con `utm_*` o `fbclid` en la cookie `vendi_attr` → `ensureProfile()` la copia a `profiles.attribution` (migr **0027**, jsonb nullable) → viaja en el metadata del checkout de Whop. También arma `_fbc` (formato Meta `fb.1.<ms>.<fbclid>`) para la API de conversiones. El código tolera que la columna no exista todavía (falla en silencio), así que el orden deploy/migración no rompe. Lógica en `lib/attribution.ts`.
+
+### 2026-10-16 — Tour de bienvenida (EN `main`)
+- `cc4d00d`: modal con un mini video en CSS (Producto → Versión → Generar → Descargar) que se abre solo la primera vez que el cliente entra; `?tour=1` o el link "Ver cómo funciona" del dashboard lo reabren. El capítulo de Versión remarca las 4 elecciones: referencia, estilo, formato y fotos por tanda. Código en `components/tour/`.
+- Antes se armaron 12 opciones de tour en mockup; ahí salió la regla de "mockups rápido" (§1).
+
+### 2026-10-15/16 — SISTEMA DE AVISOS (código escrito, sin commitear, sin probar en prod)
+**Pedido de Paolo (15/10):** avisos **dentro de la app**. Lo que le importa al cliente lo ve el cliente ("falló por nuestro lado, te devolvimos los créditos", como 100ads con el saldo de Kie); lo interno ("Google sin saldo", webhook roto, pago sin acreditar) le llega a Paolo en un panel + mail solo lo urgente. Hasta ese día no existía ninguna alerta: todo moría en `console.error` de Vercel.
+- **Spec + revisión:** `cerebro_vendi/AVISOS_SPEC_V1.md` (sin commitear). **Mockup:** https://claude.ai/artifact/7cmkagCMW73ufszCgsMiNG. Lo diseñaron Adsioso, Bujía, Integral, Frontero, El Comerciante y el Capataz; lo atacó JonSnow y lo revisó Hawkeye. **Las correcciones de JonSnow mandan sobre la v1** (con la v1 se podían sacar fotos gratis borrando la tanda).
+- **OK de Paolo el 16/10:** *"solo pon las alertas y ya"*. Alcance: avisos + alertas, **SIN la "reserva con recibo" (`credit_holds`)**.
+- **Regla de devolución:** si Google da error → se devuelve. Si perdimos una imagen ya generada → primero se reintenta guardarla (`app/api/generations/_lib/persist.ts`) y si igual se pierde, se devuelve. Si Google bloquea la entrada (la foto o el pedido del cliente) → NO se devuelve, solo va el aviso.
+- **Defaults que se eligieron sin preguntar:** sin regalo de créditos, mail por falla de pagador, plazo "menos de 24 h", estilo de mockup 01 + 08.
+- **Qué se escribió:** `lib/avisos/` (alertas, textos), migración **0028_avisos.sql**, panel `/admin/avisos` (solo admins), cron diario `/api/cron/avisos` (`vercel.json`, `0 13 * * *` UTC = 8:00 Lima, resumen diario), `/api/avisos/watch`, campanita + banners en `components/app/avisos/`, barra superior mobile con la campanita (`components/app/mobile-topbar.tsx`; en desktop va en el sidebar). Del lado del cobro: `lib/whop/reconcile.ts` (cruce con Whop que encuentra ventas sin procesar), `lib/whop/resolve-buyer.ts` (¿quién pagó? para pagos sin atribución — **NUNCA acredita**, eso lo hace Paolo desde el panel con el `pay_` original), `lib/whop/background.ts` (`after()` para que el webhook conteste a Whop en < 5 s), `lib/whop/payments.ts`, y `/api/pago/estado` + `app/pago/resultado/esperar-creditos.tsx` (la pantalla post-pago pregunta cada 2 s los primeros 90 s y después cada 10 s mirando si Whop ya cobró; texto «Recibimos tu pago y estamos terminando de acreditarlo…»).
+- **Verificación:** `tsc` y `eslint` en 0 errores. Hawkeye tuvo el build verde ANTES de la última ronda de arreglos; después no se pudo verificar (en la terminal de Claude no bajan las fuentes de Google y el segundo intento se quedó sin memoria). **No corrió en ninguna base ni en prod.**
+- **Variables nuevas (todas server-only, ver `.env.example`):** `ADMIN_USER_IDS` (lista exacta de ids de Clerk; el de Paolo es `user_3IC6AAJgCAx4bJ31nGwjl7H2i6N`), `ADMIN_ALERT_EMAIL` (sin esto o sin `SMTP_*` no sale ningún mail de alerta; el panel igual las guarda), `CRON_SECRET` (sin él el cron responde 503).
+- **Hallazgos sueltos de la spec, para arreglar aunque sea aparte:** las rutas de generación devuelven el texto crudo de Google al cliente (`detail: result.error`); los packs traen 0 análisis pero "Comprá más" en Análisis manda a `/upgrade`; si el chequeo de acceso no responde, `app/(app)/layout.tsx` manda a un cliente que YA pagó a comprar de nuevo.
+
+### Para salir a producción (pasos de Paolo, en orden)
+1. Commitear los 73 archivos (separando avisos / sandbox+atribución / septiembre) y abrir PR desde la rama al día con `main`.
+2. OK de Paolo para aplicar **0027** y **0028** en Supabase.
+3. En Vercel: `ADMIN_USER_IDS`, `ADMIN_ALERT_EMAIL`, `CRON_SECRET` (+ confirmar `SMTP_*`/`MAIL_FROM`).
+4. Deploy y probar una compra en el **sandbox de Whop** antes de la primera real.
+
+### Memoria
+- El 2026-10-18 se encontró una carpeta de memoria suelta (`C:\Users\Usuario\.claude\projects\C--Users-Usuario-vendiapp-vendi\memory\`, 8 archivos de sept–oct) que violaba la regla de los dos archivos. Su contenido se pasó a §1 y a este §29. **La fuente es esta; esa carpeta no manda.**
