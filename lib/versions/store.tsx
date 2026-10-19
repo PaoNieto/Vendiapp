@@ -21,6 +21,7 @@ import {
   type UploadResult,
 } from "@/lib/supabase/storage";
 import { isStyleId, type StyleId } from "@/lib/styles";
+import { triggerReferenceBrief } from "@/lib/briefs/trigger";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:versions`. Ya no se escribe ni lee — los datos viven en Supabase
@@ -434,6 +435,12 @@ export function VersionsProvider({ children }: { children: React.ReactNode }) {
             versions: prev.versions.map((v) => (v.id === id ? captured : v)),
           }));
           return;
+        }
+        // Las referencias quedaron guardadas: pedimos sus notas (pipeline v2)
+        // en segundo plano. El server solo calcula las que faltan; responde 204
+        // si el usuario no está en la v2. Fire-and-forget, errores silenciados.
+        if (patchReferences !== undefined && patchReferences.length > 0) {
+          triggerReferenceBrief(id);
         }
         const parsed = parseVersionRow(data);
         if (!parsed) return;

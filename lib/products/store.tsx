@@ -15,6 +15,7 @@ import {
   uploadImagesToBucket,
   type UploadResult,
 } from "@/lib/supabase/storage";
+import { triggerProductBrief } from "@/lib/briefs/trigger";
 
 // LEGACY: hasta 2026-05-24 este store leía/escribía a localStorage en la key
 // `vendi:products`. Ya no se escribe ni lee — los datos viven en Supabase
@@ -347,6 +348,10 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
           }));
           return { ok: false, error: describeSupabaseError(insertError) };
         }
+        // El producto ya existe en la base: pedimos su nota (pipeline v2) en
+        // segundo plano. Fire-and-forget; el server responde 204 si el usuario
+        // no está en la v2, y cualquier error se traga (nunca toca la UI).
+        if (urls.length > 0) triggerProductBrief(optimistic.id);
         const parsed = parseProductRow(data);
         if (!parsed) {
           // El INSERT entró pero la row volvió ilegible: no revertimos (el dato
@@ -432,6 +437,9 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
             }));
             return;
           }
+          // Cambiaron las fotos (alta, agregado o borrado de una): la nota v2
+          // del producto quedó vieja. Fire-and-forget, errores silenciados.
+          if ("product_images" in patch) triggerProductBrief(id);
           const parsed = parseProductRow(data);
           if (!parsed) return;
           setLocalState((prev) => ({

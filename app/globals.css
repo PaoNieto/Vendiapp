@@ -8,7 +8,13 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
+  /* Mono SOLO en dark: `--vd-font-mono` existe únicamente bajo
+     [data-theme="dark"] (apunta a Geist Mono, que carga app/layout.tsx). En
+     light queda sin definir — igual que antes, cuando `--font-geist-mono` no se
+     cargaba —, así que `font-mono` sigue heredando Inter y el claro no cambia.
+     NO lo vuelvas a apuntar a `--font-geist-mono`: ahora esa var SÍ existe en
+     <html> y el modo claro pasaría a mono sin que nadie lo decida. */
+  --font-mono: var(--vd-font-mono);
   --font-heading: var(--font-inter);
   --font-display: var(--font-instrument-serif), "Instrument Serif", ui-serif,
     Georgia, serif;
@@ -219,51 +225,72 @@
 
 /*
   Dark mode — toggle via [data-theme="dark"] en <html>.
-  Deep forest + glass dark + pill cream invertida. Mantiene la técnica
-  visual glass; cambian los colores base a la versión nocturna del Cuaderno.
+  Identidad "NUBE BAJA FLOTANTE" (aprobada por Paolo, 2026-09-10): casi-negro
+  #060807 con una nube verde abajo al centro y un brillo dorado arriba a la
+  derecha; cards de vidrio intermedio; títulos en Sora 300 con la palabra
+  acento en Instrument Serif itálica; datos y etiquetas en Geist Mono; ítem
+  activo del sidebar en verde; botón principal champagne.
+  Regla de color que se mantiene: verde = interacción · dorado = joya.
+  TODO lo de Nube baja vive bajo [data-theme="dark"]: el claro no cambia.
 */
 [data-theme="dark"] {
-  --background: #080a09; /* casi-negro, tinte forest mínimo */
-  --foreground: #eee5c9; /* warm cream */
+  --background: #060807; /* casi-negro, tinte forest mínimo */
+  --foreground: #f3eedd; /* cream cálido — tinta principal */
 
-  --card: #101310; /* charcoal lifted, apenas forest */
-  --card-foreground: #eee5c9;
+  --card: #101310; /* charcoal lifted, apenas forest (popovers/inputs sólidos) */
+  --card-foreground: #f3eedd;
   --popover: #101310;
-  --popover-foreground: #eee5c9;
+  --popover-foreground: #f3eedd;
 
-  /* Pill principal = CHAMPAGNE cálido (dorado suave premium), texto forest. */
-  --primary: #e7d6ab;
-  --primary-foreground: #0b1712;
+  /* Pill principal = CHAMPAGNE, texto casi-negro. El degradé y el halo del
+     botón viven en `.cta-emerald` (dark); esto es el color base/fallback. */
+  --primary: #efe4c6;
+  --primary-foreground: #080a09;
 
-  --secondary: rgba(231, 214, 171, 0.06);
-  --secondary-foreground: #eee5c9;
+  /* Superficies neutras (blanco sobre oscuro), como el vidrio de Nube baja. */
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #f3eedd;
 
-  --muted: rgba(238, 229, 201, 0.05);
-  --muted-foreground: #9aa587;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #b5bba3;
 
   /* Accent = sage claro — mantiene semántica VERDE (links, delta+). */
   --accent: #bcd3a4;
-  --accent-foreground: #0b1712;
+  --accent-foreground: #080a09;
 
   --destructive: #e48564;
   --success: #bcd3a4;
   --warning: #e8c766;
 
-  --border: rgba(238, 229, 201, 0.1);
-  --input: rgba(238, 229, 201, 0.1);
-  --ring: #e7d6ab; /* focus ring champagne */
+  /* Bordes blancos ~10% (inputs un pelo más, se leen como campo). */
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #efe4c6; /* focus ring champagne */
 
-  /* GLASS luminoso — edge dorado tenue. */
+  /* GLASS (bottom-nav, .glass/.glass-strong, theme toggle). */
   --glass: rgba(20, 22, 19, 0.68);
-  --glass-border: rgba(231, 214, 171, 0.16);
+  --glass-border: rgba(255, 255, 255, 0.12);
 
   /* Cuaderno tokens FUENTE en dark (prefijo --vd-*). */
-  --vd-ink: #eee5c9;
-  --vd-ink-soft: #d0c8a6;
-  --vd-mute: #9aa587;
-  --vd-mute-on-bg: #9fab8b;
-  --vd-pill-bg: #e7d6ab;
-  --vd-pill-fg: #0b1712;
+  --vd-ink: #f3eedd;
+  --vd-ink-soft: #d9d2b8;
+  --vd-mute: #b5bba3;
+  /* Texto SOBRE el fondo (no sobre card). Calculado contra el peor punto del
+     fondo nuevo — el corazón de la nube verde —: 4.8:1 (AA). */
+  --vd-mute-on-bg: #bfc4ad;
+  --vd-pill-bg: #efe4c6;
+  --vd-pill-fg: #080a09;
+
+  /* Botón principal: degradé champagne de arriba (claro) a abajo (cálido). */
+  --vd-champagne-hi: #f6efd9;
+  --vd-champagne-lo: #e7d6ab;
+
+  /* Tipografías de Nube baja (las carga app/layout.tsx con next/font).
+     --vd-font-title → h1/h2/h3 y .display-serif en dark.
+     --vd-font-mono  → .eyebrow, .font-mono y los números grandes en dark. */
+  --vd-font-title: var(--font-sora), "Sora", "Segoe UI", system-ui, sans-serif;
+  --vd-font-mono: var(--font-geist-mono), "Geist Mono", ui-monospace,
+    SFMono-Regular, Menlo, Consolas, monospace;
   --vd-sage: #9db590;
   --vd-sage-strong: #bcd3a4;
   --vd-clay: #e48564;
@@ -284,10 +311,11 @@
   --vd-emerald-soft: rgba(70, 199, 141, 0.14);
   --vd-emerald-glow: rgba(70, 199, 141, 0.34);
 
-  /* Bg gradient dark — casi-negro + AMBIENT glow dorado LEVE al centro. */
+  /* Bg dark — base casi-negra que baja apenas hacia el verde en el piso. */
   --vd-bg-a: #050706;
   --vd-bg-b: #080a09;
   --vd-bg-c: #1a180d; /* hotspot cálido tenue (uso residual) */
+  --vd-bg-floor: #0a100c; /* piso de la base, donde se apoya la nube */
 
   /* Esquina más generosa en dark (Apple continuous-corner). */
   --radius: 1rem;
@@ -311,19 +339,33 @@
   --clay: var(--vd-clay);
   --butter: var(--vd-butter);
 
-  /* Body gradient en dark — casi-negro + NEBULOSA VERDE marcada y centrada. */
+  /*
+    Body gradient en dark — "Nube baja": nube verde ABAJO al centro + brillo
+    dorado ARRIBA a la derecha, sobre casi-negro.
+    Las medidas VERTICALES van en vh, no en %, a propósito: el body usa
+    `background-attachment: fixed`, pero iOS lo ignora y ahí un % se mediría
+    contra TODA la página (una nube de 1500px de alto en una pantalla larga).
+    En vh la nube queda siempre al pie de la primera pantalla. El mobile del
+    `.dashboard-shell` reusa este mismo token.
+  */
   --bg-gradient:
     radial-gradient(
-      ellipse 60% 55% at 50% 40%,
-      rgba(70, 199, 141, 0.3) 0%,
-      rgba(70, 199, 141, 0.12) 40%,
-      transparent 72%
+      ellipse 62% 50vh at 50% 106vh,
+      rgba(70, 199, 141, 0.38) 0%,
+      rgba(70, 199, 141, 0.14) 42%,
+      transparent 74%
     ),
     radial-gradient(
-      ellipse 120% 130% at 30% 80%,
-      #0b0e0c 0%,
-      #080a09 65%,
-      #050706 100%
+      ellipse 40% 36vh at 97% -2vh,
+      rgba(233, 198, 95, 0.26) 0%,
+      rgba(233, 198, 95, 0.08) 45%,
+      transparent 72%
+    ),
+    linear-gradient(
+      180deg,
+      var(--vd-bg-a) 0%,
+      var(--vd-bg-b) 55%,
+      var(--vd-bg-floor) 100%
     );
 }
 
@@ -355,6 +397,46 @@
   h1,
   h2,
   h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.02em;
+  }
+  /*
+    Dark "Nube baja": los títulos pasan a Sora 300, rectos y con tracking
+    cerrado. La palabra ACENTO adentro del título (.display-serif-italic /
+    .text-gold-glossy) sigue en Instrument Serif itálica — ver @layer
+    utilities, junto a .display-serif.
+    Va en @layer base A PROPÓSITO: cualquier utility que el componente ponga en
+    su título (font-display, italic, font-medium, tracking-tight…) le sigue
+    ganando, exactamente como hoy le gana a la regla de arriba.
+    `:not(.fundador-page *)`: /fundador trae su propia tipografía (Fraunces, en
+    fundador.css, que pisa familia y peso pero NO el italic) — no se toca.
+  */
+  [data-theme="dark"] :is(h1, h2, h3):not(.fundador-page *) {
+    font-family: var(--vd-font-title);
+    font-weight: 300;
+    font-style: normal;
+    letter-spacing: -0.035em;
+  }
+  /* h3 = títulos chicos de card (~16-18px): a ese tamaño el -0.035em aprieta
+     Sora de más. El mockup usa -0.02em en sus títulos de sección. */
+  [data-theme="dark"] h3:not(.fundador-page *) {
+    letter-spacing: -0.02em;
+  }
+  /*
+    EXCEPCIÓN /plan (paywall): el headline se queda en Instrument Serif
+    itálica, como antes. Motivo MEDIDO (render real a 375/390px, 2026-09-10),
+    no de gusto: el headline lleva el nombre del negocio y Sora es bastante más
+    ancha. "Listo, Mi Tienda. Ahora sí, tus fotos." pasa de 1 a 2 renglones a
+    375px, y con "Distribuidora Mayorista" llega a 3 renglones a 390px (CTA de
+    538px a 567px). /plan es la pantalla con el presupuesto vertical más duro
+    de la app (ver bloque 9 del paywall); en serif sus métricas quedan
+    IDÉNTICAS a antes. Y /plan ya es serif en su joya (el precio, .vd-price),
+    así que queda coherente.
+    (0,2,2) le gana a la (0,2,1) de arriba; las utilities del h1 siguen mandando.
+  */
+  [data-theme="dark"] main:has(.vd-plan-card) h1 {
     font-family: var(--font-display);
     font-weight: 400;
     font-style: italic;
@@ -462,58 +544,63 @@
       0 18px 40px -16px rgba(15, 31, 22, 0.32);
   }
 
-  /* ───────── DARK (app interno — GLASS REAL dark green) ─────────
-     Mismo principio en oscuro: dark-green translúcido + blur, highlight cream
-     tenue arriba, sombra negra profunda. El cream del foreground (#f0e8cb)
-     contrasta fuerte sobre el verde oscuro translúcido. */
-  /*
-    iOS 18 "material" en dark: superficie charcoal con sheen (top un pelo más
-    claro que bottom), doble borde (specular hairline arriba + shadow-line
-    abajo), micro inner-glow dorado apenas perceptible en el borde superior y
-    sombras EN CAPAS (contacto corto + media + ambiental larga y suave).
-  */
+  /* ───────── DARK (app interno — VIDRIO INTERMEDIO "Nube baja") ─────────
+     Blanco muy tenue (5,5% arriba → 2,8% abajo) sobre un velo casi-negro al
+     34%: se ve el fondo (la nube verde, el brillo dorado) a través del blur,
+     pero el texto se sigue leyendo. Borde blanco 10%, hairline de luz arriba y
+     una sombra larga y suave. Radio 24 (compacta 20).
+     Contraste medido contra el PEOR fondo posible (card encima del corazón de
+     la nube verde): --vd-mute 5.2:1, --vd-ink-soft >9:1 → AA en texto chico. */
   [data-theme="dark"] .glass-card {
-    background: linear-gradient(
-      180deg,
-      rgba(30, 34, 28, 0.86),
-      rgba(14, 17, 14, 0.8)
-    );
-    -webkit-backdrop-filter: blur(28px) saturate(140%);
-    backdrop-filter: blur(28px) saturate(140%);
-    border: 1px solid rgba(231, 214, 171, 0.1);
-    border-radius: 20px;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.055),
+        rgba(255, 255, 255, 0.028)
+      ),
+      rgba(8, 10, 9, 0.34);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
+    backdrop-filter: blur(26px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
     box-shadow:
-      /* specular top hairline — nítido y luminoso */
-      inset 0 1px 0 rgba(242, 226, 184, 0.16),
-      /* micro inner-glow dorado en el borde superior (visionOS) */
-      inset 0 1px 14px -7px rgba(233, 198, 95, 0.1),
-      /* shadow-line inferior — cierra el doble borde */
-      inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-      /* contacto corto y nítido */
-      0 1px 2px rgba(0, 0, 0, 0.5),
-      /* profundidad media */
-      0 6px 16px -8px rgba(0, 0, 0, 0.55),
-      /* ambiental larga y suave */
-      0 30px 68px -26px rgba(0, 0, 0, 0.82);
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 1px 2px rgba(0, 0, 0, 0.35),
+      0 18px 40px -26px rgba(0, 0, 0, 0.75);
   }
 
   [data-theme="dark"] .glass-card-compact {
-    background: linear-gradient(
-      180deg,
-      rgba(30, 34, 28, 0.86),
-      rgba(14, 17, 14, 0.8)
-    );
-    -webkit-backdrop-filter: blur(22px) saturate(138%);
-    backdrop-filter: blur(22px) saturate(138%);
-    border: 1px solid rgba(231, 214, 171, 0.09);
-    border-radius: 18px;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.055),
+        rgba(255, 255, 255, 0.028)
+      ),
+      rgba(8, 10, 9, 0.34);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    backdrop-filter: blur(22px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
     box-shadow:
-      inset 0 1px 0 rgba(242, 226, 184, 0.14),
-      inset 0 1px 12px -7px rgba(233, 198, 95, 0.08),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.36),
-      0 1px 2px rgba(0, 0, 0, 0.45),
-      0 4px 12px -6px rgba(0, 0, 0, 0.5),
-      0 20px 50px -22px rgba(0, 0, 0, 0.76);
+      inset 0 1px 0 rgba(255, 255, 255, 0.11),
+      0 1px 2px rgba(0, 0, 0, 0.32),
+      0 14px 32px -22px rgba(0, 0, 0, 0.72);
+  }
+
+  /* Vidrio que FLOTA sobre contenido arbitrario (overlays/modales, que viven
+     en un contenedor `position: fixed`, ej. generating-overlay): detrás puede
+     haber una FOTO clara, no el fondo oscuro. Con el velo de 34% el texto
+     chico caería a ~2.6:1 ⇒ acá el velo sube a 72% (≈ la densidad de antes) y
+     el --vd-mute vuelve a >5:1 incluso sobre blanco. Mismo material, más
+     denso. (0,3,0) ⇒ le gana a las dos reglas de arriba. */
+  [data-theme="dark"] .fixed :is(.glass-card, .glass-card-compact) {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.055),
+        rgba(255, 255, 255, 0.028)
+      ),
+      rgba(8, 10, 9, 0.72);
   }
 
   [data-theme="dark"] .glass,
@@ -531,13 +618,15 @@
   [data-theme="dark"] .glass-card-compact.glass-interactive:hover {
     transform: translateY(-2px);
     box-shadow:
-      /* edge verde premium — hairline esmeralda de interacción */
-      inset 0 0 0 1px rgba(70, 199, 141, 0.45),
-      inset 0 1px 0 rgba(242, 226, 184, 0.18),
-      0 1px 2px rgba(0, 0, 0, 0.5),
-      0 30px 60px -20px rgba(0, 0, 0, 0.85),
-      /* glow verde ambiental al levantar */
-      0 0 44px -10px var(--vd-emerald-glow);
+      /* hairline verde de interacción (verde = interacción), más callado
+         que antes: el vidrio nuevo es más liviano y un 45% gritaba */
+      inset 0 0 0 1px
+        color-mix(in srgb, var(--vd-emerald-strong) 28%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 22px 46px -26px rgba(0, 0, 0, 0.8),
+      /* halo verde ambiental al levantar (el `card-lift` del mockup) */
+      0 0 60px -30px color-mix(in srgb, var(--vd-emerald) 40%, transparent);
   }
 
   /*
@@ -556,6 +645,23 @@
   }
   .eyebrow-on-bg {
     color: var(--vd-mute-on-bg);
+  }
+  /* Dark "Nube baja": la etiqueta pasa a Geist Mono 400, 11px, tracking .14em.
+     Es (0,2,0) ⇒ le gana también a la recalibración 9.6 de más abajo, que es
+     (0,1,0), en todos los anchos.
+     🔴 SIN `color`, por la misma razón que 9.6: el color lo deciden `.eyebrow`
+     (--vd-mute), `.eyebrow-on-bg` y `.vd-onbg`. Si se lo ponés acá, a (0,2,0),
+     les ganás a los tres y el eyebrow que vive sobre el fondo pierde contraste. */
+  [data-theme="dark"] .eyebrow {
+    font-family: var(--vd-font-mono);
+    font-weight: 400;
+    letter-spacing: 0.14em;
+  }
+  /* El tamaño, sólo si el componente NO fijó uno propio con `text-[…]` (ej.
+     el nombre de producto de las cards de Fábrica, `eyebrow text-[10px]`):
+     si el componente eligió un tamaño, se respeta. */
+  [data-theme="dark"] .eyebrow:not([class*="text-["]) {
+    font-size: 11px;
   }
 
   /* Tabular nums — números grandes alineados en columnas (Resumen). */
@@ -613,10 +719,47 @@
     En light el botón sigue forest (bg-primary), intacto.
   */
   [data-theme="dark"] .cta-emerald {
-    filter: drop-shadow(0 6px 16px rgba(233, 214, 171, 0.4));
+    filter: drop-shadow(
+      0 8px 18px color-mix(in srgb, var(--vd-gold) 30%, transparent)
+    );
   }
   [data-theme="dark"] .cta-emerald:hover {
-    filter: drop-shadow(0 9px 24px rgba(233, 214, 171, 0.52));
+    filter: drop-shadow(
+      0 11px 26px color-mix(in srgb, var(--vd-gold) 42%, transparent)
+    );
+  }
+  /*
+    Nube baja: relleno champagne en DEGRADÉ (claro arriba → cálido abajo).
+    `background-image` se pinta ENCIMA del `bg-primary` del componente, así que
+    no hay que pelearle a esa utility (queda de fallback). La 1ª capa es el
+    brillo de 1.5px del borde superior — el `inset` del mockup, hecho con
+    fondo y no con box-shadow, para no tocar el focus-ring.
+    `:not(.vd-plan-cta)`: el CTA de /plan trae su propio degradé (derivado de
+    --primary, bloque 4 del paywall) y es (0,1,0): sin la exclusión lo taparía.
+    Su halo tampoco se toca: `[data-theme="dark"] .vd-plan-cta` va DESPUÉS en
+    el archivo y le sigue ganando al filter de arriba por orden.
+  */
+  [data-theme="dark"] .cta-emerald:not(.vd-plan-cta) {
+    background-image:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.6),
+        rgba(255, 255, 255, 0) 1.5px
+      ),
+      linear-gradient(180deg, var(--vd-champagne-hi), var(--vd-champagne-lo));
+  }
+  [data-theme="dark"] .cta-emerald:not(.vd-plan-cta):hover {
+    background-image:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.7),
+        rgba(255, 255, 255, 0) 1.5px
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--vd-champagne-hi) 70%, #fff),
+        color-mix(in srgb, var(--vd-champagne-lo) 85%, #fff)
+      );
   }
 
   /*
@@ -633,6 +776,33 @@
     font-family: var(--font-display);
     font-style: italic;
     font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /* Dark "Nube baja": el display pasa a Sora 300 (mismo gesto que h1/h2/h3
+     en @layer base). Sin font-style: .display-serif nunca fue itálica. */
+  [data-theme="dark"] .display-serif {
+    font-family: var(--vd-font-title);
+    font-weight: 300;
+    letter-spacing: -0.035em;
+  }
+  /*
+    La palabra ACENTO adentro de un título en Sora sigue en Instrument Serif
+    itálica (el `em` del mockup). El 1.1em compensa que la serif tiene mucha
+    menos altura de x que Sora: al mismo tamaño el acento se vería chico.
+    `line-height: 1` para que ese 1.1em no estire el renglón.
+    `:not(.font-display)`: si el título YA es serif (font-display italic), el
+    acento no crece — ahí no hay nada que compensar.
+    No toca color: el dorado/verde lo pone cada componente.
+  */
+  [data-theme="dark"]
+    :is(h1, h2, h3, .display-serif):not(.font-display)
+    :is(.display-serif-italic, .text-gold-glossy) {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.1em;
+    line-height: 1;
     letter-spacing: -0.01em;
   }
 
@@ -668,41 +838,173 @@
     z-index: 1;
   }
 
-  /* Glow dorado LEVE y CENTRADO sobre el shell del app SOLO en dark (visionOS). */
+  /*
+    Dark "Nube baja flotante" sobre el shell: nube verde abajo al centro +
+    brillo dorado arriba a la derecha, sobre casi-negro.
+    · MOBILE: el shell pinta el mismo `--bg-gradient` del body (medidas en vh ⇒
+      la nube queda al pie de la PRIMERA pantalla y scrollea con la página).
+      Sin capa fija a propósito: en un Android de gama media, un fondo fijo
+      obliga a recalcular el blur de cada card en cada frame del scroll.
+    · DESKTOP: la nube queda FIJA al viewport — como en el mockup, donde
+      scrollea el contenido y no el fondo — con un ::before position:fixed.
+      Se compone en GPU (no repinta el shell al scrollear). El z-index:-1 queda
+      DENTRO del shell gracias a su `isolation: isolate`, y el overflow:hidden
+      del shell no lo recorta (un fixed no se recorta por un ancestro que no
+      es su bloque contenedor).
+  */
   [data-theme="dark"] .dashboard-shell {
-    background:
-      radial-gradient(
-        ellipse 60% 55% at 50% 40%,
-        rgba(70, 199, 141, 0.3) 0%,
-        rgba(70, 199, 141, 0.12) 40%,
-        transparent 72%
-      ),
-      radial-gradient(
-        ellipse 120% 130% at 30% 80%,
-        #0b0e0c 0%,
-        var(--vd-bg-b) 65%,
-        var(--vd-bg-a) 100%
-      );
+    background: var(--bg-gradient);
   }
-  /* Desktop: el sidebar (220px) ocupa la izquierda; corremos el centro de la
-     nebulosa +110px (mitad del sidebar) para que quede centrada en el ÁREA DE
-     CONTENIDO, no en el shell completo. En mobile no hay sidebar → queda 50%. */
   @media (min-width: 64rem) {
-    [data-theme="dark"] .dashboard-shell {
+    [data-theme="dark"] .dashboard-shell::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
       background:
         radial-gradient(
-          ellipse 60% 55% at calc(50% + 110px) 40%,
-          rgba(70, 199, 141, 0.3) 0%,
-          rgba(70, 199, 141, 0.12) 40%,
-          transparent 72%
+          ellipse 62% 50% at var(--vd-nube-x, 50%) 106%,
+          rgba(70, 199, 141, 0.38) 0%,
+          rgba(70, 199, 141, 0.14) 42%,
+          transparent 74%
         ),
         radial-gradient(
-          ellipse 120% 130% at 30% 80%,
-          #0b0e0c 0%,
-          var(--vd-bg-b) 65%,
-          var(--vd-bg-a) 100%
+          ellipse 40% 36% at 97% -2%,
+          rgba(233, 198, 95, 0.26) 0%,
+          rgba(233, 198, 95, 0.08) 45%,
+          transparent 72%
+        ),
+        linear-gradient(
+          180deg,
+          var(--vd-bg-a) 0%,
+          var(--vd-bg-b) 55%,
+          var(--vd-bg-floor) 100%
         );
     }
+    /* Con el sidebar flotante (240px + 14px de margen = 254px) el centro de la
+       nube se corre la mitad, 127px, para caer en el medio del ÁREA DE CONTENIDO.
+       /plan, /onboarding y el login no tienen sidebar ⇒ la nube queda al 50%
+       (antes se corría igual en esas pantallas, descentrada). Sin soporte de
+       :has() la nube queda al 50%: degrada bien. */
+    [data-theme="dark"] .dashboard-shell:has(.vd-sidebar) {
+      --vd-nube-x: calc(50% + 127px);
+    }
+  }
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     NUBE BAJA FLOTANTE — ganchos que Frontero pone en los componentes.
+     Todo va bajo [data-theme="dark"]: en light estas clases NO hacen nada.
+     ═════════════════════════════════════════════════════════════════════════ */
+
+  /*
+    .vd-sidebar → el <aside> del sidebar de escritorio. En dark FLOTA: separado
+    14px de los bordes, radio 26, borde completo, vidrio con blur.
+    (0,2,0) le gana a TODAS las utilities del aside (sticky top-0, h-dvh,
+    border-r, border-border, bg-sidebar-bg, px-[18px] py-7), que son (0,1,0).
+    NO toca `display`: el `hidden … lg:flex` sigue mandando (en mobile no hay
+    sidebar). El padding es el del mockup (26/16/18): recupera el aire vertical
+    que se comen los 28px de margen y le deja 4px más de ancho a los ítems.
+  */
+  [data-theme="dark"] .vd-sidebar {
+    /* 240px como el mockup aprobado (le gana al w-[220px] del aside, que
+       sigue mandando en light). Con 240 "Catálogo de Productos" entra en un
+       renglón. Si cambiás este ancho, recalculá --vd-nube-x más arriba. */
+    width: 240px;
+    top: 14px;
+    height: calc(100vh - 28px);
+    height: calc(100dvh - 28px);
+    margin: 14px 0 14px 14px;
+    padding: 26px 16px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 26px;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.045),
+        rgba(255, 255, 255, 0.015)
+      ),
+      rgba(5, 7, 6, 0.55);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
+    backdrop-filter: blur(26px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 1px 2px rgba(0, 0, 0, 0.45),
+      0 26px 54px -28px rgba(0, 0, 0, 0.9);
+  }
+
+  /*
+    .vd-nav-item (+ data-active="true" en el activo) → ítems del sidebar.
+    Inactivo: tinta secundaria, radio 12. Activo: degradé verde de izquierda a
+    derecha, anillo verde por dentro, texto casi blanco e ícono verde.
+    (0,3,0) en el activo ⇒ le gana a `bg-primary` / `text-primary-foreground`
+    / `font-semibold` que el componente le pone al activo. El anillo es
+    box-shadow INSET: el foco del ítem es por `outline`, no se pisa.
+  */
+  [data-theme="dark"] .vd-nav-item {
+    color: var(--vd-ink-soft);
+    border-radius: 12px;
+  }
+  [data-theme="dark"] .vd-nav-item[data-active="true"] {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--vd-emerald) 26%, transparent),
+      color-mix(in srgb, var(--vd-emerald) 6%, transparent)
+    );
+    color: #f6f1e2; /* un punto más claro que --vd-ink: sobre verde se lava */
+    font-weight: 500;
+    box-shadow:
+      inset 0 0 0 1px
+        color-mix(in srgb, var(--vd-emerald-strong) 28%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+  [data-theme="dark"] .vd-nav-item[data-active="true"] svg {
+    color: var(--vd-emerald-strong);
+  }
+
+  /*
+    .vd-metric-value → el número grande de MetricTile. En dark: Geist Mono 400,
+    tracking -0.05em (le gana a .display-serif dark por ORDEN: misma
+    especificidad y va después — no lo muevas arriba).
+    Medido en render: la mono es ~20% más ancha que Instrument Serif, y con
+    valores con unidad ("14 h", "45 min") el número se PARTÍA en dos renglones
+    ("14" / "h") al lado del sparkline. Por eso, sólo en dark:
+    · `nowrap`: un KPI no se parte nunca.
+    · tamaño 32px en mobile y 40px de sm para arriba (el 40 es el del mockup):
+      en 4 columnas a 1340px el hueco del número mide ~72px.
+    · el sparkline (el div hermano, `shrink-0` en el componente) pasa a poder
+      ceder ancho: si el número necesita lugar, el gráfico se achica (su SVG
+      escala por viewBox) en vez de empujar la card y desbordarla.
+  */
+  [data-theme="dark"] .vd-metric-value {
+    font-family: var(--vd-font-mono);
+    font-weight: 400;
+    letter-spacing: -0.05em;
+    font-size: 32px;
+    white-space: nowrap;
+  }
+  @media (min-width: 40rem) {
+    [data-theme="dark"] .vd-metric-value {
+      font-size: 40px;
+    }
+  }
+  [data-theme="dark"] .vd-metric-value + div {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  /*
+    .vd-num → números "de dato" que NO son el KPI grande (ej. las MetricCard
+    de Ajustes, text-2xl). En dark SÓLO cambia la letra: Geist Mono 400,
+    tracking -0.04em, cifras tabulares. A PROPÓSITO no toca tamaño, ni
+    white-space, ni color: los decide el componente (`.vd-metric-value`
+    fuerza 32/40px + nowrap y ahí desbordaría en mobile). En light no hace nada.
+  */
+  [data-theme="dark"] .vd-num {
+    font-family: var(--vd-font-mono);
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
   }
 }
 

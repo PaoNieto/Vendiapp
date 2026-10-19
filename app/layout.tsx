@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import { Inter, Instrument_Serif, Sora, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { clerkAppearance, clerkLocalizationES } from "@/lib/auth/clerk-appearance";
@@ -18,6 +18,26 @@ const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   style: ["normal", "italic"],
+  display: "swap",
+});
+
+// Modo oscuro "Nube baja flotante": Sora (títulos, liviana) + Geist Mono
+// (datos, eyebrows, números). Se cargan siempre, pero globals.css las usa SOLO
+// bajo [data-theme="dark"]: el modo claro no las pinta en ningún lado.
+const sora = Sora({
+  variable: "--font-sora",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  display: "swap",
+});
+
+// 600/700 además de 400/500: la app ya usa font-mono con font-semibold y
+// font-bold (precios, contadores, badges). Sin esos pesos el navegador los
+// "engorda" artificialmente y la mono se ve borroneada.
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -70,7 +90,7 @@ export default function RootLayout({
     <ClerkProvider appearance={clerkAppearance} localization={clerkLocalizationES}>
       <html
         lang="es"
-        className={`${inter.variable} ${instrumentSerif.variable} h-full`}
+        className={`${inter.variable} ${instrumentSerif.variable} ${sora.variable} ${geistMono.variable} h-full`}
         suppressHydrationWarning
       >
         <head>
