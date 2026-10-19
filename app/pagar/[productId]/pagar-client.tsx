@@ -43,6 +43,8 @@ export type PagarClientProps = {
     analysisCredits: number;
   };
   email: string | null;
+  /** "sandbox" solo fuera de producción con WHOP_ENV=sandbox (ver lib/whop/env.ts). */
+  whopEnvironment: "production" | "sandbox";
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -180,7 +182,12 @@ function Pendiente({
   );
 }
 
-export function PagarClient({ sessionId, product, email }: PagarClientProps) {
+export function PagarClient({
+  sessionId,
+  product,
+  email,
+  whopEnvironment,
+}: PagarClientProps) {
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   /*
@@ -387,6 +394,9 @@ export function PagarClient({ sessionId, product, email }: PagarClientProps) {
                    `external_reference` de Mercado Pago. Sin esto el pago entra
                    y el webhook no sabe a quién acreditarle los créditos. */
                 sessionId={sessionId}
+                /* Tiene que coincidir con el entorno donde se creó la session
+                   (producción o sandbox), si no el iframe no la encuentra. */
+                environment={whopEnvironment}
                 /* 🔴 El embed lo trae APAGADO de fábrica — al revés que el
                    checkout alojado de Whop. Sin esto el comprador peruano ve
                    dólares secos en vez de soles, y se pierden Yape y

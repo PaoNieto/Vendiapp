@@ -1,4 +1,5 @@
 import "server-only";
+import { productIdForWhopPlanId } from "@/lib/whop/env";
 
 /**
  * Catálogo de productos de cobro — FUENTE DE VERDAD server-side.
@@ -161,10 +162,10 @@ export function getProduct(id: string): Product | null {
  * contra un segundo mapa hardcodeado.
  */
 export function getProductByWhopPlanId(planId: string): Product | null {
-  if (!planId) return null;
-  return (
-    Object.values(PRODUCTS).find((p) => p.whopPlanId === planId) ?? null
-  );
+  // Compara contra el plan del entorno activo (en sandbox los `plan_...` son
+  // otros, ver lib/whop/env.ts).
+  const id = productIdForWhopPlanId(planId, Object.values(PRODUCTS));
+  return id ? PRODUCTS[id] : null;
 }
 
 /**

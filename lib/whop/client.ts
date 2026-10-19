@@ -1,4 +1,5 @@
 import "server-only";
+import { whopApiBase } from "./env";
 
 /**
  * Cliente HTTP mínimo contra la API de Whop — el riel de cobro de Vendí.
@@ -14,9 +15,6 @@ import "server-only";
  * Vendí es single-seller: cobra con SU PROPIA cuenta (`WHOP_ACCOUNT_ID`,
  * biz_...) usando SU PROPIA API key de cuenta. No hay OAuth ni multi-tenant.
  */
-
-/** Base de la API de Whop. Documentada en docs.whop.com/api-reference. */
-export const WHOP_API_BASE = "https://api.whop.com/api/v1";
 
 /**
  * Versión de la API que pedimos, pineada a propósito.
@@ -76,7 +74,7 @@ export function getWhopAccountId(): string {
 /**
  * POST/GET tipado contra la API de Whop, con timeout duro y errores tipados.
  *
- * - `path` es relativo a WHOP_API_BASE y empieza con "/".
+ * - `path` es relativo a la base de la API (`whopApiBase()`) y empieza con "/".
  * - `idempotencyKey` (opcional) hace la request segura de reintentar: Whop
  *   devuelve la respuesta original en vez de crear un recurso nuevo.
  * - Cualquier status >= 400 tira `WhopApiError` con el cuerpo crudo, para que
@@ -115,7 +113,8 @@ export async function whopFetch<T>(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${WHOP_API_BASE}${path}`, {
+    // Base según el entorno (producción o sandbox, ver ./env).
+    const res = await fetch(`${whopApiBase()}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
