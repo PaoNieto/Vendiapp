@@ -613,7 +613,7 @@ Paolo trajo una lista de 20 "competidores" que le había dado Claude Haiku hace 
 
 ### §15b — 2026-08-18: cuentas de Workspace consolidadas a UNA (cierre del tema correo)
 - Paolo borró los usuarios `hola@` y `soporte@` (este último lo había creado por error **como usuario**, no como alias) y después **RENOMBRÓ `holavendi@` → `soporte@vendilatam.com`**. Resultado: **1 sola licencia de Workspace, 1 sola bandeja**. Ahorro ~$170/año.
-- 🔑 **REUSABLE — el truco:** borrar un usuario y recrear esa dirección como alias **NO funciona al toque** (Google tarda en liberar el nombre). Lo que sí: **renombrar** la cuenta principal a la dirección deseada — Google deja el nombre viejo como **alias automático**, sin corte de servicio. Hoy: `soporte@vendilatam.com` = cuenta real, `holavendi@vendilatam.com` = alias.
+- 🔑 **REUSABLE — el truco:** borrar un usuario y recrear esa dirección como alias **NO funciona al toque** (Google tarda en liberar el nombre). Lo que sí: **renombrar** la cuenta principal a la dirección deseada — Google deja el nombre viejo como **alias automático**, sin corte de servicio. Hoy: `soportevendi@vendilatam.com` = CUENTA REAL (verificado 2026-09-17 contra el correo de Google: es la que recibe las alertas y tiene a paolonietoc@gmail.com como recuperacion). `soporte@` y `holavendi@` son alias.
 - **Verificado:** MX intacto (`smtp.google.com` prio 1) tras el borrado de usuarios — el DNS es a nivel dominio y no lo afectan las altas/bajas de cuentas. 2do mail de prueba a `soporte@` enviado **sin rebote**.
 - **El tema correo queda CERRADO** salvo deuda técnica NO bloqueante: DKIM (`google._domainkey`), DMARC (`_dmarc` → `rua=mailto:soporte@vendilatam.com`), limpiar `include:spf.improvmx.com` del SPF, y dar de baja ImprovMX.
 - **Vault actualizado:** `Correo y DNS.md` (cuentas consolidadas + el truco del renombre) y `Roadmap` (correo movido a CERRADO).
@@ -1258,3 +1258,174 @@ Verificado en vivo sobre las 3 URLs: 0 hits de `$27`, `S/ 39`, "vía Mercado Pag
 ### 🔴 ESTADO REAL DEL COBRO POR WHOP (2026-09-05)
 Todo construido, deployado y verificado por partes. **Pero `whop_processed_payments` = 0 filas: Vendí NUNCA cobró un dólar por Whop.** La última compra de la historia sigue siendo la de Mercado Pago del 2026-06-28.
 **Falta la compra real de prueba** (Pack Inicial US$9 desde `/upgrade`) — y con ella, confirmar si Whop permite **recomprar el mismo pack** más de una vez, que es como funcionan las recargas. Sin eso, no se puede afirmar que el cobro funciona.
+
+### 2026-09-10 — Propuesta de diseño "Cuaderno v3" (SOLO mockup, código sin tocar)
+Paolo preguntó si se puede hacer más linda la app (colores, estilos, tipografía, cards). Se armó un mockup antes/después del **Inicio en celular** con los tokens reales del Cuaderno v2 y fotos de `public/catalogo/`: `https://claude.ai/code/artifact/e837e07a-3a9b-45f2-ba68-8fb6322937f8` (fuente en el tmp del job, se pierde al borrarlo; el artifact queda).
+Las 4 propuestas: (1) **fotos arriba**, los 4 tiles de números pasan a una tira plana; créditos visibles arriba (hoy en el celular solo se ven dentro de Fábrica); (2) **un solo acento en oscuro**: champagne = lo que se toca, dorado = solo créditos, **se va la nube verde esmeralda**; en claro el fondo salvia queda igual; (3) **tipografía**: títulos derechos (hoy h1/h2/h3 son todos cursiva por `@layer base`), cursiva solo en una palabra, se sacan las 7 etiquetas en mayúsculas, datos en mono (arregla de paso el `font-mono` muerto); (4) **tres tipos de card**: foto sin caja, superficie plana, y el **glass real queda** solo para lo que flota ("Seguí con…") — respeta el "necesito el real glassmorphism" de Paolo.
+❌ **Paolo la rechazó como única opción:** *"no chat, necesito 10 mockups por lo menos, sabemos que la base es el verde que tenemos, el dorado que tenemos y el negro"*. ⇒ **Paleta base FIJA = verde + dorado + negro de la app** (NO sacar el verde/esmeralda). Se armó un **muestrario de 12 direcciones** del mismo Inicio (Nebulosa, Joyero, Portada, Galería, Bento, Esmeralda, Vitrina, Etiqueta, Aurora, Tarjeta, Tablero, Suizo) para que elija números y mezclar. **Link:** `https://claude.ai/code/artifact/7aad307b-9ac3-40dd-9e80-b1675026a7b0` (mismos datos de ejemplo en las 12; fuentes en el tmp del job, se pierden al borrarlo).
+❌ **El muestrario de 12 en celular tampoco sirvió:** *"primero necesito que sea vista de pc, segundo, no entiendo cuál es la pestaña, dame 10 estilos para vista pc con todas las pestañas de vendí"*. ⇒ Los mockups de estilo van en **vista de escritorio (~1280px con sidebar)**, cubren las **6 pestañas** (Dashboard, Catálogo de Productos, Fábrica, Análisis con IA, Mi Negocio, Ajustes) y **dicen claramente qué pestaña es** (título + URL). Se armó el **"Probador Vendí"**: una página con selector de estilo (10) × pestaña (6), el mockup en un navegador de mentira con la URL real, y un modo "los 10 estilos de esta pestaña". **Link:** `https://claude.ai/code/artifact/79e048ed-cd86-4000-8545-1962e47b5104`. Estilos: 01 Nebulosa (la de hoy pulida), 02 Joyero, 03 Portada (fuentes de la landing), 04 Galería, 05 Bento, 06 Esmeralda, 07 Etiqueta, 08 Aurora (glass al máximo), 09 Tablero, 10 Suizo. Fuentes en el tmp del job (`pc\shell.src.html` + `app.html` + `skin-NN.html` + `build.ps1`), se pierden al borrar el job.
+🎯 **Paolo eligió mezclar 01 Nebulosa + 08 Aurora** y pidió 10 ejemplos de la mezcla. Se arma la página **"Nebulosa × Aurora"** (mismo formato PC × 6 pestañas): 10 mezclas ordenadas de la más Nebulosa (1) a la más Aurora (10) + las 2 originales para comparar. Fuentes en `tmp\mix\` (`shell.src.html`, `mix-NN.html`, `build.ps1`; reusa `pc\app.html` y `pc\skin-01/08.html`). **Link:** `https://claude.ai/code/artifact/2a86fd0d-a1b4-45eb-bdbb-e8fadeb85765`. Mezclas: 1 Casi Nebulosa, 2 Cristal verde, 3 Halo, 4 Nube esmerilada, 5 Mitad y mitad, 6 Nube baja, 7 Noche clara, 8 Aurora dorada, 9 Flotante, 10 Casi Aurora.
+🎯 **ELEGIDA: 6 · Nube baja**, con dos cambios pedidos por Paolo tomados de 1 · Casi Nebulosa: (a) la **barra lateral flotante** (separada 14px de los bordes, radio 26, no pegada de arriba a abajo) y (b) el **"Vendí." en Instrument Serif itálica** (en Nube baja iba en Sora derecha). Resto = Nube baja: nube verde abajo + brillo dorado arriba sobre #060807, cards de vidrio intermedio (blanco ~4%, blur 26px, radio 24), títulos Sora 300 con palabra acento en Instrument Serif itálica dorada, UI Inter, datos Geist Mono, pestaña activa en verde, botón champagne. **Link:** `https://claude.ai/code/artifact/c17818b1-5a9b-4261-abf5-706b790ac98c` (CSS = `tmp\mix\mix-06.html` + `tmp\final\f01-over.html`).
+✅ **OK de Paolo para implementar (2026-09-10):** *"no rompas nada de la app, solo aplica el diseño"* + *"apoyate de los agentes"*. Reparto: **Davinci** → `app/globals.css` (tokens/vidrio/tipografía, TODO limitado a `[data-theme="dark"]`, el claro no cambia) + `app/layout.tsx` (carga Sora y Geist Mono con next/font); **Frontero** → solo 3 ganchos de clase: `vd-sidebar` en el `<aside>` y `vd-nav-item` + `data-active` en `components/app/sidebar.tsx`, y `vd-metric-value` en `components/dashboard/metric-tile.tsx` (hecho, tsc+eslint limpios); **Hawkeye** → verificación final (tsc, eslint, build, que el claro no cambie).
+⚠️ **Carpeta compartida con otra sesión de Claude** (prompt v2 de generación: `lib/ai/*`, `lib/styles.ts`, `app/api/generations/*`, `app/api/briefs/*`, stores, `types/database.ts`, `supabase/migrations/0026_*`). Se creó la rama `feat/diseno-nube-baja` (mismo commit que `feat/cobro-whop`), pero la otra sesión dejó la carpeta en `feat/cobro-whop`. **No cambiar de rama mientras la otra sesión trabaja**; los cambios de diseño quedan SIN commitear. Al commitear, `git add` SOLO de los 4 archivos de diseño. **Estado final de la implementación (sin commitear, 11 archivos):** `app/globals.css`, `app/layout.tsx`, `components/app/sidebar.tsx`, `components/dashboard/metric-tile.tsx`, `app/(app)/productos/page.tsx`, `app/(app)/fabrica/page.tsx`, `app/(app)/analisis/page.tsx`, `app/(app)/upgrade/upgrade-store.tsx`, `app/(app)/productos/[id]/versiones/[versionId]/page.tsx`, `components/app/generating-overlay.tsx`, `app/(app)/ajustes/page.tsx`.
+- Clases nuevas (en claro no hacen nada): `.vd-sidebar` (flota, 240px en dark; claro sigue 220), `.vd-nav-item[data-active="true"]` (activo verde), `.vd-metric-value` (Geist Mono 32/40px + nowrap, SOLO MetricTile), `.vd-num` (solo fuente mono, sin tocar tamaño; números de Ajustes).
+- 12 títulos (h1/h2/h3) perdieron `font-display italic` a mano → en dark toman Sora; en claro idénticos (el h1-h3 base ya es Instrument Serif itálica). Los NOMBRES de producto/versión/análisis siguen en serif itálica (como el mockup).
+- Desvíos deliberados de Davinci: headline de `/plan` sigue en serif (fold ajustado); vidrio más denso sobre overlays (contraste); nube fija solo en desktop (en mobile scrollea, por performance). `font-mono` ahora apunta a Geist Mono SOLO en dark (en claro sigue muerto, ticket aparte).
+- ✅ **Hawkeye (2026-09-10): "se puede usar".** En un worktree aislado (HEAD + solo los 11 archivos): `tsc` 0 errores, `eslint` 0, `next build` OK (23/23 páginas); sin sesión `/login` y `/signup` → 200, las 8 rutas protegidas → 307, ninguna 500; modo claro IDÉNTICO medido en navegador (12 pares de elementos × 24 propiedades); los .tsx solo cambian clases y `data-active`. NO probado: pantallas de adentro con sesión real.
+- 🚀 **EN PRODUCCIÓN (2026-09-11).** Paolo: *"de frente produ"* + *"sube todo listo a produ, cobro de whop en produ, no testing"*. Se verificó que `feat/cobro-whop` NO tenía nada pendiente (el cobro Whop ya estaba en `main` vía PR #35) → lo único nuevo era el diseño. Commit **`7e31ae9`** "feat(diseno): modo oscuro Nube baja flotante" (SOLO los 11 archivos) armado en un worktree sobre `origin/main` y pusheado directo a `main` (9f4069d → 7e31ae9, fast-forward). Deploy Vercel `dpl_AEu4BX9RjmkwxuYwTcPTbKCRTXtQ` **READY** con alias vendilatam.com (build <1 min). En vivo: CSS con `vd-sidebar` servido; `/login` y `/signup` → 200; `/dashboard /productos /fabrica /analisis /mi-negocio /ajustes /plan` → 307; ninguna 500. Rollback candidate si hiciera falta: `dpl_4i7iA9obWoWik6x95ZS7wYPyCiqE` (9f4069d). Pendiente: que Paolo lo mire logueado.
+- ⚠️ La carpeta local sigue en `feat/cobro-whop` con los 11 archivos modificados sin commitear (mismo contenido que `main`); se ordena con un `git pull` de main cuando la otra sesión termine. Build local en worktree falla por `sharp` (Turbopack toma `C:\Users\Usuario` como raíz por un `package-lock.json` suelto + junction de node_modules): es del entorno, no del código.
+- 🔑 **El `.env.local` de la máquina de Paolo NO tiene las keys de Clerk** (5 variables, ninguna de Clerk) → localmente cualquier ruta da 500 `Missing publishableKey`, con o sin diseño. Para ver la app logueada hace falta un deploy de preview en Vercel o cargar las keys.
+- Pendientes menores conocidos: títulos de onboarding pasan a 2 renglones en mobile (Sora es más ancha); login de Clerk usa colores fijos de `lib/auth/clerk-appearance.ts`; títulos serif a mano fuera de la lista (`productos/[id]/page.tsx:227`, `version-gallery.tsx:396/545`, `style-card.tsx:188`, `pago/resultado/page.tsx:87`) siguen en serif en dark.
+⏳ **Esperando que Paolo elija.** Cuando haya una sola dirección aprobada: arrancar por el Inicio (`app/(app)/dashboard/page.tsx` + `metric-tile`/`generation-card`/`workflow-chip`/`bottom-nav`), después Catálogo y Fábrica que comparten cards.
+
+
+---
+
+### 2026-09-10 — Pipeline v2 de prompts (notas + plan por versión): CONSTRUIDO, SIN SOLTAR
+
+**Origen:** "Toallas 2" (fotos: mat celeste de espuma + toalla de microfibra celeste; referencia: mujer envuelta en toalla azul rey, foto de stock; estilo editorial_premium) salió incoherente. Causas en v1 (`lib/ai/generate-server.ts`): el Director no recibía el estilo (se pegaba al final → dos órdenes que se pelean); `rolePrefix` decía "referencias = solo estilo" (se perdía la escena/uso); `identityGuard` decía "FIRST REFERENCE IMAGE" (llama referencia al producto y prioriza solo la foto 1); cover-crop con sharp; el Director entendía distinto en cada tanda (09-09 vs 09-10 con las mismas fotos).
+
+**Decisión con Paolo** (respaldada por guías oficiales de Google "Use Image A for X, Image B for Y", Adsioso y Bujía): no importa el orden, importa quién manda en qué (DOMINIOS + PRECEDENCIA). Producto = identidad (solo de las fotos, nunca se toca). Referencia = escena, composición, persona y uso. Estilo = luz, color, acabado. Si chocan, el estilo gana en luz y la referencia en escena. Sin estilo, la referencia manda todo; sin referencia, el estilo manda todo. Arquitectura "opción 3": una **nota del producto** y una **nota de cada referencia**, escritas UNA vez al subir (cache por hash); un **plan/prompt ÚNICO por versión** (cache por hash) que se reutiliza en cada generación; estructura fija del prompt final: ROLES / PRODUCT / SCENE / LIGHT / CAMERA / SHOT / KEEP OUT, con 5 tomas que rotan entre las imágenes. Costo: +~US$0,02 por tanda; las imágenes siguen siendo ~90% del gasto.
+
+**Código** (working tree compartido, rama `feat/cobro-whop` checkout, SIN COMMIT; la rama `feat/prompt-por-version` = origin/main está creada para commitear solo estas rutas):
+- `lib/ai/v2/*`: notas, Director sin imágenes, validador H1–H12 + reparaciones, ensamblado, fallback determinístico, store Supabase best-effort, allowlist anti-SSRF.
+- `app/api/briefs/{product,reference}` (202 + `after()`, cupo con RPC), disparos fire-and-forget en `lib/products/store.tsx` y `lib/versions/store.tsx`.
+- Flag `VENDI_PIPELINE=v1|v2` (default v1) + `VENDI_PIPELINE_V2_USERS` (ids de Clerk).
+- Migración `0026_pipeline_v2_briefs.sql` (product_briefs, reference_briefs, version_plans, brief_attempts + `check_brief_rate_limit`): **ESCRITA, NO APLICADA**.
+- `scripts/v2-dry-run.ts` (949/949, sin red) y `scripts/ab-compare.ts` (A/B real; `--v2-only`, `AB_SHARP_PATH`).
+- En v1 también cambió (seguro): tope server de 10 variaciones; el deduct fallido se marca con admin; error `billing` honesto (ver abajo).
+
+**Hallazgos de la API** (prueba en vivo):
+- `responseFormat.text.mimeType` va como enum `APPLICATION_JSON`.
+- Los schemas con `minItems`/`maxItems` en arrays anidados dan 400.
+- `gemini-3.1-flash-image` (GA) existe y acepta `imageConfig {aspectRatio, imageSize:"1K"}`: sale en la proporción nativa, sin recorte. El preview tiene shutdown date posible 2026-06-25 (sigue andando).
+- En Gemini 3 no bajar la temperatura de 1.0.
+
+**Prueba A/B ronda 1** (US$1,34, 16 imágenes, 2 jueces; artifact https://claude.ai/code/artifact/79aa5052-fbe4-4045-b4ee-302e8de175c0): v2 gana 4/4.
+- Cartera v2: publicable. Respeta el estilo y escribe bien "Verenza"; v1 escribía "Serenta/Venenza/Revenza".
+- Toallas v2: NO publicable (microfibra → rizo con guarda, modelo casi clon de la foto de stock, unidades duplicadas).
+- v2.1: 13 correcciones F1–F13 implementadas, **sin validar en vivo por falta de saldo**.
+- v2.2: error `billing` (saldo agotado ≠ rate_limit) en `gemini-client` con corte de 2 min, que cubre v1 y v2; el fallback conserva la referencia si falla su nota y no mezcla productos.
+- Pendiente abierto: la nota v2.1 leyó "serenza" en vez de "Verenza" → evaluar una lectura dedicada del texto impreso.
+
+🔴 **2026-09-10 22:19 Lima: SALDO PREPAGO DE GOOGLE AI STUDIO AGOTADO** (429 "Your prepayment credits are depleted", confirmado en vivo). La key de `~/.vendi-imggen/.key` es la de Vendí → si producción usa ese proyecto, la generación está caída. Última generación real: 10:59, OK. Las pruebas del día gastaron ~US$1,9.
+
+**Próximos pasos, en orden:**
+1. Paolo recarga saldo.
+2. Correr el A/B v2.1 (`scripts/ab-compare.ts --v2-only`, ~US$0,70) y los jueces.
+3. Paolo decide si el mat va en "Toallas 2".
+4. Decidir `STYLE_LOCK_OVER_REFERENCE` (default true).
+5. Commit/PR solo con las rutas propias.
+6. Aplicar la 0026.
+7. `VENDI_PIPELINE_V2_USERS` = Paolo en Vercel.
+8. Activar para todos.
+
+**Local:** `node_modules/sharp` está vacío en este checkout (el TS2307 de tsc viene de antes); el A/B usa el sharp de `wt-fable5` vía `AB_SHARP_PATH`.
+
+**Cómo trabajar con Paolo:** cuando pregunta "qué es mejor", quiere fuentes + agentes, y entiende con ejemplos concretos de SU caso, no con esquemas abstractos.
+
+---
+
+### 2026-09-12 — v2 EN PRODUCCION (apagado) + migracion 0026 APLICADA
+
+- **Commit `0e94208`** en la rama `feat/prompt-por-version` (basada en origin/main 7e31ae9), ya pusheada. 35 archivos, solo del pipeline v2; los 11 del modo oscuro de la otra sesion NO entraron. PR a abrir a mano: https://github.com/PaoNieto/Vendiapp/pull/new/feat/prompt-por-version (no hay gh CLI en la maquina, lo mergea Paolo).
+- **`.gitignore`** ahora ignora `.mcp.json` (traia un token real de Mercado Pago), `/output/` (167 MB + CSV con 43 leads reales), `/.agents/`, `/oficina/` y `*.local-wip-bak`. Hallazgo de JonSnow en el preflight: un `git add -A` los metia en la historia para siempre.
+- **Migracion 0026 APLICADA a prod** el 2026-09-12 (version 20260912233412): product_briefs, reference_briefs, version_plans, brief_attempts + check_brief_rate_limit. Verificado en vivo: RLS prendida y 0 policies en las 4 tablas; la RPC quedo SECURITY DEFINER con search_path=public y ACL postgres/service_role, igual que la 0025.
+- **Preflight antes de produccion** (JonSnow seguridad + regresion + migracion): sin bloqueantes. Con VENDI_PIPELINE=v1 el comportamiento es identico a main salvo los 5 cambios aceptados (error billing honesto, tope de variations, admin en la marca de failed, select de name/description, exports de RATIO_TARGETS/enforceRatioServer).
+- **Falta para PRENDERLO:** mergear el PR y, en Vercel, setear `VENDI_PIPELINE_V2_USERS=user_3IC6AAJgCAx4bJ31nGwjl7H2i6N` (Paolo) o `VENDI_PIPELINE=v2` para todos. Antes conviene cargar saldo en Google y validar el caso toallas con fotos.
+- **Higiene pendiente:** guardar `urlKey` en vez de la URL firmada entera en product_briefs.photo_urls y reference_briefs.url (token de 10 anios duplicado); pasar el texto del Director por `clean()`; `0023_remap_clerk_prod.sql` sigue untracked y sin aplicar.
+
+---
+
+## §26 — 2026-09-16: EL CHECKOUT DE WHOP SE EMBEBE EN LA APP (`/pagar/[productId]`) — EN PROD
+
+**Disparador.** Paolo preguntó qué recibe el que paga en Whop y comparó con el checkout de 100ads (Stripe, página propia, screenshot con Link/GPay, garantía de 7 días, prueba social al costado).
+
+**El hallazgo que abrió todo.** Hasta hoy, tocar "pagar" **sacaba al comprador de Vendí** a `whop.com`: otro logo, otro idioma, otra marca, justo en el segundo de más duda. Whop tiene **checkout embebido** (`@whop/checkout`, instalado v0.7.0) y la plomería ya estaba hecha: `createWhopCheckout` YA devolvía el `sessionId`.
+
+**Qué se construyó** (PR #37, mergeado a main, deploy `dpl_BWBqA8nbmfa3BDjf9654MTpXvPox` READY en `vendilatam.com`):
+- `app/pagar/[productId]/page.tsx` (server, Integral) — auth Clerk → `ensureProfile()` → `getProduct()` → `createWhopCheckout()` → baja SOLO el `ch_...`.
+- `app/pagar/[productId]/pagar-client.tsx` (cliente, Frontero) — la vitrina alrededor del iframe.
+- `proxy.ts` — `/.well-known/(.*)` pasa a ruta PÚBLICA.
+
+**4 cosas verificadas contra docs vivos (no de memoria) — no re-investigar:**
+1. **La atribución NO se rompe al embeber.** `CheckoutConfiguration.id` tiene prefijo `ch_` y es EL MISMO id del `?session=` del `purchase_url`. El metadata `{clerk_user_id, pack_id}` llega igual al `payment.succeeded`. El webhook no se tocó.
+2. **🔴 `adaptivePricing` viene APAGADO de fábrica en el embed** (a diferencia del checkout alojado, que lo trae prendido). Sin esa prop el comprador ve dólares secos en vez de su moneda. Está prendido.
+3. **🔴 `/.well-known/*` tenía que ser público o Apple Pay falla EN SILENCIO.** El `matcher` del proxy sólo excluye assets CON extensión; el archivo de verificación de Apple no tiene, así que el proxy lo mandaba a `/login` y Apple recibía el HTML del login. Verificado en prod: ahora da 404 (antes 307).
+4. **Verificación de dominio: usar la SELF-HOSTED** (archivo en `public/.well-known/`), NO la de Whop por DNS — esa apunta el dominio a los servidores de Whop y **tira el sitio abajo unos minutos**.
+
+**Corrección de rumbo registrada.** En la conversación se asumió mercado peruano (Yape). **Falso**: el ICP es MX/CO/AR + internacional (ya estaba en §, decidido 2026-08-23). Por eso el ancla de precio del Pase quedó **en múltiplos y SIN moneda** ("entre 10 y 40 veces esto") en vez de "S/ 40 a S/ 150": un mexicano no sabe qué es "S/". Dato relacionado: los 4 planes de Whop ya tienen **31 métodos de pago** (oxxo, spei, nequi, pse, pix, rapipago, yape, pago_efectivo…).
+
+**⚠️ LO QUE NO ESTÁ PROBADO.** **Nadie vio la pantalla renderizada, ni local ni en prod, y NO se hizo un cobro real por este camino.** Probado: `next build` limpio, tsc y eslint limpios, props existentes en el `.d.ts` de v0.7.0, y en prod `/pagar/lifetime-pass` → 307 a `/login?redirect_url=/pagar/lifetime-pass`. **Riesgo contenido a propósito:** es ruta NUEVA en paralelo, nada enlaza a `/pagar/` y `/comprar`, `/plan`, `/upgrade` y `/api/checkout` quedaron con CERO diff.
+
+**Pendientes reales:**
+- **Probar un cobro real** en `/pagar/lifetime-pass` y confirmar que caen los 60 créditos. Es lo único que valida el riel de punta a punta.
+- ~~No sale NINGÚN mail de Vendí al que paga.~~ **RESUELTO el mismo día — ver §27.**
+- **`plan='founder'` se escribe en la DB pero NO se usa en ninguna pantalla** (verificado con grep): los perks del Pase (insignia, soporte, acceso anticipado) hoy no se ven en ningún lado.
+- Prueba social y garantía quedaron como **placeholders marcados** — sin estrellas ni testimonios inventados a propósito.
+- Decidir la garantía: si ya gastó los créditos, ¿qué se devuelve?
+
+**Dos bombas encontradas de paso (NO son de esta tarea):**
+1. **`node_modules/sharp` estaba vacío y el proyecto NO compilaba.** Era un enlace de pnpm roto (el paquete sí estaba en el store). Se arregló con `rm -rf node_modules/sharp && pnpm install --force`. Verificado que no lo causó la instalación de `@whop/checkout` (el lockfile no tocó sharp).
+2. **🔴 21 archivos con cambios SIN COMMITEAR que también cambiaron en main.** La rama local estaba 10 commits atrás. `globals.css`, `sidebar.tsx`, `upgrade-store.tsx`, `layout.tsx`, `lib/ai/*` y más. **Si alguien actualiza esa rama sin cuidado, ese trabajo se pierde.** Sigue sin resolverse.
+
+**Regla de entorno aprendida:** Claude Code **bloquea el merge a `main` sin revisión** ("Merge Without Review") y `gh` NO está instalado en esta máquina. El merge lo tuvo que hacer Paolo desde la web.
+
+---
+
+## §27 — 2026-09-17: LA LANDING DEJA DE SALTAR A WHOP + NACE EL MAIL DE VENDÍ
+
+Sesión larga con dos entregas en prod y una cadena de errores míos que conviene no repetir.
+
+### A. El salto a whop.com estaba en `/plan`, no en la landing (PR #38, en prod)
+
+**El error de §26:** ayer construí `/pagar/[productId]` como ruta NUEVA y nadie apuntaba a ella, así que para el comprador real **no cambió nada**. Paolo lo vio en vivo: el botón de la landing seguía aterrizando en `whop.com/checkout/...`.
+
+🔑 **LA CADENA REAL DEL COMPRADOR NUEVO (verificada punta a punta, NO re-investigar):**
+```
+www.vendilatam.com  (landing, proyecto `vendilanding`, HTML, deploy manual)
+  → /comenzar   ← ÚNICO destino de compra del HTML (el botón de precios Y el quiz)
+  → /comprar
+  → /plan       ← EL SALTO A whop.com VIVÍA ACÁ
+  → pagar
+```
+El HTML de la landing **no había que tocarlo**: sus únicos dos destinos son `/comenzar` y `/login` (verificado con grep sobre el `index.html` vivo). `startCheckout` de `plan-client.tsx` ahora navega a `/pagar/[productId]`.
+
+Siguen saltando a whop.com **a propósito**: `/comprar?direct=1` (escotilla de escape, conviene que apunte al camino probado) y `/upgrade` (Paolo tiene cambios sin commitear ahí).
+
+### B. El mail de "tus créditos ya entraron" (commits `769c288`, `d16f0c2`, `76d3a55` — pusheados, SIN MERGEAR al cerrar)
+
+Hasta hoy el que pagaba no recibía **nada** de Vendí, y la pantalla de pago **ya se lo prometía**.
+
+- `lib/email/transport.ts` + `lib/email/credits-granted.ts` (nodemailer, Gmail SMTP 465/SSL).
+- Enganchado en el webhook con **`after()` de `next/server`**.
+
+🔴 **TRES REGLAS DEL MAIL — no romperlas:**
+1. **El envío va dentro de `after()`.** El webhook tiene **5 segundos** para contestarle a Whop o reintenta 12 veces (~71 h). SMTP es lento.
+2. **Cuelga de `result === "granted"`.** La RPC devuelve `'duplicate'` en el reintento ⇒ el comprador recibe UN mail, no doce. La idempotencia es la de la tabla.
+3. **Un mail que falla NUNCA rompe una acreditación.** Todo en try/catch; peor caso, un `console.error`.
+
+**Diseño "Nube baja"** (elegido por Paolo entre 3, tras comparar con el post-pago de 100ads). Lo que hace que el de 100ads se vea caro **no es el color, es la ARQUITECTURA**: cinco tarjetas separadas, no un bloque. Barra de marca + pastilla de estado → hero 28px con degradado → tarjeta de acción aparte con pill → etiqueta de sección → 3 tarjetas de paso con número en círculo → pie con filete.
+
+🔴 **OUTLOOK: SÓLIDO PRIMERO, SIEMPRE.** Usa el motor de Word e ignora `border-radius` **y** los degradados. Los 5 bloques con degradado llevan su sólido antes (`bgcolor` + `background-color`, después el `background-image`). Verse cuadrado es aceptable; verse **sin fondo** (texto claro sobre nada) no.
+
+Incluye el **monto** (`priceUsd`, del catálogo, nunca del payload) — sin eso no era un recibo. El botón va a **`/mi-negocio`** (el paso 1 que el propio correo pide), no a `/fabrica`.
+
+🔴 **UN TEXTO QUE NO SE COPIA DE 100ads:** ellos dicen *"creá tu cuenta con el MISMO email o no vas a ver tu acceso"*. Eso es un parche de que **ellos cobran antes de que exista la cuenta**. En Vendí sería falso: se paga ya logueado y los créditos caen por `clerk_user_id`. **Esa es una ventaja estructural nuestra sobre ellos**, no un detalle.
+
+### C. 🔑 CORRECCIONES DE DATOS QUE COSTARON TIEMPO (guardar)
+
+1. **La cuenta de Workspace es `soportevendi@vendilatam.com`, NO `soporte@`.** El §15b decía `soporte@` y estaba mal — ya corregido arriba. Verificado contra el correo de Google: es la que recibe las alertas de seguridad y tiene `paolonietoc@gmail.com` como recuperación.
+2. **El ICP no es Perú** (MX/CO/AR + internacional, decidido el 2026-08-23). En esta sesión se asumió Perú/Yape y estaba mal. Por eso el ancla de precio del Pase quedó **en múltiplos y SIN moneda** ("entre 10 y 40 veces esto"): un mexicano no sabe qué es "S/".
+3. **Google NO da app passwords sin verificación en dos pasos.** No hay vuelta: es regla de ellos. Paolo tuvo que activar 2FA en esa cuenta. La app password que dio primero era de su **Gmail personal** (lo detecté probando la misma clave contra las 3 cuentas candidatas — técnica reusable).
+4. 🔑 **El conector de Gmail (autenticado como `paolonietoc@gmail.com`) sirve para investigar**: de ahí salieron la cuenta real de Workspace, el HTML completo del mail de 100ads, y la confirmación de que nuestros mails llegan a **bandeja de entrada** y no a spam.
+
+### D. Estado al cerrar y qué falta
+
+- **En prod:** el checkout embebido (§26) y el fix de `/plan` (PR #38). **Sin mergear:** los 3 commits del mail, en `feat/cobro-whop`.
+- ⚠️ **Falta cargar en Vercel** `SMTP_USER` / `SMTP_PASSWORD` / `MAIL_FROM`, o en prod **no sale ni un mail y no avisa** (sólo un warn en logs).
+- ⚠️ **SIGUE SIN HACERSE UNA COMPRA REAL.** Es lo único que valida el riel de punta a punta. Nadie vio todavía `/pagar` renderizado por un comprador.
+- **Sin DKIM ni DMARC** (deuda del 2026-08-17). Hoy los mails llegaron a bandeja igual, pero conviene cerrarlo antes de mandar volumen.
+- ⚠️ **SIGUEN LOS 21 ARCHIVOS SIN COMMITEAR** que chocan con `main` (`globals.css`, `sidebar.tsx`, `layout.tsx`, `lib/ai/*`…). Bomba sin desactivar.
+- `plan='founder'` se escribe en la DB pero **no se usa en ninguna pantalla**.
+- **Regla de entorno:** Claude Code bloquea el merge a `main` sin revisión y `gh` no está instalado. Los merges los hace Paolo desde la web.
