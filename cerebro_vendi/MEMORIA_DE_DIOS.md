@@ -1468,7 +1468,7 @@ Incluye el **monto** (`priceUsd`, del catálogo, nunca del payload) — sin eso 
 ### Estado real (verificado con git + Supabase el 2026-10-18)
 - Paolo abrió el repo en la app de Claude (Code) el 2026-10-18 viniendo de VS Code: **la carpeta está completa** (código, `.env.local`, `node_modules`, migraciones, memoria, los 11 agentes).
 - Rama: `feat/cobro-whop`, pusheada. **2 commits adelante de `main`** (`d57d415` pipeline v2, `49e2065` memoria §26-27) y **14 atrás** (casi todo merges de esta misma rama; lo nuevo de verdad en `main` es el tour `cc4d00d`). Antes de un PR, traer `main` primero.
-- 🔴 **73 archivos SIN COMMITEAR** (antes eran ~20): 7 de septiembre (modo oscuro Nube baja, stores), 5 del 12/10 (sandbox + atribución), y todo el sistema de avisos del 16/10. Es la bomba más grande que tuvo el repo: si se pierde la máquina, se pierde todo eso.
+- ✅ **Los 73 archivos sin commitear se commitearon y pushearon el 2026-10-18** en 6 commits por tema (`e0b9ad7` gitignore · `ec5ce81` modo oscuro igual a main · `75b5ce8` scripts · `21ce67a` sandbox + atribución · `3e9d31e` avisos · `cb116ba` memoria). Quedaron afuera A PROPÓSITO (locales/viejos): `inquebrantable.skill.zip`, `landing.backup.html`, `skills-lock.json`, `ARRANQUE_MISION.md`, `PROMPT_FABLE5_*.md`, `design_handoff_vendi_theme/`, `public/og-image.jpg` (nadie la usa) y `0023_remap_clerk_prod.sql` (script manual con ids reales: no debe vivir como migración).
 - **Migraciones en prod:** llegan hasta la **0026**. La **0027** (atribución) y la **0028** (avisos) **NO están aplicadas en ninguna base** (`list_migrations`, 2026-10-18). `0023_remap_clerk_prod.sql` no es migración: es un script manual del 20/08, NO re-ejecutar.
 - Sigue **SIN VERIFICAR** la primera compra real con Whop y si `SMTP_*`/`MAIL_FROM` están en Vercel (ver §28).
 
@@ -1492,7 +1492,7 @@ Incluye el **monto** (`priceUsd`, del catálogo, nunca del payload) — sin eso 
 - **Hallazgos sueltos de la spec, para arreglar aunque sea aparte:** las rutas de generación devuelven el texto crudo de Google al cliente (`detail: result.error`); los packs traen 0 análisis pero "Comprá más" en Análisis manda a `/upgrade`; si el chequeo de acceso no responde, `app/(app)/layout.tsx` manda a un cliente que YA pagó a comprar de nuevo.
 
 ### Para salir a producción (pasos de Paolo, en orden)
-1. Commitear los 73 archivos (separando avisos / sandbox+atribución / septiembre) y abrir PR desde la rama al día con `main`.
+1. ~~Commitear~~ (hecho 18/10). Traer `main` a la rama y abrir PR.
 2. OK de Paolo para aplicar **0027** y **0028** en Supabase.
 3. En Vercel: `ADMIN_USER_IDS`, `ADMIN_ALERT_EMAIL`, `CRON_SECRET` (+ confirmar `SMTP_*`/`MAIL_FROM`).
 4. Deploy y probar una compra en el **sandbox de Whop** antes de la primera real.
