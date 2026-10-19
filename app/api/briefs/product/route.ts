@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { productBriefRequestSchema } from "@/lib/validations/briefs";
 import { isPipelineV2User } from "@/lib/ai/v2/constants";
-import { isGeminiBillingExhausted } from "@/lib/ai/gemini-client";
+import { reportAiOutage } from "@/lib/ai/gemini-client";
+import { aiGate } from "@/lib/avisos/ai-gate";
+import { aiUnavailableBody } from "@/lib/avisos/rutas";
 import {
   productBriefPrecheck,
   reserveBriefQuota,
@@ -27,8 +29,9 @@ import { createSupabaseV2Store } from "@/lib/ai/v2/store-supabase";
  *   202 — encolado, con UNA nota ya reservada del tope.
  *   401/403/404/422 — sin sesión, sin compra, producto ajeno/inexistente, body.
  *   429 — pasó el tope de 40 notas por hora.
- *   503 — no se puede reservar el cupo ni guardar la nota (0026 ausente o sin
- *         key de Google): calcularla sería tirar la plata.
+ *   503 — IA caída ({ error: "ai_unavailable", message }), o no se puede
+ *         reservar el cupo ni guardar la nota (0026 ausente): calcularla sería
+ *         tirar la plata.
  */
 
 // `after()` corre dentro de la duración de la ruta. Peor caso del trabajo:
@@ -79,15 +82,16 @@ export async function POST(req: Request) {
 
   const apiKey = process.env.GOOGLE_API_KEY?.trim();
   if (!apiKey) {
-    return NextResponse.json({ error: "briefs_unavailable" }, { status: 503 });
+    // Sin key no hay IA: caída (alerta U a Paolo) y el cliente ve el banner.
+    await reportAiOutage({ kind: "missing_key" });
+    return NextResponse.json(aiUnavailableBody(), { status: 503 });
   }
-  // Sin saldo en Google: la nota fallaría igual. Se corta ANTES de reservar
-  // cupo, así el usuario no pierde notas del tope por hora.
-  if (isGeminiBillingExhausted()) {
-    return NextResponse.json(
-      { error: "briefs_unavailable", reason: "ai_billing_exhausted" },
-      { status: 503 },
-    );
+  // IA caída (sin saldo en Google, key mala, modelo inexistente): la nota
+  // fallaría igual. 503 ANTES de reservar cupo, así el usuario no pierde notas
+  // del tope por hora. Se lo anota para avisarle cuando vuelva.
+  const gate = await aiGate({ watchUserId: userId });
+  if (!gate.open) {
+    return NextResponse.json(aiUnavailableBody(), { status: 503 });
   }
 
   const store = createSupabaseV2Store();

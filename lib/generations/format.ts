@@ -1,3 +1,5 @@
+import { messageText, noticeText } from "@/lib/avisos/textos";
+
 /**
  * Formatea una fecha ISO 8601 en una etiqueta relativa en español.
  *
@@ -40,4 +42,46 @@ export function formatRelativeTime(iso: string): string {
 
   const weeks = Math.floor(diffMs / week);
   return weeks === 1 ? "hace 1 semana" : `hace ${weeks} semanas`;
+}
+
+/**
+ * Texto al cliente cuando la IA está caída (sin saldo en Google, key mala,
+ * modelo retirado). Al cliente NUNCA se le dice "sin saldo" ni se le nombra al
+ * proveedor (spec de avisos): sale el banner de IA caída o el texto de la falla
+ * con su devolución.
+ *
+ * `refunded` = créditos que DE VERDAD volvieron: 0 → no se descontó nada (corte
+ * antes del descuento, o ilimitado).
+ *
+ * @deprecated Las rutas usan `messageText` / `noticeText` de
+ * lib/avisos/textos.ts. Queda por scripts/v2-dry-run.ts.
+ */
+export function formatBillingError(opts: {
+  service: "images" | "analysis";
+  refunded: number;
+}): string {
+  const n = Math.max(0, Math.floor(opts.refunded));
+  if (n === 0) return messageText("ai_down", {});
+  if (opts.service === "analysis") {
+    return noticeText("analysis_failed", { refunded: n });
+  }
+  return noticeText("batch_failed", { refunded: n });
+}
+
+/**
+ * ¿El error del descuento es FALTA DE CRÉDITOS de verdad? Son los únicos
+ * mensajes de las RPC que valen un 402 ("comprá más"):
+ *  - deduct_credits:          'Créditos insuficientes: tiene X, necesita Y'
+ *  - deduct_analysis_credit:  'Sin créditos de análisis'
+ * Cualquier otro error (base caída, timeout, perfil inexistente) es un problema
+ * NUESTRO → 503 con «No pudimos empezar… No se te descontó nada».
+ */
+export function isInsufficientCreditsError(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /cr[eé]ditos insuficientes|sin cr[eé]ditos de an[aá]lisis/i.test(message);
+}
+
+/** Status HTTP para un descuento que falló: 402 solo si de verdad no alcanza. */
+export function deductErrorStatus(message: string | null | undefined): 402 | 503 {
+  return isInsufficientCreditsError(message) ? 402 : 503;
 }

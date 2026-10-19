@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { DM_Mono, Fraunces, Hanken_Grotesk } from "next/font/google";
-import { userHasPaidAccess } from "@/lib/auth/paid-access";
+import { checkPaidAccess } from "@/lib/auth/paid-access";
 import { LifetimePassButton, SignOutLink } from "./fundador-client";
 import "./fundador.css";
 
@@ -56,7 +56,9 @@ export const metadata: Metadata = {
 export default async function FundadorPage() {
   const { userId } = await auth();
   if (!userId) redirect("/signup?redirect_url=/fundador");
-  if (await userHasPaidAccess(userId)) redirect("/dashboard");
+  // "unknown" también a /dashboard: no se le cobra de nuevo a quien quizás ya
+  // pagó. El gate de (app) decide (entra o pantalla de error).
+  if ((await checkPaidAccess(userId)) !== "unpaid") redirect("/dashboard");
 
   return (
     <div

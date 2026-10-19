@@ -14,6 +14,19 @@ import { Topbar } from "@/components/app/topbar";
 import { CreditBadge } from "@/components/app/credit-badge";
 import { GeneratingOverlay } from "@/components/app/generating-overlay";
 import {
+  BatchFailureCard,
+  BatchInProgressNote,
+  isBatchInProgress,
+  useFailedBatch,
+} from "@/components/app/avisos/batch-failure-card";
+import { PartialDeliveryBanner } from "@/components/app/avisos/partial-delivery-banner";
+import {
+  INSUFFICIENT_CREDITS,
+  takePartialDeliveryNote,
+  useBatchLauncher,
+  type PartialDeliveryNote,
+} from "@/components/app/avisos/use-batch-launcher";
+import {
   VersionGallery,
   type VersionSettings,
 } from "@/components/app/version-gallery";
@@ -21,6 +34,7 @@ import { useGeneracion } from "@/lib/generacion/store";
 import { useGenerations } from "@/lib/generations/store";
 import { useNegocio } from "@/lib/negocio/store";
 import { useUserInitials } from "@/lib/auth/use-user";
+import { useCreditos } from "@/lib/creditos/use-creditos";
 import { useProducts } from "@/lib/products/store";
 import { useRecorrido } from "@/lib/recorrido/store";
 import { useVersions } from "@/lib/versions/store";
@@ -56,12 +70,6 @@ import { cn } from "@/lib/utils";
  * Además, editar la receta (refs/estilo/formato) de una versión que YA generó
  * **bifurca** en vez de pisar — ver `openRecipeStation`.
  */
-/**
- * Key efímera de `sessionStorage` para pasar el aviso de entrega parcial a
- * través de la recarga que hacemos al terminar de generar.
- */
-const PARTIAL_DELIVERY_KEY = "vendi:partial-delivery";
-
 export default function VersionDetailPage() {
   const params = useParams<{ id: string; versionId: string }>();
   const router = useRouter();
@@ -72,6 +80,8 @@ export default function VersionDetailPage() {
   const negocio = useNegocio();
   const generacion = useGeneracion();
   const brandInitials = useUserInitials();
+  const creditos = useCreditos();
+  const launcher = useBatchLauncher();
 
   const productId = params.id;
   const versionId = params.versionId;
@@ -120,130 +130,35 @@ export default function VersionDetailPage() {
     ).length;
   })();
 
-  // Banner de error inline cuando la generación falla. Mismo patrón que en
-  // `/fabrica`: el sentinel `"missing_key"` activa copy + CTA específicos.
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
-  // Lock para evitar dobles clicks mientras una tanda está en curso.
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   // Aviso de entrega parcial, sobreviviendo a la recarga que hacemos al
-  // terminar de generar. Se lee UNA vez y se borra: no queremos que reaparezca
-  // en cada visita a la pantalla.
-  const [partialDelivery, setPartialDelivery] = useState<{
-    delivered: number;
-    requested: number;
-    refunded: number;
-  } | null>(null);
+  // terminar de generar. Se lee UNA vez y se borra.
+  const [partialDelivery, setPartialDelivery] = useState<PartialDeliveryNote | null>(null);
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(PARTIAL_DELIVERY_KEY);
-      if (!raw) return;
-      sessionStorage.removeItem(PARTIAL_DELIVERY_KEY);
-      const parsed = JSON.parse(raw) as unknown;
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        typeof (parsed as { delivered?: unknown }).delivered === "number" &&
-        typeof (parsed as { requested?: unknown }).requested === "number"
-      ) {
-        const note = parsed as {
-          delivered: number;
-          requested: number;
-          refunded?: number;
-        };
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura de sessionStorage post-mount; el SSR no tiene acceso. Mismo patrón que la hidratación de los stores.
-        setPartialDelivery({
-          delivered: note.delivered,
-          requested: note.requested,
-          refunded: typeof note.refunded === "number" ? note.refunded : 0,
-        });
-      }
-    } catch {
-      // Storage bloqueado o JSON corrupto: sin aviso, sin romper la pantalla.
-    }
+    const note = takePartialDeliveryNote();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lectura de sessionStorage post-mount; el SSR no tiene acceso. Mismo patrón que la hidratación de los stores.
+    if (note) setPartialDelivery(note);
   }, []);
 
-  async function handleGenerate() {
+  // Avisos de la tanda: la última falló (tarjeta "No salió", variante 01) o
+  // sigue corriendo (no relanzarla).
+  const failedBatch = useFailedBatch(versionGenerations);
+  const batchRunning = isBatchInProgress(versionGenerations[0]);
+
+  function handleGenerate() {
     if (!product || !version) return;
     if (!isVersionReady(version)) return;
-    if (isSubmitting) return;
-
-    setErrorBanner(null);
-    setIsSubmitting(true);
-
-    try {
-      // Modelo de créditos: generación SERVER-SIDE con la key propia de Vendí.
-      const res = await fetch("/api/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          versionId: version.id,
-          styleFragment: getStyleFragment(generacion.state.selectedStyleId),
-          // Identidad de marca → el Director la usa para que las imágenes salgan
-          // coherentes con la marca del usuario.
-          brand: {
-            name: negocio.state.brandName,
-            industry: negocio.state.industry,
-            description: negocio.state.description,
-          },
-        }),
-      });
-
-      if (res.status === 402) {
-        setErrorBanner("insufficient_credits");
-        return;
-      }
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { message?: string; error?: string }
-          | null;
-        setErrorBanner(
-          data?.message ?? data?.error ?? "No se pudo generar. Intentá de nuevo.",
-        );
-        return;
-      }
-
-      // Entrega PARCIAL: el server puede entregar menos de lo pedido (una
-      // variación que Gemini rechazó, un post-proceso que falló) y ya te
-      // reembolsó la diferencia — pero hasta ahora no te lo decía nadie, y
-      // contabas 3 fotos donde pediste 5 pensando que habías contado mal.
-      // Lo dejamos anotado para mostrarlo del otro lado de la recarga.
-      const data = (await res.json().catch(() => null)) as
-        | { delivered?: number; requested?: number; refunded?: number }
-        | null;
-      if (
-        typeof data?.delivered === "number" &&
-        typeof data?.requested === "number" &&
-        data.delivered < data.requested
-      ) {
-        try {
-          sessionStorage.setItem(
-            PARTIAL_DELIVERY_KEY,
-            JSON.stringify({
-              delivered: data.delivered,
-              requested: data.requested,
-              // Puede ser 0: los ilimitados no reciben reembolso porque nunca
-              // se les descontó. No les prometemos créditos de vuelta.
-              refunded: typeof data.refunded === "number" ? data.refunded : 0,
-            }),
-          );
-        } catch {
-          // Modo privado / storage bloqueado: perder el aviso no es crítico.
-        }
-      }
-
-      // Nos QUEDAMOS acá: las imágenes llenan el molde que el usuario ya está
-      // mirando. Recargamos (en vez de router.refresh) para que los stores
-      // re-hidraten desde la DB con lo que acaba de escribir el server. Antes
-      // esto navegaba a `/fabrica/<id>`.
-      window.location.reload();
-    } catch {
-      setErrorBanner(
-        "No se pudo conectar. Revisá tu internet e intentá de nuevo.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    if (batchRunning) return;
+    void launcher.launch({
+      versionId: version.id,
+      styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+      // Identidad de marca → el Director la usa para que las imágenes salgan
+      // coherentes con la marca del usuario.
+      brand: {
+        name: negocio.state.brandName,
+        industry: negocio.state.industry,
+        description: negocio.state.description,
+      },
+    });
   }
 
   /**
@@ -295,6 +210,20 @@ export default function VersionDetailPage() {
   const ratioInfo = OUTPUT_RATIOS.find((r) => r.value === version.output_ratio);
   const styleLabel = getStyleLabel(version.style_id);
   const hasGenerated = latestBatchImages.length > 0;
+  const isSubmitting = launcher.isSubmitting;
+  const generateBlocked = launcher.aiDown || batchRunning;
+  const retryCost = creditos.stats.unlimited ? null : version.variations_default;
+  const failureMessage = launcher.sessionFailure ?? failedBatch?.message ?? null;
+  const failureCard = failureMessage ? (
+    <BatchFailureCard
+      createdAt={launcher.sessionFailure ? null : (failedBatch?.gen.created_at ?? null)}
+      count={version.variations_default}
+      message={failureMessage}
+      onRetry={handleGenerate}
+      retryDisabled={isSubmitting || generateBlocked || !isVersionReady(version)}
+      retryCost={retryCost}
+    />
+  ) : null;
   const versionSettings: VersionSettings = {
     outputRatio: version.output_ratio,
     ratioLabel: ratioInfo?.label ?? null,
@@ -323,18 +252,18 @@ export default function VersionDetailPage() {
       <div className="flex flex-1 flex-col gap-4 px-5 pb-8 pt-2 sm:px-8 lg:px-10">
         <Breadcrumb product={product} versionName={version.name} />
 
-        {errorBanner ? (
+        {launcher.errorBanner ? (
           <ErrorBanner
-            message={errorBanner}
-            onDismiss={() => setErrorBanner(null)}
+            message={launcher.errorBanner}
+            onDismiss={launcher.dismissError}
           />
         ) : null}
 
+        {launcher.networkCut || batchRunning ? <BatchInProgressNote /> : null}
+
         {partialDelivery ? (
           <PartialDeliveryBanner
-            delivered={partialDelivery.delivered}
-            requested={partialDelivery.requested}
-            refunded={partialDelivery.refunded}
+            note={partialDelivery}
             onDismiss={() => setPartialDelivery(null)}
           />
         ) : null}
@@ -355,6 +284,7 @@ export default function VersionDetailPage() {
             hasImages={hasGenerated}
             forks={totalImagesCount > 0}
             isSubmitting={isSubmitting}
+            blocked={generateBlocked}
             onEditReferences={() => openRecipeStation()}
             onEditFormato={() => openRecipeStation()}
             onEditStyle={() => openRecipeStation()}
@@ -369,11 +299,31 @@ export default function VersionDetailPage() {
             images={latestBatchImages}
             ratioLabel={ratioInfo?.label ?? null}
             onGenerate={handleGenerate}
+            failureCard={failureCard}
           />
         </div>
       </div>
 
-      {isSubmitting ? <GeneratingOverlay /> : null}
+      {isSubmitting || launcher.overlayFailure ? (
+        <GeneratingOverlay
+          reservedCredits={retryCost}
+          failure={
+            launcher.overlayFailure
+              ? {
+                  message: launcher.overlayFailure,
+                  retryCost,
+                  onClose: launcher.closeOverlayFailure,
+                  onRetry: generateBlocked
+                    ? undefined
+                    : () => {
+                        launcher.closeOverlayFailure();
+                        handleGenerate();
+                      },
+                }
+              : null
+          }
+        />
+      ) : null}
     </>
   );
 }
@@ -430,6 +380,7 @@ function RecipeRail({
   hasImages,
   forks,
   isSubmitting,
+  blocked,
   onEditReferences,
   onEditFormato,
   onEditStyle,
@@ -444,6 +395,8 @@ function RecipeRail({
   /** `true` si tocar "cambiar" va a crear una versión nueva en vez de pisar. */
   forks: boolean;
   isSubmitting: boolean;
+  /** IA caída o tanda en curso: el botón queda apagado. */
+  blocked: boolean;
   onEditReferences: () => void;
   onEditFormato: () => void;
   onEditStyle: () => void;
@@ -455,7 +408,7 @@ function RecipeRail({
   const editLabel = forks ? "Cambiar" : "Editar";
 
   const ready = isVersionReady(version);
-  const canGenerate = ready && !isSubmitting;
+  const canGenerate = ready && !isSubmitting && !blocked;
   const ctaLabel = isSubmitting
     ? "Generando…"
     : hasImages
@@ -752,12 +705,15 @@ function Vitrina({
   images,
   ratioLabel,
   onGenerate,
+  failureCard,
 }: {
   version: Version;
   versionSettings: VersionSettings;
   images: BatchImages;
   ratioLabel: string | null;
   onGenerate: () => void;
+  /** Tarjeta "No salió" (variante 01): ocupa el lugar de las fotos. */
+  failureCard?: React.ReactNode;
 }) {
   const hasImages = images.length > 0;
   const count = version.variations_default;
@@ -785,7 +741,7 @@ function Vitrina({
         <span className="eyebrow">
           {hasImages ? "ESTA TANDA" : "VAS A GENERAR"}
         </span>
-        <h2 className="mt-1 font-display text-[27px] italic leading-tight text-foreground">
+        <h2 className="mt-1 text-[27px] leading-tight text-foreground">
           <span className="tabular-nums">{shownCount}</span> {shapeWord}
           <span className="ml-2 rounded-md border border-border bg-card-cream/60 px-1.5 py-0.5 align-middle font-mono text-[14px] font-bold not-italic">
             {version.output_ratio}
@@ -798,8 +754,12 @@ function Vitrina({
         </p>
       </div>
 
+      {failureCard && hasImages ? <div className="mt-4">{failureCard}</div> : null}
+
       <div className="mt-4">
-        {hasImages ? (
+        {failureCard && !hasImages ? (
+          failureCard
+        ) : hasImages ? (
           <VersionGallery
             images={images}
             versionSettings={versionSettings}
@@ -881,65 +841,6 @@ function VersionSkeleton() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Aviso de entrega parcial                                                    */
-/* -------------------------------------------------------------------------- */
-
-/**
- * "Pediste 5, salieron 3." El server ya reembolsó la diferencia, pero antes no
- * lo decía nadie: el usuario contaba las fotos y quedaba pensando que había
- * elegido mal. No es un error —las que salieron están bien— así que va en tono
- * informativo, no de alerta.
- */
-function PartialDeliveryBanner({
-  delivered,
-  requested,
-  refunded,
-  onDismiss,
-}: {
-  delivered: number;
-  requested: number;
-  /** Créditos devueltos. Es 0 para ilimitados: a ellos nunca se les descontó. */
-  refunded: number;
-  onDismiss: () => void;
-}) {
-  const faltaron = requested - delivered;
-
-  return (
-    <div
-      role="status"
-      className="flex items-start gap-3 rounded-xl border border-border bg-card-cream/70 px-4 py-3 text-sm text-foreground"
-    >
-      <Sparkles
-        className="mt-0.5 h-4 w-4 shrink-0 text-sage-strong"
-        strokeWidth={1.8}
-        aria-hidden
-      />
-      <div className="flex-1">
-        <p className="font-medium leading-snug">
-          Salieron <span className="font-mono font-bold">{delivered}</span> de{" "}
-          <span className="font-mono font-bold">{requested}</span> imágenes.
-        </p>
-        <p className="mt-0.5 text-xs text-mute">
-          {faltaron === 1 ? "La que faltó" : "Las que faltaron"} no{" "}
-          {faltaron === 1 ? "pasó" : "pasaron"} el control de calidad del modelo.
-          {refunded > 0
-            ? ` Te devolvimos ${refunded} ${refunded === 1 ? "crédito" : "créditos"}: podés tirar otra tanda sin costo extra.`
-            : " Podés tirar otra tanda cuando quieras."}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="Descartar aviso"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /*  ErrorBanner                                                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -955,13 +856,10 @@ function ErrorBanner({
   message: string;
   onDismiss: () => void;
 }) {
-  const isMissingKey = message === "missing_key";
-  const isNoCredits = message === "insufficient_credits";
-  const displayMessage = isMissingKey
-    ? "Para generar imágenes reales, configurá tu API key de Gemini en Mi Negocio."
-    : isNoCredits
-      ? "Te quedaste sin créditos. Comprá más para seguir generando."
-      : message;
+  const isNoCredits = message === INSUFFICIENT_CREDITS;
+  const displayMessage = isNoCredits
+    ? "Te quedaste sin créditos. Comprá más para seguir generando."
+    : message;
 
   return (
     <div
@@ -974,14 +872,6 @@ function ErrorBanner({
       />
       <div className="flex-1">
         <p className="font-medium leading-snug">{displayMessage}</p>
-        {isMissingKey ? (
-          <Link
-            href="/mi-negocio"
-            className="mt-1 inline-block text-xs font-semibold text-sage-strong hover:underline"
-          >
-            Ir a Mi Negocio →
-          </Link>
-        ) : null}
         {isNoCredits ? (
           <Link
             href="/upgrade"
@@ -995,7 +885,7 @@ function ErrorBanner({
         type="button"
         onClick={onDismiss}
         aria-label="Descartar mensaje"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+        className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" />
       </button>

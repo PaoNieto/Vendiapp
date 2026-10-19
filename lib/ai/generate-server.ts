@@ -18,9 +18,12 @@
 
 import sharp from "sharp";
 import {
+  aiOutageCause,
   callGemini,
   GEMINI_IMAGE_MODEL,
   GEMINI_REASONING_MODEL,
+  pickBatchError,
+  reportAiOutage,
   type GeminiContent,
   type GeminiError,
   type GeminiPart,
@@ -51,6 +54,12 @@ export type GenerateOnServerInput = {
    * ~99.9% sin que el modelo la reinterprete ni alucine.
    */
   strictPrompt?: string;
+  /**
+   * Fotos del producto YA bajadas (`prepareProductParts`). La ruta las baja
+   * ANTES de cobrar: si ninguna se puede leer, corta sin descontar nada. Si no
+   * vienen, se bajan acá (comportamiento de antes).
+   */
+  productParts?: GeminiPart[];
 };
 
 export type GeneratedImageBuffer = {
@@ -76,12 +85,9 @@ export async function generateOnServer(
 ): Promise<GenerateOnServerResult> {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey || apiKey.trim().length === 0) {
-    return {
-      ok: false,
-      error: {
-        kind: "missing_key",
-      },
-    };
+    const error: GeminiError = { kind: "missing_key" };
+    await reportAiOutage(error);
+    return { ok: false, error };
   }
 
   const { productImages, referenceImages, ratio, userPrompt, styleFragment, brand } =
@@ -111,19 +117,23 @@ export async function generateOnServer(
   // Dos pasos más abajo, el post-proceso con sharp ya usa este mismo criterio:
   // si una imagen falla, la saltea y sigue.
   let productParts: GeminiPart[];
-  try {
-    productParts = await urlsToParts(productImages);
-  } catch (err) {
-    return {
-      ok: false,
-      error: {
-        kind: "unknown",
-        message:
-          err instanceof Error
-            ? `No pudimos leer las fotos del producto: ${err.message}`
-            : "No pudimos leer las fotos del producto.",
-      },
-    };
+  if (input.productParts && input.productParts.length > 0) {
+    productParts = input.productParts;
+  } else {
+    try {
+      productParts = await urlsToParts(productImages);
+    } catch (err) {
+      return {
+        ok: false,
+        error: {
+          kind: "unknown",
+          message:
+            err instanceof Error
+              ? `No pudimos leer las fotos del producto: ${err.message}`
+              : "No pudimos leer las fotos del producto.",
+        },
+      };
+    }
   }
   const referenceParts = await urlsToPartsBestEffort(referenceImages);
 
@@ -136,13 +146,21 @@ export async function generateOnServer(
     try {
       basePrompt = await enrichPromptServer({
         apiKey,
+        productParts,
         productImages,
         referenceImages,
         ratio,
         userPrompt,
         brand,
       });
-    } catch {
+    } catch (err) {
+      // IA caída (sin saldo, key mala, modelo inexistente): las N llamadas de
+      // imagen van a fallar igual. Se corta acá (la ruta devuelve y avisa) en
+      // vez de mandarlas.
+      const cause = err instanceof Error ? (err.cause as GeminiError | undefined) : undefined;
+      if (cause && aiOutageCause(cause)) {
+        return { ok: false, error: cause };
+      }
       basePrompt =
         userPrompt && userPrompt.trim().length > 0
           ? userPrompt
@@ -235,10 +253,9 @@ Produce one photorealistic, studio-grade commercial image.${identityGuard}`;
   }
 
   if (rawImages.length === 0) {
-    return {
-      ok: false,
-      error: failures[0] ?? { kind: "unknown", message: "Sin imágenes." },
-    };
+    // No solo `failures[0]`: una caída de la IA o un bloqueo de la entrada en
+    // TODAS definen qué se le dice al cliente y si se devuelve (Hawkeye).
+    return { ok: false, error: pickBatchError(failures) };
   }
 
   // 6. Enforce de aspect ratio con sharp → JPEG. Degradación graceful: si
@@ -256,8 +273,13 @@ Produce one photorealistic, studio-grade commercial image.${identityGuard}`;
         const jpeg = await sharp(input).jpeg({ quality: 92 }).toBuffer();
         images.push({ buffer: jpeg, contentType: "image/jpeg" });
       } catch {
-        // imagen perdida — la contamos como fallo silencioso.
-        failures.push({ kind: "unknown", message: "Post-proceso falló." });
+        // La imagen ya está pagada: si el modelo la mandó en JPEG, sirve tal
+        // cual (sin el recorte exacto) antes que tirarla.
+        if (/^image\/jpe?g$/i.test(raw.mime)) {
+          images.push({ buffer: Buffer.from(raw.data, "base64"), contentType: "image/jpeg" });
+        } else {
+          failures.push({ kind: "unknown", message: "Post-proceso falló." });
+        }
       }
     }
   }
@@ -304,6 +326,8 @@ Reglas duras:
 
 async function enrichPromptServer(input: {
   apiKey: string;
+  /** Las mismas fotos ya bajadas para la generación (no se bajan dos veces). */
+  productParts: GeminiPart[];
   productImages: string[];
   referenceImages: string[];
   ratio: string;
@@ -314,7 +338,7 @@ async function enrichPromptServer(input: {
   // lee, que reviente y el caller caiga al fallback), las referencias van
   // best-effort. Antes una referencia rota tiraba el Director entero y se
   // perdía la dirección de arte sin que nadie se enterara.
-  const productParts = await urlsToParts(input.productImages);
+  const productParts = input.productParts;
   const referenceParts = await urlsToPartsBestEffort(input.referenceImages);
 
   const userMessage = `${buildBrandBlock(input.brand)}Producto del usuario: ${input.productImages.length} foto(s) (las primeras imagenes adjuntas).
@@ -344,7 +368,9 @@ Devolve SOLO el JSON estructurado, sin texto adicional ni markdown.`;
   });
 
   if (!result.ok) {
-    throw new Error(`Director falló: ${result.error.kind}`);
+    // `cause` lleva el error tipado: el caller distingue "sin saldo" (corta la
+    // tanda) de cualquier otra falla (sigue con el prompt de respaldo).
+    throw new Error(`Director falló: ${result.error.kind}`, { cause: result.error });
   }
 
   const parts = result.response.candidates?.[0]?.content?.parts ?? [];
@@ -397,19 +423,47 @@ async function urlsToPartsBestEffort(urls: string[]): Promise<GeminiPart[]> {
   return out;
 }
 
+/** finishReason que son bloqueo de contenido sobre la SALIDA. */
+const OUTPUT_BLOCK_REASONS = new Set([
+  "SAFETY",
+  "PROHIBITED_CONTENT",
+  "BLOCKLIST",
+  "SPII",
+  "RECITATION",
+  "IMAGE_SAFETY",
+  "IMAGE_PROHIBITED_CONTENT",
+  "IMAGE_RECITATION",
+]);
+
+/**
+ * Baja las fotos del PRODUCTO (obligatorias) para mandarlas a Gemini. La ruta
+ * la llama ANTES de cobrar: si alguna no se puede leer, corta con «No pudimos
+ * usar estas fotos… No se te descontó nada» sin tocar créditos.
+ */
+export async function prepareProductParts(
+  urls: string[],
+): Promise<{ ok: true; parts: GeminiPart[] } | { ok: false; error: string }> {
+  try {
+    const parts = await urlsToParts(urls);
+    return parts.length > 0 ? { ok: true, parts } : { ok: false, error: "sin fotos" };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 function extractImageBase64(response: GeminiResponse): { mime: string; data: string } {
   const candidate = response.candidates?.[0];
   if (!candidate) {
     throw { kind: "unknown", message: "Gemini no devolvió candidatos." } as GeminiError;
   }
-  if (
-    candidate.finishReason === "SAFETY" ||
-    candidate.finishReason === "PROHIBITED_CONTENT" ||
-    candidate.finishReason === "BLOCKLIST" ||
-    candidate.finishReason === "SPII" ||
-    candidate.finishReason === "IMAGE_SAFETY"
-  ) {
-    throw { kind: "content_blocked", reason: candidate.finishReason } as GeminiError;
+  // Bloqueo de la SALIDA: la culpa no es clara (pudo ser la foto o el modelo),
+  // así que se devuelve. El de la ENTRADA (promptFeedback) lo separa callGemini.
+  if (candidate.finishReason && OUTPUT_BLOCK_REASONS.has(candidate.finishReason)) {
+    throw {
+      kind: "content_blocked",
+      reason: candidate.finishReason,
+      stage: "output",
+    } satisfies GeminiError;
   }
   const parts = candidate.content?.parts ?? [];
   for (const part of parts) {
@@ -420,7 +474,12 @@ function extractImageBase64(response: GeminiResponse): { mime: string; data: str
       };
     }
   }
-  throw { kind: "unknown", message: "Gemini no devolvió imagen." } as GeminiError;
+  // Sin imagen y sin bloqueo (NO_IMAGE, IMAGE_OTHER, texto en vez de imagen):
+  // se devuelve igual; el finishReason queda para Paolo.
+  throw {
+    kind: "unknown",
+    message: `Gemini no devolvió imagen (finishReason ${candidate.finishReason ?? "?"}).`,
+  } satisfies GeminiError;
 }
 
 function normalizeError(err: unknown): GeminiError {
@@ -469,7 +528,9 @@ function stripCodeFences(text: string): string {
 /*  Aspect ratio enforce (sharp, server-side)                                   */
 /* -------------------------------------------------------------------------- */
 
-const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
+// Exportados (sin cambiar lógica) para que el pipeline v2 (lib/ai/v2/) reuse el
+// MISMO post-proceso en vez de importar sharp por segunda vez.
+export const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
   "1:1": { w: 1024, h: 1024 },
   "4:5": { w: 1024, h: 1280 },
   "9:16": { w: 1080, h: 1920 },
@@ -481,7 +542,7 @@ const RATIO_TARGETS: Record<OutputRatio, { w: number; h: number }> = {
  * del Canvas browser). `fit: "cover"` escala para llenar y recorta el exceso
  * centrado. Salida JPEG 92%.
  */
-async function enforceRatioServer(input: Buffer, ratio: OutputRatio): Promise<Buffer> {
+export async function enforceRatioServer(input: Buffer, ratio: OutputRatio): Promise<Buffer> {
   const target = RATIO_TARGETS[ratio];
   if (!target) {
     return sharp(input).jpeg({ quality: 92 }).toBuffer();

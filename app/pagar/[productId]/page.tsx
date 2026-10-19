@@ -10,6 +10,8 @@ import {
   createWhopCheckout,
   CreateCheckoutError,
 } from "@/lib/whop/create-checkout";
+import { whopEmbedEnvironment } from "@/lib/whop/env";
+import { messageText } from "@/lib/avisos/textos";
 import { PagarClient } from "./pagar-client";
 
 /**
@@ -94,9 +96,6 @@ function CheckoutErrorState({ mensaje }: { mensaje: string }) {
           No pudimos abrir el pago
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">{mensaje}</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          No se hizo ningún cargo.
-        </p>
         <div className="mt-8 flex gap-3">
           <Link
             href="/upgrade"
@@ -151,8 +150,7 @@ export default async function PagarPage({
         "[pagar] Whop creó el checkout pero no devolvió session id:",
         checkout.initPoint,
       );
-      errorMensaje =
-        "El proveedor de pagos respondió de forma inesperada. Probá de nuevo en un minuto.";
+      errorMensaje = messageText("checkout_failed", {});
     }
   } catch (err) {
     // OJO: el try/catch envuelve SOLO la llamada a Whop. `redirect()` y
@@ -163,14 +161,10 @@ export default async function PagarPage({
         `[pagar] CreateCheckoutError (${err.code}) para ${product.id}:`,
         err.message,
       );
-      errorMensaje =
-        err.code === "APP_URL_MISSING"
-          ? "El sistema de pagos todavía no está configurado. Escribinos y lo resolvemos."
-          : "No pudimos conectar con el proveedor de pagos. Probá de nuevo en un minuto.";
+      errorMensaje = messageText("checkout_failed", {});
     } else {
       console.error("[pagar] Error inesperado creando el checkout:", err);
-      errorMensaje =
-        "Tuvimos un problema al abrir el pago. Probá de nuevo en un minuto.";
+      errorMensaje = messageText("checkout_failed", {});
     }
   }
 
@@ -178,10 +172,7 @@ export default async function PagarPage({
     return (
       <AppBackground>
         <CheckoutErrorState
-          mensaje={
-            errorMensaje ??
-            "Tuvimos un problema al abrir el pago. Probá de nuevo en un minuto."
-          }
+          mensaje={errorMensaje ?? messageText("checkout_failed", {})}
         />
       </AppBackground>
     );
@@ -209,6 +200,7 @@ export default async function PagarPage({
           analysisCredits: product.analysisCredits ?? 0,
         }}
         email={email}
+        whopEnvironment={whopEmbedEnvironment()}
       />
     </AppBackground>
   );

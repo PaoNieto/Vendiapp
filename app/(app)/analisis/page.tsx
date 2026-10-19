@@ -26,6 +26,8 @@ import {
 import { CURATED_STYLES, type CuratedStyleId } from "@/lib/curated-styles";
 import { useAnalyses, type Analysis } from "@/lib/analyses/store";
 import { useCreditos } from "@/lib/creditos/use-creditos";
+import { readAiRouteFailure, useAvisos } from "@/lib/avisos/client";
+import { messageText } from "@/lib/avisos/textos";
 import { formatRelativeTime } from "@/lib/generations/format";
 import { useUserInitials } from "@/lib/auth/use-user";
 import { cn } from "@/lib/utils";
@@ -153,6 +155,8 @@ export default function AnalisisPage() {
   const analyses = useAnalyses();
   const brandInitials = useUserInitials();
   const { stats, refetch: refetchCredits } = useCreditos();
+  const avisos = useAvisos();
+  const { markRead: markNoticeRead, refresh: refreshAvisos, reportAiUnavailable } = avisos;
   const analysisBalance = stats.analysisBalance;
 
   // El estado de pantalla arranca en "gallery" porque preferimos pintar la
@@ -194,34 +198,42 @@ export default function AnalisisPage() {
         if (cancelled) return;
 
         // 2. Análisis SERVER-SIDE (Oráculo) con la key propia de Vendí.
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageDataUrl: dataUrl, ratio: creating.ratio }),
-        });
+        //    El fetch va aparte: si se corta la red, el error del navegador
+        //    ("Failed to fetch") NUNCA llega al cliente.
+        let res: Response;
+        try {
+          res = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageDataUrl: dataUrl, ratio: creating.ratio }),
+          });
+        } catch {
+          if (cancelled) return;
+          setErrorBanner("No pudimos conectar. Revisá tu internet y probá de nuevo.");
+          setCreating({ kind: "idle" });
+          void refetchCredits();
+          void refreshAvisos();
+          return;
+        }
         if (cancelled) return;
 
         if (!res.ok) {
-          // Leemos el body para mostrar el mensaje REAL del server (ej. el 403
-          // del candado paga-primero: "Necesitás una compra activa…"). Los
-          // sentinels técnicos sin espacios ("analysis_failed") no son copy
-          // humano → caen al mensaje genérico.
-          const data = (await res.json().catch(() => null)) as {
-            error?: string;
-            message?: string;
-          } | null;
-          const serverCopy =
-            data?.message ??
-            (data?.error && data.error.includes(" ") ? data.error : null);
+          // Contrato de las rutas de IA: { error, message, refunded,
+          // notificationId? }. `message` ya es el texto exacto de la spec.
+          const failure = await readAiRouteFailure(res);
+          if (failure.notificationId) void markNoticeRead([failure.notificationId]);
+          if (failure.error === "ai_unavailable") reportAiUnavailable();
           setErrorBanner(
-            res.status === 402
+            res.status === 402 && (failure.error === null || failure.error.startsWith("insufficient"))
               ? "insufficient_analysis_credits"
-              : (serverCopy ??
-                  "No se pudo analizar la imagen. Intentá de nuevo en un momento."),
+              : failure.error === "ai_unavailable"
+                ? null
+                : (failure.message ?? messageText("db_down", {})),
           );
           setCreating({ kind: "idle" });
-          // Revalidamos el saldo: si el 402 vino del server, el contador baja.
+          // Revalidamos el saldo (bajó o volvió con la devolución) y los avisos.
           void refetchCredits();
+          void refreshAvisos();
           return;
         }
         const analysis = (await res.json()) as {
@@ -245,13 +257,11 @@ export default function AnalisisPage() {
         setScreen({ kind: "viewing", id: saved.id });
         // El análisis consumió 1 crédito en el server: refrescamos el contador.
         void refetchCredits();
-      } catch (err) {
+      } catch {
+        // Falló leer la imagen local o la respuesta: nunca mostramos el texto
+        // técnico del navegador.
         if (cancelled) return;
-        const message =
-          err instanceof Error
-            ? err.message
-            : "No pudimos leer la imagen para analizar.";
-        setErrorBanner(message);
+        setErrorBanner("No pudimos leer la imagen para analizar. Probá con otra.");
         setCreating({ kind: "idle" });
       }
     })();
@@ -259,7 +269,7 @@ export default function AnalisisPage() {
     return () => {
       cancelled = true;
     };
-  }, [creating, analyses, refetchCredits]);
+  }, [creating, analyses, refetchCredits, markNoticeRead, refreshAvisos, reportAiUnavailable]);
 
   function handleImageChange(next: UploadedImage[]) {
     const image = next[0] ?? null;
@@ -279,6 +289,7 @@ export default function AnalisisPage() {
   }
 
   function handleAnalyze() {
+    if (avisos.ai.down) return;
     if (creating.kind !== "uploading") return;
     if (!creating.ratio) return;
 
@@ -367,6 +378,7 @@ export default function AnalisisPage() {
             hasAnalyses={hasAnalyses}
             analysisBalance={analysisBalance}
             unlimited={stats.unlimited}
+            aiDown={avisos.ai.down}
             onImageChange={handleImageChange}
             onRatioChange={handleRatioChange}
             onAnalyze={handleAnalyze}
@@ -495,7 +507,7 @@ function EmptyGallery({ onStartNew }: { onStartNew: () => void }) {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
         <ScanSearch className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         Sin análisis todavía
       </h2>
       <p className="max-w-sm text-sm text-mute">
@@ -543,6 +555,7 @@ function CreatingFlow({
   hasAnalyses,
   analysisBalance,
   unlimited,
+  aiDown,
   onImageChange,
   onRatioChange,
   onAnalyze,
@@ -552,6 +565,8 @@ function CreatingFlow({
   hasAnalyses: boolean;
   analysisBalance: number;
   unlimited: boolean;
+  /** IA caída (banner global): el botón se apaga, no se cobra nada. */
+  aiDown: boolean;
   onImageChange: (next: UploadedImage[]) => void;
   onRatioChange: (ratio: RatioValue) => void;
   onAnalyze: () => void;
@@ -564,6 +579,7 @@ function CreatingFlow({
   const selectedRatio: RatioValue | null =
     state.kind === "uploading" ? state.ratio : null;
   const canAnalyze =
+    !aiDown &&
     state.kind === "uploading" &&
     state.image !== null &&
     state.ratio !== null;
@@ -588,7 +604,7 @@ function CreatingFlow({
         <div className="glass-card flex flex-col gap-7 p-6 sm:p-9">
           <header className="flex flex-col gap-2">
             <span className="eyebrow">Análisis</span>
-            <h2 className="font-display text-2xl italic leading-tight text-foreground sm:text-[28px]">
+            <h2 className="text-2xl leading-tight text-foreground sm:text-[28px]">
               Subí una imagen para analizar
             </h2>
             <p className="max-w-xl text-sm text-mute">
@@ -636,9 +652,11 @@ function CreatingFlow({
             </div>
             {!canAnalyze ? (
               <span className="text-center text-[11px] text-mute sm:text-right">
-                {uploaderValue.length === 0
-                  ? "Subí una imagen para empezar."
-                  : "Elegí un formato para habilitar el análisis."}
+                {aiDown
+                  ? "El análisis vuelve apenas se resuelva el problema."
+                  : uploaderValue.length === 0
+                    ? "Subí una imagen para empezar."
+                    : "Elegí un formato para habilitar el análisis."}
               </span>
             ) : null}
           </div>
@@ -681,7 +699,7 @@ function NoAnalysisCredits() {
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5 text-foreground">
         <ScanSearch className="h-5 w-5" strokeWidth={1.6} />
       </div>
-      <h2 className="font-display text-2xl italic text-foreground">
+      <h2 className="text-2xl text-foreground">
         Te quedaste sin análisis
       </h2>
       <p className="max-w-sm text-sm text-mute">
@@ -955,7 +973,7 @@ function ErrorBanner({
         type="button"
         onClick={onDismiss}
         aria-label="Descartar mensaje"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+        className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" />
       </button>

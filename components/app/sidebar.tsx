@@ -11,12 +11,14 @@ import {
   Settings,
   LogOut,
   LifeBuoy,
+  ShieldAlert,
 } from "lucide-react";
 import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { useUser } from "@/lib/auth/use-user";
 import { useCreditos } from "@/lib/creditos/use-creditos";
+import { NotificationBell } from "@/components/app/avisos/notification-bell";
 
 // Sidebar Cuaderno v2 — sage claro SÓLIDO (NO glass).
 // Ancho 220px (handoff: "más restrained que 240+"). Branding "Vendí." en
@@ -31,7 +33,7 @@ import { useCreditos } from "@/lib/creditos/use-creditos";
 // pide sólido sage claro (#C6D6B2 via --vd-sidebar-bg) sin blur. Más
 // liviano en GPU y coherente con la sensación "cuaderno" cálida.
 
-export function Sidebar() {
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, signOut } = useUser();
@@ -61,18 +63,22 @@ export function Sidebar() {
   )}`;
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
+    <aside className="vd-sidebar sticky top-0 hidden h-dvh w-[220px] shrink-0 flex-col border-r border-border bg-sidebar-bg px-[18px] py-7 lg:flex">
       {/*
         Branding: "Vendí." en serif italic 30px. El punto pintado en
         sage-strong como acento sutil de marca. font-display resuelve
         a Instrument Serif via @theme inline.
       */}
-      <Link
-        href="/dashboard"
-        className="px-2.5 font-display text-[30px] italic leading-none text-foreground"
-      >
-        Vendí<span className="text-sage-strong dark:text-gold dark:[text-shadow:0_0_16px_rgba(233,198,95,0.4)]">.</span>
-      </Link>
+      {/* Fila del logo: marca + campanita del centro de avisos (mockup, caso d). */}
+      <div className="flex items-center justify-between gap-2">
+        <Link
+          href="/dashboard"
+          className="px-2.5 font-display text-[30px] italic leading-none text-foreground"
+        >
+          Vendí<span className="text-sage-strong dark:text-gold dark:[text-shadow:0_0_16px_rgba(233,198,95,0.4)]">.</span>
+        </Link>
+        <NotificationBell variant="desktop" />
+      </div>
 
       {/* Eyebrow "ESPACIO" — micro-label sobre la nav. */}
       <div className="eyebrow mt-8 px-2.5 pb-2">Espacio</div>
@@ -115,6 +121,22 @@ export function Sidebar() {
           active={isActive(pathname, "/ajustes")}
         />
       </nav>
+
+      {/* Sección Admin: solo si el layout (server) confirmó que es admin. El
+          panel igual se protege solo con requireAdmin() en cada pieza. */}
+      {isAdmin ? (
+        <>
+          <div className="eyebrow mt-5 px-2.5 pb-2">Admin</div>
+          <nav className="flex flex-col gap-0.5" aria-label="Admin">
+            <NavItem
+              href="/admin/avisos"
+              label="Avisos"
+              icon={ShieldAlert}
+              active={isActive(pathname, "/admin/avisos")}
+            />
+          </nav>
+        </>
+      ) : null}
 
       {/* Spacer flex — empuja Plan + ThemeToggle al fondo. */}
       <div className="flex-1" />
@@ -208,11 +230,14 @@ function NavItem({ href, label, icon: Icon, active }: NavItemProps) {
   return (
     <Link
       href={href}
+      data-active={active ? "true" : "false"}
       className={cn(
         // Pill activo: bg forest + text cream + weight 600. Radius 8px
         // (el handoff pide rounded suave, no rounded-full pill — esto
         // queda en el border-radius interno de cada item, no su forma).
-        "flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13.5px] transition-colors",
+        // `vd-nav-item` + `data-active`: gancho del modo oscuro "Nube baja
+        // flotante" (definido en globals.css; en modo claro no hace nada).
+        "vd-nav-item flex items-center gap-2.5 rounded-lg px-2.5 py-[9px] text-[13.5px] transition-colors",
         active
           ? "bg-primary font-semibold text-primary-foreground"
           : "font-medium text-foreground hover:bg-foreground/5",

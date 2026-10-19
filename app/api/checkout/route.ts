@@ -6,6 +6,14 @@ import {
 } from "@/lib/whop/create-checkout";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { checkoutRequestSchema } from "@/lib/validations/checkout";
+import { messageText } from "@/lib/avisos/textos";
+
+/**
+ * Lo que ve el cliente si el checkout no abre (texto exacto de la spec de
+ * avisos). Nunca el error crudo de Whop: ese va a la alerta de Paolo, que
+ * dispara `createWhopCheckout` (U si Whop rechaza nuestra clave, B si no).
+ */
+const CHECKOUT_FAILED = messageText("checkout_failed", {});
 
 // La creación del checkout necesita runtime Node (no Edge).
 // force-dynamic: nunca prerenderizar, siempre correr en el request.
@@ -68,13 +76,13 @@ export async function POST(req: Request) {
         );
       if (err.code === "APP_URL_MISSING")
         return NextResponse.json(
-          { error: "Servicio no configurado" },
+          { error: "Servicio no configurado", message: CHECKOUT_FAILED },
           { status: 503 },
         );
     }
     console.error("[checkout] Error creando el checkout de Whop:", err);
     return NextResponse.json(
-      { error: "No se pudo crear el checkout" },
+      { error: "No se pudo crear el checkout", message: CHECKOUT_FAILED },
       { status: 502 },
     );
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
-import { userHasPaidAccess } from "@/lib/auth/paid-access";
+import { checkPaidAccess } from "@/lib/auth/paid-access";
 import { createWhopCheckout } from "@/lib/whop/create-checkout";
 
 export const runtime = "nodejs";
@@ -45,7 +45,10 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/signup?redirect_url=/comprar", request.url));
   }
   await ensureProfile();
-  if (await userHasPaidAccess(userId)) {
+  // "unknown" (la base no respondió) también va a /dashboard: puede ser alguien
+  // que ya pagó, así que nunca a /plan ni al checkout. El gate de (app) vuelve a
+  // verificar y, si sigue sin poder, muestra la pantalla de error.
+  if ((await checkPaidAccess(userId)) !== "unpaid") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
