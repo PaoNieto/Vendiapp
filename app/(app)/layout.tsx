@@ -8,6 +8,8 @@ import { Sidebar } from "@/components/app/sidebar";
 import { AiDownBanner } from "@/components/app/avisos/ai-down-banner";
 import { ServiceErrorScreen } from "@/components/app/avisos/service-error-screen";
 import { AppBackground } from "@/components/dashboard";
+import { DemoTour } from "@/components/tour/demo-tour";
+import "@/components/tour/demo-tour.css";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { isAdmin } from "@/lib/avisos/admin";
@@ -118,6 +120,8 @@ export default async function AppLayout({
           </main>
         </div>
         <BottomNav />
+        {/* Tour in-app (demo animada): se abre solo la primera vez; ?tour=1 lo relanza. */}
+        <DemoTour />
       </AppBackground>
     </AppProviders>
   );

@@ -45,16 +45,21 @@ export function formatRelativeTime(iso: string): string {
 }
 
 /**
- * Texto al cliente cuando la IA está caída (sin saldo en Google, key mala,
- * modelo retirado). Al cliente NUNCA se le dice "sin saldo" ni se le nombra al
- * proveedor (spec de avisos): sale el banner de IA caída o el texto de la falla
- * con su devolución.
+ * Texto al cliente cuando la IA está caída (`GeminiError` kind "billing": sin
+ * saldo en Google; también key mala o modelo retirado). No es un "probá más
+ * tarde": no se arregla solo y la culpa no es del usuario. Al cliente NUNCA se
+ * le dice "sin saldo" ni se le nombra al proveedor (spec de avisos, G.1): sale
+ * el banner de IA caída o el texto de la falla con su devolución. La causa le
+ * llega a Paolo por la alerta, no por este texto.
  *
- * `refunded` = créditos que DE VERDAD volvieron: 0 → no se descontó nada (corte
- * antes del descuento, o ilimitado).
+ * `refunded` = créditos que DE VERDAD volvieron a su saldo. Tiene que ser
+ * honesto: 0 cuando no se descontó nada (corte antes del deduct, o usuario de
+ * `unlimited_users`, cuyo deduct es no-op) → no se promete devolución. Si hubo
+ * deduct y refund, se dice cuántos volvieron.
  *
- * @deprecated Las rutas usan `messageText` / `noticeText` de
- * lib/avisos/textos.ts. Queda por scripts/v2-dry-run.ts.
+ * @deprecated Para código nuevo, usar `messageText` / `noticeText` de
+ * lib/avisos/textos.ts. Se mantiene con la misma firma que en main porque la
+ * siguen llamando scripts/v2-dry-run.ts y las rutas que todavía no migraron.
  */
 export function formatBillingError(opts: {
   service: "images" | "analysis";

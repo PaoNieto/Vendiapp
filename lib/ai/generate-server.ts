@@ -18,7 +18,6 @@
 
 import sharp from "sharp";
 import {
-  aiOutageCause,
   callGemini,
   GEMINI_IMAGE_MODEL,
   GEMINI_REASONING_MODEL,
@@ -56,7 +55,7 @@ export type GenerateOnServerInput = {
   strictPrompt?: string;
   /**
    * Fotos del producto YA bajadas (`prepareProductParts`). La ruta las baja
-   * ANTES de cobrar: si ninguna se puede leer, corta sin descontar nada. Si no
+   * ANTES de cobrar: si alguna no se puede leer, corta sin descontar nada. Si no
    * vienen, se bajan acá (comportamiento de antes).
    */
   productParts?: GeminiPart[];
@@ -154,12 +153,26 @@ export async function generateOnServer(
         brand,
       });
     } catch (err) {
-      // IA caída (sin saldo, key mala, modelo inexistente): las N llamadas de
-      // imagen van a fallar igual. Se corta acá (la ruta devuelve y avisa) en
-      // vez de mandarlas.
+      // Sin saldo en Google: las N llamadas de imagen van a fallar igual. Se
+      // corta acá (la ruta devuelve y avisa) en vez de mandarlas.
+      //
+      // Solo `billing`, como en producción. Cualquier otra falla del Director
+      // sigue con el prompt de respaldo: el Director usa OTRO modelo
+      // (GEMINI_REASONING_MODEL) que las imágenes, así que un 404 o un 403 suyo
+      // no prueba que la generación vaya a fallar. Si la key de verdad está
+      // mala, las llamadas de imagen fallan solas y `pickBatchError` le pasa la
+      // caída a la ruta (que devuelve y avisa igual).
       const cause = err instanceof Error ? (err.cause as GeminiError | undefined) : undefined;
-      if (cause && aiOutageCause(cause)) {
+      if (cause?.kind === "billing") {
         return { ok: false, error: cause };
+      }
+      if (cause?.kind === "model_not_found") {
+        // El Director no marca la IA como caída por esto (`reportModelNotFound:
+        // false` abajo): queda este rastro para que se cambie el modelo.
+        console.error(
+          "[director] modelo inexistente, sigue con el prompt de respaldo:",
+          cause.model ?? GEMINI_REASONING_MODEL,
+        );
       }
       basePrompt =
         userPrompt && userPrompt.trim().length > 0
@@ -274,7 +287,8 @@ Produce one photorealistic, studio-grade commercial image.${identityGuard}`;
         images.push({ buffer: jpeg, contentType: "image/jpeg" });
       } catch {
         // La imagen ya está pagada: si el modelo la mandó en JPEG, sirve tal
-        // cual (sin el recorte exacto) antes que tirarla.
+        // cual (sin el recorte exacto) antes que tirarla. Si no, la contamos
+        // como fallo (la ruta la devuelve como no entregada).
         if (/^image\/jpe?g$/i.test(raw.mime)) {
           images.push({ buffer: Buffer.from(raw.data, "base64"), contentType: "image/jpeg" });
         } else {
@@ -334,10 +348,11 @@ async function enrichPromptServer(input: {
   userPrompt?: string;
   brand?: BrandContext;
 }): Promise<string> {
-  // Mismo criterio que en la generación: el producto es obligatorio (si no se
-  // lee, que reviente y el caller caiga al fallback), las referencias van
-  // best-effort. Antes una referencia rota tiraba el Director entero y se
-  // perdía la dirección de arte sin que nadie se enterara.
+  // El producto llega YA bajado (las mismas partes de la generación: si no se
+  // podía leer, generateOnServer cortó antes de llamar acá), así que no se baja
+  // dos veces. Las referencias van best-effort, igual que en la generación.
+  // Antes una referencia rota tiraba el Director entero y se perdía la
+  // dirección de arte sin que nadie se enterara.
   const productParts = input.productParts;
   const referenceParts = await urlsToPartsBestEffort(input.referenceImages);
 
@@ -365,6 +380,11 @@ Devolve SOLO el JSON estructurado, sin texto adicional ni markdown.`;
       temperature: 0.6,
     },
     timeoutMs: 45_000,
+    // Un 404 del modelo del Director NO es caída de la IA: la tanda sigue con
+    // el prompt de respaldo y las imágenes usan otro modelo. Si se marcara, la
+    // prueba de ai-gate (que revisa ESTE modelo) nunca la levantaría y se
+    // frenarían todas las tandas. Sin saldo y key mala se marcan igual.
+    reportModelNotFound: false,
   });
 
   if (!result.ok) {
@@ -423,14 +443,21 @@ async function urlsToPartsBestEffort(urls: string[]): Promise<GeminiPart[]> {
   return out;
 }
 
-/** finishReason que son bloqueo de contenido sobre la SALIDA. */
+/** finishReason que son bloqueo de contenido sobre la SALIDA (cortan siempre, como antes). */
 const OUTPUT_BLOCK_REASONS = new Set([
   "SAFETY",
   "PROHIBITED_CONTENT",
   "BLOCKLIST",
   "SPII",
-  "RECITATION",
   "IMAGE_SAFETY",
+]);
+
+/**
+ * Bloqueos de la SALIDA que antes caían como "no devolvió imagen". Solo cuentan
+ * como bloqueo si de verdad no vino imagen: si vino, se entrega igual que antes.
+ */
+const OUTPUT_BLOCK_REASONS_IF_NO_IMAGE = new Set([
+  "RECITATION",
   "IMAGE_PROHIBITED_CONTENT",
   "IMAGE_RECITATION",
 ]);
@@ -457,7 +484,8 @@ function extractImageBase64(response: GeminiResponse): { mime: string; data: str
     throw { kind: "unknown", message: "Gemini no devolvió candidatos." } as GeminiError;
   }
   // Bloqueo de la SALIDA: la culpa no es clara (pudo ser la foto o el modelo),
-  // así que se devuelve. El de la ENTRADA (promptFeedback) lo separa callGemini.
+  // así que se devuelve (cuánto, lo decide la ruta). El de la ENTRADA
+  // (promptFeedback) lo separa callGemini.
   if (candidate.finishReason && OUTPUT_BLOCK_REASONS.has(candidate.finishReason)) {
     throw {
       kind: "content_blocked",
@@ -473,6 +501,13 @@ function extractImageBase64(response: GeminiResponse): { mime: string; data: str
         data: part.inlineData.data,
       };
     }
+  }
+  if (candidate.finishReason && OUTPUT_BLOCK_REASONS_IF_NO_IMAGE.has(candidate.finishReason)) {
+    throw {
+      kind: "content_blocked",
+      reason: candidate.finishReason,
+      stage: "output",
+    } satisfies GeminiError;
   }
   // Sin imagen y sin bloqueo (NO_IMAGE, IMAGE_OTHER, texto en vez de imagen):
   // se devuelve igual; el finishReason queda para Paolo.

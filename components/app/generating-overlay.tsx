@@ -34,10 +34,12 @@ export function GeneratingOverlay({
   reservedCredits?: number | null;
   failure?: GeneratingOverlayFailure | null;
 }) {
+  // "No cierres esta pantalla." viene de main (producción) y se mantiene siempre;
+  // la spec de avisos solo saca el "entre 30 y 60 segundos".
   const waitingText =
     subtitle ??
     (typeof reservedCredits === "number" && reservedCredits > 0
-      ? messageText("generation_reserved", { n: reservedCredits })
+      ? `${messageText("generation_reserved", { n: reservedCredits })} No cierres esta pantalla.`
       : "No cierres esta pantalla.");
 
   const failed = failure ? splitNotice(failure.message) : null;

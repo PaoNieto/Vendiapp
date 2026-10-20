@@ -1202,8 +1202,10 @@ export async function renderV2(prepared: V2Prepared, deps: GenerateV2Deps): Prom
 
   if (out.length === 0) {
     // Si alguna falló por saldo, ese es EL error: define el mensaje al usuario.
-    // Caída de la IA primero; bloqueo de la entrada solo si fallaron todas por eso.
-    return { ok: false, error: pickBatchError(failures), snapshot };
+    // Si no, caída de la IA primero; bloqueo de la entrada solo si fallaron
+    // todas por eso (pickBatchError, avisos).
+    const error = failures.find((f) => f.kind === "billing") ?? pickBatchError(failures);
+    return { ok: false, error, snapshot };
   }
   return { ok: true, images: out, failures, finalPrompt: batch.prompts[0], snapshot };
 }
