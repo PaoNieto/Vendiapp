@@ -28,6 +28,23 @@ export default function AuthLayout({
             {children}
           </div>
         </main>
+        {/* Aviso de privacidad donde la persona deja su email: Meta pide un
+            link visible en las páginas con el pixel. */}
+        <footer className="flex items-center justify-center px-5 pb-4 text-xs text-muted-foreground">
+          <a
+            href="/privacidad"
+            className="inline-flex min-h-[44px] items-center px-2 underline-offset-4 hover:underline"
+          >
+            Privacidad
+          </a>
+          <span aria-hidden="true">·</span>
+          <a
+            href="/terminos"
+            className="inline-flex min-h-[44px] items-center px-2 underline-offset-4 hover:underline"
+          >
+            Términos
+          </a>
+        </footer>
       </div>
     </AppBackground>
   );

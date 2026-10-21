@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif, Sora, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
+import { metaPixelScript } from "@/lib/meta-pixel";
 import { clerkAppearance, clerkLocalizationES } from "@/lib/auth/clerk-appearance";
 import "./globals.css";
 
@@ -73,6 +74,14 @@ const themeInitScript = `(function () {
   }
 })();`;
 
+/**
+ * Pixel de Meta solo en producción real (VERCEL_ENV lo pone Vercel: el
+ * proyecto expone las system env). En local y en los previews las visitas
+ * ensuciarían los datos con los que Meta optimiza los anuncios, así que ante
+ * la duda queda apagado. Ver lib/meta-pixel.ts.
+ */
+const metaPixelEnabled = process.env.VERCEL_ENV === "production";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -95,6 +104,9 @@ export default function RootLayout({
       >
         <head>
           <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+          {metaPixelEnabled ? (
+            <script dangerouslySetInnerHTML={{ __html: metaPixelScript }} />
+          ) : null}
         </head>
         <body className="min-h-dvh">
           {children}

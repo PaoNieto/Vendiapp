@@ -15,6 +15,24 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // La política de privacidad y los términos viven en la landing. Acá solo se
+  // redirige, para que los links de la app (y /privacidad, que ya está como
+  // ruta pública en proxy.ts) no den 404. La política explica el pixel de Meta
+  // que corre en la app.
+  async redirects() {
+    return [
+      {
+        source: "/privacidad",
+        destination: "https://www.vendilatam.com/privacidad.html",
+        permanent: false,
+      },
+      {
+        source: "/terminos",
+        destination: "https://www.vendilatam.com/terminos.html",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

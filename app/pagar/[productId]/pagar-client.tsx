@@ -28,9 +28,16 @@
  * Regla de color de la casa: VERDE = interacción · DORADO = joya.
  */
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { WhopCheckoutEmbed } from "@whop/checkout/react";
 import { Check, Lock, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+  checkoutParams,
+  findRecentMetaCheckout,
+  readMetaCheckout,
+  trackMeta,
+  writeMetaCheckout,
+} from "@/lib/meta-pixel";
 
 export type PagarClientProps = {
   sessionId: string;
@@ -69,6 +76,12 @@ const EMBED_ACCENT = "#46c78d";
  * nuestras siguen con el radio que les da `.glass-card`.
  */
 const EMBED_RADIUS = 12;
+
+/**
+ * Pixel de Meta: si recarga /pagar del MISMO producto dentro de este rato, no
+ * se repite el InitiateCheckout (cada carga crea una checkout session nueva).
+ */
+const REINTENTO_MS = 30 * 60 * 1000;
 
 /**
  * `subscribe` de un valor que nunca cambia (el origin de la página). Va afuera
@@ -184,6 +197,33 @@ export function PagarClient({ sessionId, product, email }: PagarClientProps) {
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   /*
+    Pixel de Meta: deja anotado el checkout (qué producto y por cuánto) para
+    que /pago/resultado pueda mandar el Purchase, y avisa InitiateCheckout.
+    Si es una recarga del mismo producto (o el doble effect de StrictMode en
+    dev) solo se actualiza la session, sin repetir el evento. Ver
+    lib/meta-pixel.ts.
+  */
+  useEffect(() => {
+    const previo = findRecentMetaCheckout(product.id, REINTENTO_MS);
+    if (previo) {
+      if (previo.sessionId !== sessionId) {
+        writeMetaCheckout({ ...previo, sessionId, completed: false });
+      }
+      return;
+    }
+    const checkout = {
+      sessionId,
+      productId: product.id,
+      productName: product.name,
+      value: product.priceUsd,
+      startedAt: Date.now(),
+      initiated: true,
+    };
+    trackMeta("InitiateCheckout", checkoutParams(checkout), `ic_${sessionId}`);
+    writeMetaCheckout(checkout);
+  }, [sessionId, product.id, product.name, product.priceUsd]);
+
+  /*
     returnUrl — a dónde vuelve el comprador después de un flujo de
     autorización externo (3DS, Yape, PagoEfectivo, redirects de banco).
     `/pago/resultado` vive FUERA del grupo (app) justo para que el paywall no
@@ -197,6 +237,9 @@ export function PagarClient({ sessionId, product, email }: PagarClientProps) {
     effect (que es lo que dispara renders en cascada y el eslint de React 19
     marca como error). Mientras no haya URL el embed no se monta, así el iframe
     se crea UNA sola vez y no se re-crea cuando la URL aparece.
+
+    `?cs=` es la checkout session: Whop conserva nuestros params al volver y
+    /pago/resultado lo usa para mandarle a Meta el Purchase de ESTE checkout.
   */
   const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL;
   const originDelBrowser = useSyncExternalStore(
@@ -206,7 +249,7 @@ export function PagarClient({ sessionId, product, email }: PagarClientProps) {
   );
   const baseUrl = configuredAppUrl ?? originDelBrowser;
   const returnUrl = baseUrl
-    ? `${baseUrl.replace(/\/+$/, "")}/pago/resultado`
+    ? `${baseUrl.replace(/\/+$/, "")}/pago/resultado?cs=${encodeURIComponent(sessionId)}`
     : null;
 
   const esPase = product.kind === "lifetime";
@@ -409,11 +452,26 @@ export function PagarClient({ sessionId, product, email }: PagarClientProps) {
                    con el pulgar. El comprador igual lo puede editar. */
                 prefill={email ? { email } : undefined}
                 /* El error se queda puesto hasta que el pago salga bien (y ahí
-                   el embed navega a `returnUrl`, así que la pantalla se va).
+                   onComplete navega a `returnUrl`, así que la pantalla se va).
                    ⚠️ NO limpiarlo desde `onStateChange`: el estado vuelve a
                    "ready" apenas falla el cobro, así que el aviso se borraría
                    solo, antes de que el comprador alcance a leerlo. */
                 onPaymentError={(error) => setPaymentError(error.message)}
+                /* 🔴 Pasar onComplete APAGA el redirect final de Whop: el SDK
+                   (@whop/checkout 0.7.0) arma el iframe con skip_redirect=true
+                   apenas hay callback. Por eso la navegación a /pago/resultado
+                   la hacemos acá, después de marcar el checkout como cobrado
+                   para que esa página mande el Purchase de Meta. Los créditos
+                   los sigue acreditando el webhook, no esto. Los pagos con un
+                   paso fuera del sitio (3DS, banco) no pasan por acá: vuelven
+                   solos a `returnUrl` con `status=succeeded`. */
+                onComplete={() => {
+                  const checkout = readMetaCheckout(sessionId);
+                  if (checkout) {
+                    writeMetaCheckout({ ...checkout, completed: true });
+                  }
+                  window.location.assign(`${returnUrl}&status=success`);
+                }}
                 fallback={<CheckoutSkeleton />}
               />
             ) : (
