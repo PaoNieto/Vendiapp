@@ -36,6 +36,9 @@ import {
   type GeneratedImage,
 } from "@/lib/generations/store";
 import { cn } from "@/lib/utils";
+import { readAiRouteFailure, useAvisos } from "@/lib/avisos/client";
+import { messageText } from "@/lib/avisos/textos";
+import { useCreditos } from "@/lib/creditos/use-creditos";
 
 /**
  * Seteos read-only de la versión, derivados en la página y pasados acá para
@@ -273,6 +276,8 @@ function ImageDetailDialog({
   onClose: () => void;
 }) {
   const { setImagePrompt, toggleFavorite, markDownloaded } = useGenerations();
+  const avisos = useAvisos();
+  const creditos = useCreditos();
 
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
@@ -284,7 +289,8 @@ function ImageDetailDialog({
       : image?.strict_prompt || "";
 
   const strictText = image?.strict_prompt.trim() ?? "";
-  const canRegenerate = strictText.length > 0 && !isRegenerating;
+  // Con la IA caída el botón se apaga (banner global): no se cobra nada.
+  const canRegenerate = strictText.length > 0 && !isRegenerating && !avisos.ai.down;
 
   async function handleRegenerate() {
     if (!image || !canRegenerate) return;
@@ -296,24 +302,32 @@ function ImageDetailDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageId: image.id, strictPrompt: strictText }),
       });
-      if (res.status === 402) {
-        setRegenError("insufficient_credits");
-        return;
-      }
       if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { message?: string; error?: string }
-          | null;
-        setRegenError(
-          data?.message ?? data?.error ?? "No se pudo regenerar. Intentá de nuevo.",
-        );
+        // Contrato de las rutas de IA: { error, message, refunded, notificationId? }.
+        // `message` ya es el texto exacto de la spec (nunca texto crudo).
+        const failure = await readAiRouteFailure(res);
+        if (failure.notificationId) void avisos.markRead([failure.notificationId]);
+        void creditos.refetch();
+        void avisos.refresh();
+        if (res.status === 402 && (failure.error === null || failure.error.startsWith("insufficient"))) {
+          setRegenError("insufficient_credits");
+          return;
+        }
+        if (failure.error === "ai_unavailable") {
+          avisos.reportAiUnavailable();
+          setRegenError(failure.message ?? messageText("ai_down", {}));
+          return;
+        }
+        setRegenError(failure.message ?? messageText("db_down", {}));
         return;
       }
       // Éxito: recargamos para traer la nueva variación del server (mismo patrón
       // que "Más variaciones").
       window.location.reload();
     } catch {
-      setRegenError("No se pudo conectar. Revisá tu internet e intentá de nuevo.");
+      // La request pudo haber llegado y seguir corriendo: no invitamos a relanzar.
+      setRegenError(messageText("batch_in_progress", {}));
+      void avisos.refresh();
     } finally {
       setIsRegenerating(false);
     }
@@ -482,7 +496,7 @@ function ImageDetailDialog({
                   type="button"
                   onClick={handleRegenerate}
                   disabled={!canRegenerate}
-                  className="mt-0.5 inline-flex w-full min-h-[40px] items-center justify-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-0.5 inline-flex w-full min-h-[44px] items-center justify-center gap-1.5 rounded-full border border-border bg-card/70 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   title={
                     strictText.length === 0
                       ? "Escribí un prompt estricto para regenerar"

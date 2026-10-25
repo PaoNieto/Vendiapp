@@ -1,6 +1,11 @@
 import "server-only";
+import { cookies } from "next/headers";
+import { ATTRIBUTION_COOKIE, parseAttributionCookie } from "@/lib/attribution";
 import { getProduct } from "@/lib/billing/catalog";
+import { alertAdmin } from "@/lib/avisos/alert";
+import { inBackground } from "./background";
 import { getWhopAccountId, whopFetch, WhopApiError } from "./client";
+import { resolveWhopPlanId } from "./env";
 
 /**
  * Crea el checkout de Whop para (userId, productId).
@@ -78,6 +83,13 @@ export async function createWhopCheckout(
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   if (!appUrl) {
+    alertCheckoutFailed({
+      userId,
+      productId: product.id,
+      status: null,
+      cause: "app_url_missing",
+      raw: "Falta NEXT_PUBLIC_APP_URL",
+    });
     throw new CreateCheckoutError("APP_URL_MISSING", "Servicio no configurado");
   }
 
@@ -87,10 +99,53 @@ export async function createWhopCheckout(
   try {
     accountId = getWhopAccountId();
   } catch (err) {
+    alertCheckoutFailed({
+      userId,
+      productId: product.id,
+      status: null,
+      cause: "account_id_missing",
+      raw: err instanceof Error ? err.message : "Falta WHOP_ACCOUNT_ID",
+    });
     throw new CreateCheckoutError(
       "WHOP_FAILED",
       err instanceof Error ? err.message : "Whop no configurado",
     );
+  }
+
+  // Plan del entorno activo: el de producción, o el remapeado del sandbox.
+  const planId = resolveWhopPlanId(product);
+  if (!planId) {
+    console.error(
+      `[whop-checkout] Sin plan de sandbox para "${product.id}" (WHOP_SANDBOX_PLAN_IDS).`,
+    );
+    alertCheckoutFailed({
+      userId,
+      productId: product.id,
+      status: null,
+      cause: "sandbox_plan_missing",
+      raw: "WHOP_SANDBOX_PLAN_IDS sin este producto",
+    });
+    throw new CreateCheckoutError(
+      "WHOP_FAILED",
+      "No se pudo crear el checkout",
+    );
+  }
+
+  // De qué anuncio vino el comprador (cookie del proxy). Viaja en el metadata
+  // hasta el webhook, para atar la venta a su campaña. Solo strings (regla de
+  // Whop). Si no hay cookie o no se puede leer, el checkout sigue igual.
+  let atribucion: Record<string, string> = {};
+  try {
+    const attr = parseAttributionCookie(
+      (await cookies()).get(ATTRIBUTION_COOKIE)?.value,
+    );
+    if (attr) {
+      for (const [k, v] of Object.entries(attr)) {
+        if (k !== "first_seen" && typeof v === "string") atribucion[k] = v;
+      }
+    }
+  } catch {
+    atribucion = {};
   }
 
   let config: WhopCheckoutConfiguration;
@@ -102,7 +157,7 @@ export async function createWhopCheckout(
         body: {
           account_id: accountId,
           // Plan YA EXISTENTE (ver el bloque de arriba). NO usar `plan` inline.
-          plan_id: product.whopPlanId,
+          plan_id: planId,
           // "payment" = cobrar ahora (vs "setup", que solo guarda el medio de pago).
           mode: "payment",
           // Viaja intacto hasta data.metadata del webhook payment.succeeded.
@@ -110,6 +165,8 @@ export async function createWhopCheckout(
           // webhook acepta cualquiera de los dos nombres, así un cambio de
           // convención no deja pagos sin atribuir.
           metadata: {
+            ...atribucion,
+            // Los de atribución van primero: estos tres nunca se pisan.
             clerk_user_id: userId,
             pack_id: product.id,
             product_id: product.id,
@@ -129,7 +186,31 @@ export async function createWhopCheckout(
         err.status,
         err.body,
       );
+    } else {
+      console.error(
+        "[whop-checkout] No se pudo hablar con Whop:",
+        err instanceof Error ? err.message : err,
+      );
     }
+    alertCheckoutFailed({
+      userId,
+      productId: product.id,
+      status: err instanceof WhopApiError ? err.status : null,
+      cause:
+        err instanceof WhopApiError
+          ? `http_${err.status}`
+          : err instanceof Error && err.name === "AbortError"
+            ? "timeout"
+            : err instanceof Error && /WHOP_API_KEY/.test(err.message)
+              ? "api_key_missing"
+              : "network",
+      raw:
+        err instanceof WhopApiError
+          ? err.body
+          : err instanceof Error
+            ? err.message
+            : String(err),
+    });
     throw new CreateCheckoutError(
       "WHOP_FAILED",
       "No se pudo crear el checkout",
@@ -142,6 +223,13 @@ export async function createWhopCheckout(
       "[whop-checkout] Respuesta sin purchase_url:",
       JSON.stringify(config),
     );
+    alertCheckoutFailed({
+      userId,
+      productId: product.id,
+      status: 200,
+      cause: "sin_purchase_url",
+      raw: JSON.stringify(config ?? null),
+    });
     throw new CreateCheckoutError(
       "WHOP_FAILED",
       "No se pudo crear el checkout",
@@ -149,4 +237,47 @@ export async function createWhopCheckout(
   }
 
   return { initPoint, sessionId: config.id };
+}
+
+/**
+ * Alerta a Paolo cuando el checkout no abre (spec de avisos #14).
+ *
+ *  - U (mail ya) SOLO si Whop rechaza NUESTRA clave (401/403) o si falta la
+ *    clave o el id de cuenta: ahí no abre ningún checkout de nadie. Una llave fija para todos
+ *    (`whop:checkout_failed:auth`), así un loop no manda un mail por intento.
+ *  - B (solo panel) para todo lo demás: timeout, 5xx, 429, config del sandbox.
+ *    También una llave por causa: suben las ocurrencias, no las filas
+ *    (JonSnow #7: cualquiera puede loopear /api/checkout).
+ *
+ * Va en segundo plano: el cliente recibe su «No pudimos abrir el pago…» sin
+ * esperar a la base. Nunca tira.
+ */
+function alertCheckoutFailed(input: {
+  userId: string;
+  productId: string;
+  status: number | null;
+  cause: string;
+  raw: string;
+}): void {
+  const authProblem =
+    input.status === 401 ||
+    input.status === 403 ||
+    input.cause === "api_key_missing" ||
+    input.cause === "account_id_missing";
+  inBackground("checkout_failed", () =>
+    alertAdmin({
+      kind: "checkout_failed",
+      severity: authProblem ? "U" : "B",
+      dedupeKey: authProblem
+        ? "whop:checkout_failed:auth"
+        : `whop:checkout_failed:${input.cause}`,
+      userId: input.userId,
+      details: {
+        pack: input.productId,
+        status: input.status,
+        cause: input.cause,
+        raw: input.raw.slice(0, 500),
+      },
+    }),
+  );
 }

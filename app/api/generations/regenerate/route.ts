@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@/lib/supabase/server";
@@ -5,11 +6,31 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { regenerateImageRequestSchema } from "@/lib/validations/generations";
-import { generateOnServer } from "@/lib/ai/generate-server";
+import { generateOnServer, prepareProductParts } from "@/lib/ai/generate-server";
 import { getStyleFragment, type StyleId } from "@/lib/styles";
-import { SIGNED_URL_TTL_SECONDS, type OutputRatio } from "@/lib/constants";
-import { isGeminiBillingExhausted } from "@/lib/ai/gemini-client";
-import { formatBillingError } from "@/lib/generations/format";
+import { type OutputRatio } from "@/lib/constants";
+import { aiOutageCause, isInputBlocked, type GeminiError } from "@/lib/ai/gemini-client";
+import { isInsufficientCreditsError } from "@/lib/generations/format";
+import { aiGate, watchAiOutage } from "@/lib/avisos/ai-gate";
+import { alertAdmin } from "@/lib/avisos/alert";
+import { runAfter } from "@/lib/avisos/db";
+import { maybeNotifyCreditsLow, notifyUser } from "@/lib/avisos/notify";
+import {
+  aiUnavailableBody,
+  alertFailure,
+  alertOutputBlockCapped,
+  chargeFailedBody,
+  checkActionRateLimit,
+  claimOutputBlockRefund,
+  isOutputBlocked,
+  photosUnreadableBody,
+  rateLimitedBody,
+  refundOrPend,
+  type AiRouteError,
+} from "@/lib/avisos/rutas";
+import { noticeText } from "@/lib/avisos/textos";
+import { NOTICE_KEYS } from "@/lib/avisos/types";
+import { persistGeneratedImage } from "../_lib/persist";
 
 /**
  * POST /api/generations/regenerate — REGENERACIÓN por imagen con PROMPT ESTRICTO.
@@ -23,17 +44,41 @@ import { formatBillingError } from "@/lib/generations/format";
  * Flujo (cobra 1 crédito, 1 imagen):
  *  1. Auth Clerk + ensureProfile.
  *  2. Resolver por `imageId` (RLS): imagen → generación → versión → producto.
- *  3. Pre-check de créditos (necesita 1). 402 si no alcanza.
- *  4. Reservar 1 crédito (deduct atómico vía service_role).
+ *  3. Portero de la IA (503 antes de cobrar y antes del 402) + pre-check de
+ *     créditos (necesita 1) + fotos del producto legibles (si no, sin cobrar).
+ *  4. Reservar 1 crédito (deduct atómico vía service_role). 402 solo si de
+ *     verdad no alcanza; otro error es nuestro (503 + alerta U).
  *  5. Generar 1 variación con el prompt estricto (key propia de Vendí).
- *  6. Subir a Storage + insert en generated_images (arrastra el strict_prompt).
- *  7. Si falló: reembolsar el crédito. Devolver { image, creditsRemaining }.
+ *  6. Subir a Storage + insert en generated_images, reintentando con los bytes
+ *     en memoria (arrastra el strict_prompt).
+ *  7. Si falló: devolver el crédito con su aviso (salvo entrada bloqueada).
+ *
+ * Avisos: cada regeneración que falla deja UN aviso con llave
+ * `regen:<generation_id>:<request_id>` (regenerar cobra sobre la tanda madre,
+ * que ya terminó: no usa la llave `gen:`). Al cliente solo
+ * `{ error, message, refunded, notificationId? }`.
  */
 
 // Misma razón que /api/generations: la generación (hasta 60s) + sharp + upload
 // pueden superar el default de Vercel; si corta, muere entre deduct y refund y
 // el usuario pierde el crédito de la regeneración.
 export const maxDuration = 300;
+
+/** Texto interno del error, SOLO para Paolo. */
+function describeGeminiError(error: GeminiError): string {
+  switch (error.kind) {
+    case "unknown":
+      return error.message;
+    case "billing":
+      return `billing${error.message ? `: ${error.message}` : ""}`;
+    case "model_not_found":
+      return `model_not_found${error.model ? ` (${error.model})` : ""}`;
+    case "content_blocked":
+      return `content_blocked:${error.stage ?? "?"}${error.reason ? ` (${error.reason})` : ""}`;
+    default:
+      return error.kind;
+  }
+}
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -99,7 +144,7 @@ export async function POST(req: Request) {
 
   const { data: product, error: productErr } = await supabase
     .from("projects")
-    .select("id, product_images")
+    .select("id, name, product_images")
     .eq("id", version.product_id)
     .single();
   if (productErr || !product) {
@@ -113,6 +158,8 @@ export async function POST(req: Request) {
     ? (version.reference_images as string[])
     : [];
   const ratio = version.output_ratio as OutputRatio;
+  const productName =
+    typeof product.name === "string" && product.name.trim() ? product.name.trim() : null;
 
   if (productImages.length === 0) {
     return NextResponse.json(
@@ -123,7 +170,22 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // 3. Pre-check de créditos (1). Los ilimitados se saltean.
+  // 3.a Portero de la IA ANTES del 402: con la IA caída no tiene sentido
+  // mandarlo a comprar créditos que no puede usar (Hawkeye).
+  const gate = await aiGate({ watchUserId: userId });
+  if (!gate.open) {
+    return NextResponse.json(aiUnavailableBody(), { status: 503 });
+  }
+
+  // 3.a' Tope por usuario (60/hora, 300/día; migración 0028). Antes no había
+  // ninguno: con el saldo que vuelve en cada devolución, una falla forzada se
+  // repetía sin fin a costa de Gemini. Fail-open.
+  const rate = await checkActionRateLimit(userId, "regenerate");
+  if (!rate.allowed) {
+    return NextResponse.json(rateLimitedBody(rate.limitHour), { status: 429 });
+  }
+
+  // 3.b Pre-check de créditos (1). Los ilimitados se saltean.
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("credits_remaining")
@@ -132,31 +194,33 @@ export async function POST(req: Request) {
   if (profileErr || !profile) {
     return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
   }
-  const { data: isUnlimited } = await admin.rpc("is_unlimited", {
+  const { data: isUnlimitedRaw } = await admin.rpc("is_unlimited", {
     p_user_id: userId,
   });
+  const isUnlimited = isUnlimitedRaw === true;
   if (!isUnlimited && (profile.credits_remaining ?? 0) < 1) {
     return NextResponse.json(
       {
         error: "insufficient_credits",
         message: "Necesitás 1 crédito para regenerar.",
         creditsRemaining: profile.credits_remaining ?? 0,
+        refunded: 0,
       },
       { status: 402 },
     );
   }
 
-  // 3.b Sin saldo en Google (visto hace <2 min en esta instancia): cortamos
-  // antes de descontar, así no hay deduct + refund para el mismo error.
-  if (isGeminiBillingExhausted()) {
-    return NextResponse.json(
-      {
-        error: "ai_billing_exhausted",
-        message: formatBillingError({ service: "images", refunded: 0 }),
-      },
-      { status: 503 },
-    );
+  // 3.c Fotos del producto ANTES de cobrar: si no se pueden leer, no se
+  // descuenta nada.
+  const prepared = await prepareProductParts(productImages);
+  if (!prepared.ok) {
+    return NextResponse.json(photosUnreadableBody(), { status: 422 });
   }
+
+  // Llave del aviso de ESTE pedido (regenerar cobra sobre la tanda madre).
+  const requestId = randomUUID();
+  const noticeKey = NOTICE_KEYS.regen(generationId, requestId);
+  const ref = { generation_id: generationId, version_id: version.id as string, product: productName };
 
   // 4. Reservar 1 crédito (deduct atómico vía service_role).
   const { error: deductErr } = await admin.rpc("deduct_credits", {
@@ -165,30 +229,61 @@ export async function POST(req: Request) {
     p_generation_id: generationId,
   });
   if (deductErr) {
-    return NextResponse.json(
-      { error: "insufficient_credits", message: deductErr.message },
-      { status: 402 },
-    );
-  }
-
-  // Helper: reembolsa el crédito reservado ante cualquier fallo posterior.
-  // No-op para ilimitados: su deduct no descontó nada, así que un refund
-  // acuñaría créditos de la nada en el ledger.
-  const refund = async () => {
-    if (isUnlimited) return;
-    await admin.rpc("grant_credits", {
-      p_user_id: userId,
-      p_amount: 1,
-      p_reason: "refund",
+    if (isInsufficientCreditsError(deductErr.message)) {
+      return NextResponse.json(
+        {
+          error: "insufficient_credits",
+          message: "Necesitás 1 crédito para regenerar.",
+          refunded: 0,
+        },
+        { status: 402 },
+      );
+    }
+    await alertAdmin({
+      kind: "charge_failed",
+      severity: "U",
+      dedupeKey: "charge_failed:regenerate",
+      userId,
+      details: { route: "POST /api/generations/regenerate", error: deductErr.message },
     });
-  };
+    return NextResponse.json(chargeFailedBody(), { status: 503 });
+  }
+  const charged = isUnlimited ? 0 : 1;
 
-  // Frase que aclara el reembolso, sólo cuando de verdad lo hay (ver `refund`).
-  // Va pegada a TODOS los mensajes de fallo: antes las respuestas de error no
-  // traían `message` para humanos, el cliente caía a `data.error` y mostraba en
-  // pantalla el literal "generation_failed" — sin decir jamás que la plata
-  // volvía. Reportado por Paolo el 2026-09-09.
-  const refundNote = isUnlimited ? "" : " Te devolvimos el crédito.";
+  /**
+   * Devuelve el crédito con su aviso «No pudimos terminar la imagen… Ya te
+   * devolvimos el crédito: quedaste con {saldo}.» (a un ilimitado, sin el «te
+   * devolvimos»), alerta a Paolo y arma la respuesta. Si la devolución falla:
+   * «Tu devolución… está en proceso» + alerta U.
+   */
+  const failWithRefund = async (cause: string, raw: string | null, outage = false) => {
+    const refund = await refundOrPend({
+      userId,
+      amount: 1,
+      bucket: "generation",
+      kind: "regen_failed",
+      data: ref,
+      noticeKey,
+      generationId,
+      versionId: version.id as string,
+      product: productName,
+    });
+    if (outage) await watchAiOutage(userId);
+    await alertFailure({
+      kind: "regen_failed",
+      userId,
+      dedupeKey: `regen_failed:${generationId}:${requestId}`,
+      outage,
+      details: { ...ref, charged, refunded: refund.refunded, cause, raw },
+    });
+    const responseBody: AiRouteError = {
+      error: refund.status === "pending" ? "refund_pending" : "generation_failed",
+      message: refund.message,
+      refunded: refund.refunded,
+      notificationId: refund.notificationId,
+    };
+    return NextResponse.json(responseBody, { status: outage ? 503 : 502 });
+  };
 
   // 5. Generar 1 variación con el prompt estricto. Pasamos el estilo de la
   //    versión (style_id) para MANTENERLO: en estricto el texto del usuario gana
@@ -201,82 +296,56 @@ export async function POST(req: Request) {
     variations: 1,
     strictPrompt,
     styleFragment,
+    productParts: prepared.parts,
   });
 
   if (!result.ok) {
-    await refund();
-    // Sin saldo en Google: no se arregla reintentando; el texto dice si el
-    // crédito volvió (a un ilimitado no se le descontó nada).
-    const billing = result.error.kind === "billing";
-    return NextResponse.json(
-      {
-        error: "generation_failed",
-        detail: result.error,
-        message: billing
-          ? formatBillingError({ service: "images", refunded: isUnlimited ? 0 : 1 })
-          : `No pudimos regenerar la imagen.${refundNote} Probá de nuevo.`,
-      },
-      { status: billing ? 503 : 502 },
+    // Google bloqueó la ENTRADA (la foto o el pedido): no se devuelve. Bloqueo
+    // de la SALIDA más allá del tope (3 en 24 h): igual, sin devolución y con
+    // alerta M (el strictPrompt lo escribe el cliente).
+    const outputCapped =
+      charged > 0 && isOutputBlocked(result.error) && !(await claimOutputBlockRefund(userId));
+    if (isInputBlocked(result.error) || outputCapped) {
+      const notificationId = await notifyUser(userId, "input_blocked", ref, noticeKey);
+      const blockDetails = {
+        ...ref,
+        charged,
+        refunded: 0,
+        block_reason: result.error.kind === "content_blocked" ? result.error.reason ?? null : null,
+      };
+      if (outputCapped) {
+        await alertOutputBlockCapped({
+          userId,
+          route: "POST /api/generations/regenerate",
+          details: blockDetails,
+        });
+      } else {
+        await alertAdmin({
+          kind: "input_blocked",
+          severity: "B",
+          dedupeKey: `input_blocked:regen:${generationId}:${requestId}`,
+          userId,
+          details: blockDetails,
+        });
+      }
+      const responseBody: AiRouteError = {
+        error: "input_blocked",
+        message: noticeText("input_blocked", ref),
+        refunded: 0,
+        notificationId,
+      };
+      return NextResponse.json(responseBody, { status: 422 });
+    }
+    return failWithRefund(
+      result.error.kind,
+      describeGeminiError(result.error),
+      aiOutageCause(result.error) !== null,
     );
   }
 
   const generated = result.images[0];
   if (!generated) {
-    await refund();
-    return NextResponse.json(
-      {
-        error: "generation_failed",
-        detail: { kind: "unknown" },
-        message: `El modelo no devolvió ninguna imagen.${refundNote} Probá de nuevo.`,
-      },
-      { status: 502 },
-    );
-  }
-
-  // 6. Subir a Storage (path único por timestamp para no colisionar con las
-  // variaciones existentes de esta misma generación).
-  //
-  // De acá para abajo va todo con el cliente ADMIN, no con el del usuario:
-  // el token de Clerk vive ~60s y no se renueva durante la request, así que
-  // después de esperar a la imagen ya puede estar vencido y Storage responde
-  // `400 · "exp" claim timestamp check failed`. Pasó en prod en la ruta
-  // hermana (`/api/generations`) el 2026-09-09. El ownership del `imageId` ya
-  // se resolvió arriba bajo RLS y el `path` va namespaceado por `userId` de
-  // `auth()`, así que no se afloja ningún borde de seguridad.
-  const path = `${userId}/${generationId}/regen-${Date.now()}.jpg`;
-  const { error: upErr } = await admin.storage
-    .from("generated-images")
-    .upload(path, generated.buffer, {
-      contentType: generated.contentType,
-      upsert: false,
-    });
-  if (upErr) {
-    await refund();
-    return NextResponse.json(
-      {
-        error: "upload_failed",
-        detail: { kind: "upload_failed", raw: upErr.message },
-        message: `La imagen se generó pero no pudimos guardarla.${refundNote} Probá de nuevo.`,
-      },
-      { status: 502 },
-    );
-  }
-  const { data: signed } = await admin.storage
-    .from("generated-images")
-    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-  const url = signed?.signedUrl ?? "";
-  if (!url) {
-    // Se subió pero no pudo firmarse la URL: sin imagen visible no hay
-    // entrega. Reembolsar y avisar, en vez de insertar una fila rota.
-    await refund();
-    return NextResponse.json(
-      {
-        error: "upload_failed",
-        detail: { kind: "sign_failed" },
-        message: `La imagen se guardó pero no pudimos generar su enlace.${refundNote} Probá de nuevo.`,
-      },
-      { status: 502 },
-    );
+    return failWithRefund("no_image", "generateOnServer devolvió 0 imágenes");
   }
 
   // variation_index: siguiente al máximo de la generación (columna NOT NULL).
@@ -291,27 +360,50 @@ export async function POST(req: Request) {
     (typeof maxRow?.variation_index === "number" ? maxRow.variation_index : -1) +
     1;
 
-  // Insert de la nueva imagen. Arrastra el strict_prompt para que el usuario
-  // pueda seguir iterando desde ahí. `base_prompt` = prompt final read-only.
-  const { data: inserted, error: insertErr } = await admin
-    .from("generated_images")
-    .insert({
+  // 6. Subir a Storage (path único por pedido para no colisionar con las
+  // variaciones existentes de esta misma generación) + link + fila, con
+  // reintentos y los bytes en memoria. Todo con el cliente ADMIN: el token de
+  // Clerk vive ~60s y no se renueva durante la request (pasó en prod el
+  // 2026-09-09). El ownership del `imageId` ya se resolvió arriba bajo RLS y el
+  // `path` va namespaceado por el `userId` de `auth()`.
+  const saved = await persistGeneratedImage(admin, {
+    path: `${userId}/${generationId}/regen-${Date.now()}-${requestId.slice(0, 8)}.jpg`,
+    buffer: generated.buffer,
+    contentType: generated.contentType,
+    selectRow: true,
+    row: {
       generation_id: generationId,
       user_id: userId,
-      image_url: url,
       variation_index: nextIndex,
+      // Arrastra el strict_prompt para que el usuario pueda seguir iterando
+      // desde ahí. `base_prompt` = prompt final read-only.
       strict_prompt: strictPrompt,
       metadata: { base_prompt: result.finalPrompt, regenerated: true },
-    })
-    .select()
-    .single();
-  if (insertErr) {
-    // La imagen se generó y subió, pero no pudo persistirse. No reembolsamos
-    // (el crédito produjo una imagen real en Storage), pero avisamos.
-    return NextResponse.json(
-      { error: "persist_failed", message: insertErr.message },
-      { status: 500 },
-    );
+    },
+  });
+  if (!saved.ok) {
+    if (saved.countsAsDelivered) {
+      // El archivo quedó en la carpeta del cliente y no se pudo borrar: cuenta
+      // como entregada (JonSnow #1), no se devuelve. Paolo lo revisa.
+      // (ownerDeleted: el dueño borró la tanda mientras corría → B.)
+      await alertAdmin({
+        kind: "image_lost",
+        severity: saved.ownerDeleted ? "B" : "M",
+        dedupeKey: `image_lost:regen:${generationId}:${requestId}`,
+        userId,
+        details: { ...ref, stage: saved.stage, raw: saved.error, charged, refunded: 0 },
+      });
+      const notificationId = await notifyUser(userId, "regen_failed", { ...ref, refunded: 0 }, noticeKey);
+      const responseBody: AiRouteError = {
+        error: "generation_failed",
+        message: noticeText("regen_failed", { ...ref, refunded: 0 }),
+        refunded: 0,
+        notificationId,
+      };
+      return NextResponse.json(responseBody, { status: 502 });
+    }
+    // La perdimos nosotros aun reintentando: se devuelve.
+    return failWithRefund(`upload_failed:${saved.stage}`, saved.error);
   }
 
   const { data: finalProfile } = await admin
@@ -319,11 +411,16 @@ export async function POST(req: Request) {
     .select("credits_remaining")
     .eq("id", userId)
     .single();
+  const creditsRemaining =
+    typeof finalProfile?.credits_remaining === "number" ? finalProfile.credits_remaining : null;
+  runAfter(() =>
+    maybeNotifyCreditsLow({ userId, balance: creditsRemaining, unlimited: isUnlimited }),
+  );
 
   return NextResponse.json(
     {
-      image: inserted,
-      creditsRemaining: finalProfile?.credits_remaining ?? null,
+      image: saved.row,
+      creditsRemaining,
     },
     { status: 201 },
   );

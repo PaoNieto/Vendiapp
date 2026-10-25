@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Coins, Loader2 } from "lucide-react";
 import { useCreditos } from "@/lib/creditos/use-creditos";
 import type { Product } from "@/lib/billing/catalog";
+import { messageText } from "@/lib/avisos/textos";
 
 /**
  * Vitrina de compra (cliente). Recibe los productos del catálogo server-side
@@ -44,12 +45,16 @@ export function UpgradeStore({
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.initPoint) {
-        throw new Error(data?.error ?? "No se pudo iniciar el pago");
+        setError(typeof data?.message === "string" ? data.message : messageText("checkout_failed", {}));
+        setLoadingId(null);
+        return;
       }
       // Redirige a la página de pago de Mercado Pago.
       window.location.href = data.initPoint as string;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo iniciar el pago");
+      // Error de red (fetch tiró): nunca el texto crudo del browser, siempre el aprobado.
+      console.error("[upgrade] checkout:", err);
+      setError(messageText("checkout_failed", {}));
       setLoadingId(null);
     }
   }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { userHasPaidAccess } from "@/lib/auth/paid-access";
+import { checkPaidAccess } from "@/lib/auth/paid-access";
 import { getProduct } from "@/lib/billing/catalog";
 import { AppBackground } from "@/components/dashboard/app-background";
 import { PlanClient } from "./plan-client";
@@ -58,7 +58,9 @@ function formatUsd(amount: number): string {
 export default async function PlanPage() {
   const { userId } = await auth();
   if (!userId) redirect("/signup?redirect_url=/plan");
-  if (await userHasPaidAccess(userId)) redirect("/dashboard");
+  // "unknown" también a /dashboard: no se le muestra el precio a alguien que
+  // quizás ya pagó. El gate de (app) decide (entra o pantalla de error).
+  if ((await checkPaidAccess(userId)) !== "unpaid") redirect("/dashboard");
 
   const lifetime = getProduct("lifetime-pass");
   if (!lifetime) {

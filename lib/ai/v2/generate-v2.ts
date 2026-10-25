@@ -23,6 +23,8 @@
 import {
   callGemini,
   isGeminiBillingExhausted,
+  pickBatchError,
+  reportAiOutage,
   type GeminiError,
   type GeminiPart,
   type GeminiResponse,
@@ -970,7 +972,9 @@ const BLOCK_REASONS = new Set([
   "IMAGE_RECITATION",
 ]);
 
-function isHttpStatus(err: GeminiError, status: number): err is Extract<GeminiError, { kind: "unknown" }> {
+function isHttpStatus(err: GeminiError, status: number): boolean {
+  // Desde los avisos, callGemini tipa el 404 como `model_not_found`.
+  if (status === 404 && err.kind === "model_not_found") return true;
   return err.kind === "unknown" && err.message.startsWith(`HTTP ${status}`);
 }
 
@@ -1011,7 +1015,7 @@ function extractImage(
   const candidate = response.candidates?.[0];
   if (!candidate) return { ok: false, error: { kind: "unknown", message: "Gemini no devolvió candidatos." } };
   if (candidate.finishReason && BLOCK_REASONS.has(candidate.finishReason)) {
-    return { ok: false, error: { kind: "content_blocked", reason: candidate.finishReason } };
+    return { ok: false, error: { kind: "content_blocked", reason: candidate.finishReason, stage: "output" } };
   }
   for (const part of candidate.content?.parts ?? []) {
     if ("inlineData" in part && part.inlineData?.data) {
@@ -1044,6 +1048,8 @@ async function callImageModel(
   let model = deps.imageModel ?? sticky ?? GEMINI_IMAGE_MODEL_V2;
   const contents = [{ role: "user" as const, parts }];
   const imageConfig = { aspectRatio: ratio, imageSize: IMAGE_SIZE_V2 };
+  // El 404 NO marca la IA caída acá: hay modelo de respaldo. Se reporta abajo
+  // solo si el último intento también da 404.
   const once = (m: string) =>
     call({
       apiKey: deps.apiKey,
@@ -1051,6 +1057,7 @@ async function callImageModel(
       contents,
       generationConfig: { responseModalities: ["IMAGE"], imageConfig },
       timeoutMs: TIMEOUTS.image,
+      reportModelNotFound: false,
     });
 
   let res = await once(model);
@@ -1086,7 +1093,10 @@ async function callImageModel(
       timeoutMs: TIMEOUTS.image,
     });
   }
-  if (!res.ok) return { ok: false, error: res.error };
+  if (!res.ok) {
+    if (res.error.kind === "model_not_found") await reportAiOutage(res.error, { model, status: 404 });
+    return { ok: false, error: res.error };
+  }
   const img = extractImage(res.response);
   if (!img.ok) return img;
   return { ok: true, mimeType: img.mimeType, data: img.data, model };
@@ -1192,7 +1202,9 @@ export async function renderV2(prepared: V2Prepared, deps: GenerateV2Deps): Prom
 
   if (out.length === 0) {
     // Si alguna falló por saldo, ese es EL error: define el mensaje al usuario.
-    const error = failures.find((f) => f.kind === "billing") ?? failures[0] ?? { kind: "unknown", message: "Sin imágenes." };
+    // Si no, caída de la IA primero; bloqueo de la entrada solo si fallaron
+    // todas por eso (pickBatchError, avisos).
+    const error = failures.find((f) => f.kind === "billing") ?? pickBatchError(failures);
     return { ok: false, error, snapshot };
   }
   return { ok: true, images: out, failures, finalPrompt: batch.prompts[0], snapshot };

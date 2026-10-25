@@ -1,5 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import {
+  ATTRIBUTION_COOKIE,
+  ATTRIBUTION_MAX_AGE,
+  FBC_COOKIE,
+  attributionFromSearch,
+  fbcFromFbclid,
+} from "@/lib/attribution";
 
 /**
  * Next.js 16 renombra `middleware` a `proxy`. Clerk es compatible: el único
@@ -20,7 +27,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  *
  * Reglas de ruta:
  *  - PÚBLICAS: `/`, `/login`, `/signup`, `/privacidad`, `/terminos`,
- *    `/onboarding`, `/recuperar`, `/comenzar`, `/comprar`, webhooks (y subrutas).
+ *    `/onboarding`, `/recuperar`, `/comenzar`, `/comprar`, webhooks y cron (y
+ *    subrutas).
  *    Visitables por anónimos y logueados.
  *  - Cualquier otra ruta (todo (app)/* y `/pago/*`) requiere sesión. Sin sesión →
  *    redirect a `/login?redirect_url=<ruta+query original>`: es el param que el
@@ -57,6 +65,10 @@ const isPublicRoute = createRouteMatcher([
   // exponerlas es seguro. Sin esto, el proxy las redirige a /login (307) y la
   // notificacion de pago nunca llega al handler -> los creditos NO se acreditan.
   "/api/webhooks/(.*)",
+  // Vercel Cron (avisos diarios): lo invoca Vercel SIN sesion Clerk. Cada ruta
+  // valida su PROPIO `Authorization: Bearer CRON_SECRET` (503 si falta el
+  // secret, timingSafeEqual). Sin esto el cron recibe un 307 a /login y no corre.
+  "/api/cron/(.*)",
   // `/.well-known/*`: archivos de verificacion de dominio que los servidores de
   // terceros leen SIN sesion. Hoy el que importa es
   // `apple-developer-merchantid-domain-association`, el que habilita Apple Pay y
@@ -71,6 +83,39 @@ const isPublicRoute = createRouteMatcher([
   "/.well-known/(.*)",
 ]);
 
+/**
+ * Guarda de qué anuncio vino la persona (ver lib/attribution.ts). Corre en
+ * TODAS las respuestas, redirects incluidos: el primer salto de un anuncio es
+ * /comenzar → /comprar → /signup, y el query se pierde en el camino.
+ * First-touch: no pisa una cookie que ya existe.
+ */
+function withAttribution(request: NextRequest, response: NextResponse) {
+  const attribution = attributionFromSearch(
+    request.nextUrl.searchParams,
+    request.nextUrl.pathname,
+  );
+  if (!attribution) return response;
+
+  const cookieOptions = {
+    path: "/",
+    maxAge: ATTRIBUTION_MAX_AGE,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+  };
+  if (!request.cookies.has(ATTRIBUTION_COOKIE)) {
+    response.cookies.set(
+      ATTRIBUTION_COOKIE,
+      JSON.stringify(attribution),
+      { ...cookieOptions, httpOnly: true },
+    );
+  }
+  // `_fbc` lo lee también el Pixel de Meta en el browser: sin httpOnly.
+  if (attribution.fbclid && !request.cookies.has(FBC_COOKIE)) {
+    response.cookies.set(FBC_COOKIE, fbcFromFbclid(attribution.fbclid), cookieOptions);
+  }
+  return response;
+}
+
 // Form de auth: si ya hay sesión, no tiene sentido mostrarlo.
 const isAuthFormRoute = createRouteMatcher(["/login", "/signup"]);
 
@@ -80,7 +125,10 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Logueado en /login o /signup → al dashboard.
   if (userId && isAuthFormRoute(request)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return withAttribution(
+      request,
+      NextResponse.redirect(new URL("/dashboard", request.url)),
+    );
   }
 
   // Sin sesión en ruta protegida → al login, conservando el destino COMPLETO
@@ -93,10 +141,10 @@ export default clerkMiddleware(async (auth, request) => {
       "redirect_url",
       pathname + request.nextUrl.search,
     );
-    return NextResponse.redirect(loginUrl);
+    return withAttribution(request, NextResponse.redirect(loginUrl));
   }
 
-  return NextResponse.next();
+  return withAttribution(request, NextResponse.next());
 });
 
 export const config = {

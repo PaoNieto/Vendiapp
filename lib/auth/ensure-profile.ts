@@ -1,6 +1,8 @@
 import "server-only";
+import { cookies } from "next/headers";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ATTRIBUTION_COOKIE, parseAttributionCookie } from "@/lib/attribution";
 
 /**
  * Crea la fila `profiles` del usuario Clerk si todavía no existe (idempotente).
@@ -57,4 +59,22 @@ export async function ensureProfile(): Promise<void> {
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
+
+  // De qué anuncio vino (cookie que deja el proxy, ver lib/attribution.ts).
+  // Va en un UPDATE aparte y sin propagar errores A PROPÓSITO: si la columna
+  // todavía no existe (migración 0027 sin aplicar) o algo falla, el registro
+  // NO se puede romper por un dato de marketing.
+  const attribution = parseAttributionCookie(
+    (await cookies()).get(ATTRIBUTION_COOKIE)?.value,
+  );
+  if (attribution) {
+    const { error } = await admin
+      .from("profiles")
+      .update({ attribution })
+      .eq("id", userId)
+      .is("attribution", null);
+    if (error) {
+      console.warn("[ensure-profile] No se guardó la atribución:", error.message);
+    }
+  }
 }

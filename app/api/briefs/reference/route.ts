@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { userHasPaidAccess } from "@/lib/auth/paid-access";
 import { referenceBriefRequestSchema } from "@/lib/validations/briefs";
 import { isPipelineV2User } from "@/lib/ai/v2/constants";
-import { isGeminiBillingExhausted } from "@/lib/ai/gemini-client";
+import { reportAiOutage } from "@/lib/ai/gemini-client";
+import { aiGate } from "@/lib/avisos/ai-gate";
+import { aiUnavailableBody } from "@/lib/avisos/rutas";
 import {
   referenceBriefMisses,
   reserveBriefQuota,
@@ -78,14 +80,16 @@ export async function POST(req: Request) {
 
   const apiKey = process.env.GOOGLE_API_KEY?.trim();
   if (!apiKey) {
-    return NextResponse.json({ error: "briefs_unavailable" }, { status: 503 });
+    // Sin key no hay IA: caída (alerta U a Paolo) y el cliente ve el banner.
+    await reportAiOutage({ kind: "missing_key" });
+    return NextResponse.json(aiUnavailableBody(), { status: 503 });
   }
-  // Sin saldo en Google: ninguna nota saldría. 503 ANTES de reservar cupo.
-  if (isGeminiBillingExhausted()) {
-    return NextResponse.json(
-      { error: "briefs_unavailable", reason: "ai_billing_exhausted" },
-      { status: 503 },
-    );
+  // IA caída (sin saldo en Google, key mala, modelo inexistente): la nota
+  // fallaría igual. 503 ANTES de reservar cupo, así el usuario no pierde notas
+  // del tope por hora. Se lo anota para avisarle cuando vuelva.
+  const gate = await aiGate({ watchUserId: userId });
+  if (!gate.open) {
+    return NextResponse.json(aiUnavailableBody(), { status: 503 });
   }
 
   const store = createSupabaseV2Store();

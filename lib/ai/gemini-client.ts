@@ -101,20 +101,32 @@ export type GeminiResponse = {
 };
 
 /**
- * Union de errores tipados que devolvemos al caller. Las rutas los traducen a
- * copy en castellano (`message` de la respuesta; ver `formatBillingError` en
- * lib/generations/format.ts para `billing`).
+ * Union de errores tipados que devolvemos al caller. NUNCA van tal cual al
+ * cliente: las rutas responden con los textos de lib/avisos/textos.ts (y
+ * `formatBillingError` de lib/generations/format.ts para `billing`) y el
+ * detalle crudo queda para Paolo (admin_alerts).
  *
  * `billing` ≠ `rate_limit`: la cuenta de Google de Vendí se quedó SIN SALDO
  * (prepago agotado, billing deshabilitado). No se arregla solo esperando, así
- * que no se reintenta y al usuario no se le dice "probá más tarde".
+ * que no se reintenta y al usuario no se le dice "probá más tarde": es caída
+ * de la IA (`aiOutageCause`), igual que key mala y modelo inexistente.
  */
 export type GeminiError =
   | { kind: "missing_key" }
   | { kind: "invalid_key" }
   | { kind: "rate_limit"; retryAfterSec?: number }
   | { kind: "billing"; message?: string }
-  | { kind: "content_blocked"; reason?: string }
+  /** 404: el modelo no existe o lo retiraron. Es caída de la IA (no se arregla solo). */
+  | { kind: "model_not_found"; model?: string; message?: string }
+  /**
+   * Bloqueo de contenido. `stage`:
+   *  - "input"  → Google bloqueó la ENTRADA (`promptFeedback.blockReason`): la
+   *    foto o el pedido del cliente. NO se devuelve el crédito, solo aviso.
+   *  - "output" → bloqueó la SALIDA (finishReason IMAGE_SAFETY, etc.): la culpa
+   *    no es clara, se devuelve.
+   *  - sin stage → error HTTP con texto de safety: Google no cobra, se devuelve.
+   */
+  | { kind: "content_blocked"; reason?: string; stage?: "input" | "output" }
   | { kind: "network" }
   | { kind: "unknown"; message: string };
 
@@ -141,6 +153,13 @@ export type CallGeminiOptions = {
   timeoutMs?: number;
   /** Versión de la REST API. Default `v1beta`: omitirlo deja todo como estaba. */
   apiVersion?: GeminiApiVersion;
+  /**
+   * `false`: un 404 (modelo inexistente) NO marca la IA como caída. Para el que
+   * tiene un modelo de respaldo y lo va a probar (v2: GA → preview); ese caller
+   * reporta él mismo si el respaldo también da 404 (`reportAiOutage`). Sin saldo
+   * y key mala marcan siempre. Default true.
+   */
+  reportModelNotFound?: boolean;
 };
 
 /**
@@ -151,7 +170,9 @@ export async function callGemini(
   opts: CallGeminiOptions,
 ): Promise<GeminiCallResult> {
   if (!opts.apiKey || opts.apiKey.trim().length === 0) {
-    return { ok: false, error: { kind: "missing_key" } };
+    const error: GeminiError = { kind: "missing_key" };
+    await reportAiOutage(error, { model: opts.model });
+    return { ok: false, error };
   }
 
   const url = `${GEMINI_API_ROOT}/${opts.apiVersion ?? "v1beta"}/models/${encodeURIComponent(
@@ -198,13 +219,17 @@ export async function callGemini(
   // como JSON con `{ error: { code, message, status, details? } }`.
   if (!res.ok) {
     const errorPayload = await safeReadErrorPayload(res);
-    const error = mapHttpStatusToError(res.status, errorPayload);
-    if (error.kind === "billing") noteBillingExhausted(res.status, opts.model, error.message);
+    const error = mapHttpStatusToError(res.status, errorPayload, opts.model);
+    // La línea de saldo de siempre (main), antes del aviso nuevo.
+    if (error.kind === "billing") noteBillingExhaustedLog(res.status, opts.model, error.message);
+    if (error.kind !== "model_not_found" || opts.reportModelNotFound !== false) {
+      await reportAiOutage(error, { model: opts.model, status: res.status });
+    }
     return { ok: false, error };
   }
-  // Una respuesta OK prueba que hay saldo: si alguien recargó, el corte se
-  // levanta ya y no espera a que venza.
-  billingExhaustedUntil = 0;
+  // Una respuesta OK prueba saldo, key y modelo: el corte local se levanta ya y
+  // la fila de service_status vuelve a ok si estaba caída.
+  noteAiOk(opts.model);
 
   let parsed: GeminiResponse;
   try {
@@ -218,11 +243,12 @@ export async function callGemini(
 
   // Aún con HTTP 200, Gemini puede haber bloqueado el prompt completo. Lo
   // chequeamos acá para que los callers no tengan que duplicar el guard.
+  // Es un bloqueo de la ENTRADA (la foto o el pedido del cliente).
   const promptBlock = parsed.promptFeedback?.blockReason;
   if (promptBlock) {
     return {
       ok: false,
-      error: { kind: "content_blocked", reason: promptBlock },
+      error: { kind: "content_blocked", reason: promptBlock, stage: "input" },
     };
   }
 
@@ -253,6 +279,7 @@ async function safeReadErrorPayload(res: Response): Promise<GeminiErrorPayload> 
 function mapHttpStatusToError(
   status: number,
   payload: GeminiErrorPayload,
+  model?: string,
 ): GeminiError {
   const message = payload.error?.message ?? `HTTP ${status}`;
 
@@ -273,11 +300,20 @@ function mapHttpStatusToError(
     return { kind: "unknown", message: `HTTP 400: ${message}` };
   }
 
-  // Saldo agotado / billing apagado: Google lo manda como 429 RESOURCE_EXHAUSTED
-  // ("Your prepayment credits are depleted", verificado en vivo 2026-09-10) o
-  // como 403 (BILLING_DISABLED). Va ANTES que invalid_key y rate_limit.
+  // Saldo agotado / billing apagado. Hoy Google lo manda como 402 (docs de
+  // billing y de errores, 2026-10); antes como 429 RESOURCE_EXHAUSTED ("Your
+  // prepayment credits are depleted", verificado en vivo 2026-09-10) o 403
+  // (BILLING_DISABLED). Va ANTES que invalid_key y rate_limit.
+  if (status === 402) {
+    return { kind: "billing", message: message.slice(0, 300) };
+  }
   if ((status === 429 || status === 403) && isBillingExhaustion(payload)) {
     return { kind: "billing", message: message.slice(0, 300) };
+  }
+
+  // Modelo inexistente o retirado: un 404 de generateContent solo puede ser eso.
+  if (status === 404) {
+    return { kind: "model_not_found", model, message: message.slice(0, 300) };
   }
 
   if (status === 401 || status === 403) {
@@ -327,23 +363,78 @@ function isBillingExhaustion(payload: GeminiErrorPayload): boolean {
   return BILLING_PATTERNS.some((re) => re.test(haystack));
 }
 
+/* -------------------------------------------------------------------------- */
+/*  IA caída (sin saldo, key mala, modelo inexistente)                          */
+/* -------------------------------------------------------------------------- */
+
+/** Causas que son CAÍDA de la IA: no se arreglan solas reintentando. */
+export type AiOutageCause = "billing" | "invalid_key" | "missing_key" | "model_not_found";
+
 /**
- * Corte por instancia: después de un `billing`, durante 2 minutos las rutas
- * pueden cortar ANTES de descontar créditos o reservar cupo de notas
- * (`isGeminiBillingExhausted`). Se levanta solo al vencer o con la primera
- * respuesta OK de Gemini (alguien recargó). Es un atajo, no la fuente de verdad:
- * sin corte, la llamada real igual devuelve `billing`.
+ * ¿Este error es una caída de la IA? Los transitorios (rate limit, red, 5xx) y
+ * los bloqueos de contenido NO: se arreglan solos o dependen del pedido.
+ */
+export function aiOutageCause(error: GeminiError | null | undefined): AiOutageCause | null {
+  if (!error) return null;
+  switch (error.kind) {
+    case "billing":
+    case "invalid_key":
+    case "missing_key":
+    case "model_not_found":
+      return error.kind;
+    default:
+      return null;
+  }
+}
+
+/**
+ * ¿Google bloqueó la ENTRADA (la foto o el pedido del cliente)? Es el único
+ * fallo en el que NO se devuelve el crédito (regla de Paolo): solo aviso.
+ */
+export function isInputBlocked(error: GeminiError | null | undefined): boolean {
+  return !!error && error.kind === "content_blocked" && error.stage === "input";
+}
+
+/**
+ * De varios fallos de una tanda, el que define qué se le dice al cliente:
+ *  1. una caída de la IA (afecta a todos);
+ *  2. bloqueo de la entrada, SOLO si fallaron todas por eso (misma entrada);
+ *  3. el primero.
+ * Si alguna falló por otra cosa, el bloqueo no es "solo de la foto": se trata
+ * como falla nuestra (se devuelve).
+ */
+export function pickBatchError(failures: GeminiError[]): GeminiError {
+  const outage = failures.find((f) => aiOutageCause(f) !== null);
+  if (outage) return outage;
+  if (failures.length > 0 && failures.every(isInputBlocked)) return failures[0];
+  const notInput = failures.find((f) => !isInputBlocked(f));
+  return notInput ?? failures[0] ?? { kind: "unknown", message: "Sin imágenes." };
+}
+
+/**
+ * Corte local de ESTA instancia. La fuente de verdad es la fila 'ai' de
+ * `service_status` (lib/avisos/ai-gate.ts): las rutas preguntan `aiGate()`
+ * ANTES de cobrar. Este corte es el atajo sincrónico para el medio de una tanda
+ * (pipeline v2) y OBEDECE a la fila: ai-gate lo sincroniza con `syncAiBreaker()`
+ * cada vez que la lee, y lo levanta cuando la IA vuelve.
  */
 export const BILLING_BREAKER_MS = 120_000;
-let billingExhaustedUntil = 0;
+let aiDownUntil = 0;
 
-function noteBillingExhausted(status: number, model: string, message: string | undefined): void {
+/**
+ * Dedupe propio de la línea `[gemini] billing_exhausted` (la que ya existía en
+ * main: es la que se busca en los logs de Vercel y la que chequea
+ * scripts/v2-dry-run.ts G1). Sale UNA vez por apertura del corte POR SALDO en
+ * esta instancia, igual que antes, aunque el corte general ya estuviera prendido
+ * por otra causa. Se levanta con la primera respuesta OK (o la fila en ok).
+ */
+let billingLoggedUntil = 0;
+
+function noteBillingExhaustedLog(status: number, model: string, message: string | undefined): void {
   const now = Date.now();
-  const wasOpen = billingExhaustedUntil > now;
-  billingExhaustedUntil = now + BILLING_BREAKER_MS;
-  // Una línea por apertura del corte (no una por imagen de la tanda): es la que
-  // hay que buscar en los logs de Vercel. Sin la key: solo status, modelo y el
-  // texto de Google.
+  const wasOpen = billingLoggedUntil > now;
+  billingLoggedUntil = now + BILLING_BREAKER_MS;
+  // Sin la key: solo status, modelo y el texto de Google.
   if (!wasOpen) {
     console.error(
       "[gemini] billing_exhausted",
@@ -352,14 +443,88 @@ function noteBillingExhausted(status: number, model: string, message: string | u
   }
 }
 
-/** ¿Esta instancia vio hace menos de 2 min que la cuenta de Google no tiene saldo? */
-export function isGeminiBillingExhausted(now: number = Date.now()): boolean {
-  return billingExhaustedUntil > now;
+/**
+ * Anota una caída de la IA: prende el corte local y, la primera vez (por
+ * instancia y por apertura del corte), marca la fila como caída y abre la
+ * alerta U a Paolo (`markAiDown`). Si `error` no es una caída, no hace nada.
+ * NUNCA tira.
+ */
+export async function reportAiOutage(
+  error: GeminiError | null | undefined,
+  info: { model?: string | null; status?: number | null } = {},
+): Promise<void> {
+  const cause = aiOutageCause(error);
+  if (!cause || !error) return;
+  const now = Date.now();
+  const wasOpen = aiDownUntil > now;
+  aiDownUntil = now + BILLING_BREAKER_MS;
+  if (wasOpen) return;
+
+  const message =
+    error.kind === "billing" || error.kind === "model_not_found" ? error.message ?? null : null;
+  const model =
+    error.kind === "model_not_found" ? error.model ?? info.model ?? null : info.model ?? null;
+  // Una línea por apertura del corte (no una por imagen). Sin la key.
+  console.error(
+    "[gemini] ai_down",
+    JSON.stringify({ cause, status: info.status ?? null, model, message: (message ?? "").slice(0, 300) }),
+  );
+  try {
+    const gate = await loadAiGate();
+    await gate?.markAiDown(cause, { model, status: info.status ?? null, message });
+  } catch (err) {
+    console.error("[gemini] markAiDown falló:", err instanceof Error ? err.message : err);
+  }
 }
+
+/** Respuesta OK de Gemini: levanta el corte local y avisa a ai-gate (barato si ya estaba ok). */
+function noteAiOk(model: string): void {
+  aiDownUntil = 0;
+  billingLoggedUntil = 0;
+  void loadAiGate()
+    .then((gate) => gate?.markAiUp("gemini_ok", { model }))
+    .catch(() => {});
+}
+
+/**
+ * Lo llama lib/avisos/ai-gate.ts al leer la fila: ok → se levanta el corte
+ * local; caída → se sostiene mientras dure la cache de la fila.
+ */
+export function syncAiBreaker(ok: boolean, holdMs = 15_000): void {
+  if (ok) {
+    aiDownUntil = 0;
+    billingLoggedUntil = 0;
+    return;
+  }
+  aiDownUntil = Math.max(aiDownUntil, Date.now() + holdMs);
+}
+
+/**
+ * import dinámico: este cliente lo usan también scripts fuera de Next
+ * (scripts/v2-dry-run.ts), donde lib/avisos (server-only) no carga. Ahí la
+ * promesa da null y queda solo el corte local.
+ */
+type AiGateModule = typeof import("@/lib/avisos/ai-gate");
+let aiGatePromise: Promise<AiGateModule | null> | null = null;
+function loadAiGate(): Promise<AiGateModule | null> {
+  if (!aiGatePromise) {
+    aiGatePromise = import("@/lib/avisos/ai-gate").catch(() => null);
+  }
+  return aiGatePromise;
+}
+
+/** ¿Esta instancia tiene la IA cortada (caída vista hace < 2 min, o la fila dice caída)? */
+export function isGeminiBillingExhausted(now: number = Date.now()): boolean {
+  return aiDownUntil > now;
+}
+
+/** Alias con el nombre correcto (la caída ya no es solo falta de saldo). */
+export const isAiDownLocally = isGeminiBillingExhausted;
 
 /** Solo pruebas offline: vuelve el corte a cerrado. */
 export function resetGeminiBillingState(): void {
-  billingExhaustedUntil = 0;
+  aiDownUntil = 0;
+  billingLoggedUntil = 0;
 }
 
 /**

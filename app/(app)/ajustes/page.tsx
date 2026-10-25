@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Coins,
@@ -12,6 +13,10 @@ import {
 } from "lucide-react";
 import { useUser } from "@/lib/auth/use-user";
 import { useCreditos, type LedgerEntry } from "@/lib/creditos/use-creditos";
+import { useGenerations } from "@/lib/generations/store";
+import { useProducts } from "@/lib/products/store";
+import { useVersions } from "@/lib/versions/store";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 // Correo único de soporte + contacto. Después se segmenta (etiquetas en la
@@ -86,6 +91,8 @@ function AccountSection({ email }: { email: string }) {
 
 function UsageSection() {
   const { stats, ledger, loading } = useCreditos();
+  const recent = ledger.slice(0, 8);
+  const refundBatchLabels = useRefundBatchLabels(recent);
 
   return (
     <section className="glass-card flex flex-col gap-5 p-6 sm:p-7">
@@ -144,8 +151,12 @@ function UsageSection() {
           </p>
         ) : (
           <ul className="flex flex-col divide-y divide-border">
-            {ledger.slice(0, 8).map((entry) => (
-              <LedgerRow key={entry.id} entry={entry} />
+            {recent.map((entry) => (
+              <LedgerRow
+                key={entry.id}
+                entry={entry}
+                batchLabel={refundBatchLabels.get(entry.id) ?? null}
+              />
             ))}
           </ul>
         )}
@@ -194,7 +205,61 @@ const REASON_LABELS: Record<string, string> = {
   signup_bonus: "Bono de bienvenida",
 };
 
-function LedgerRow({ entry }: { entry: LedgerEntry }) {
+/**
+ * "Reembolso" dice de qué tanda es, si el dato existe: `credit_ledger` guarda
+ * `generation_id` y de ahí sale el producto (y la versión). Si la devolución no
+ * trae la tanda (o la tanda ya no está), queda "Reembolso" a secas.
+ */
+function useRefundBatchLabels(entries: LedgerEntry[]): Map<string, string> {
+  const supabase = useMemo(() => createClient(), []);
+  const generations = useGenerations();
+  const products = useProducts();
+  const versions = useVersions();
+  const refundIds = entries.filter((e) => e.reason === "refund").map((e) => e.id);
+  const idsKey = refundIds.join(",");
+  const [genByEntry, setGenByEntry] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (!idsKey) return;
+    let cancelled = false;
+    void supabase
+      .from("credit_ledger")
+      .select("id, generation_id")
+      .in("id", idsKey.split(","))
+      .not("generation_id", "is", null)
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        const next = new Map<string, string>();
+        for (const row of data as { id: string; generation_id: string | null }[]) {
+          if (row.generation_id) next.set(row.id, row.generation_id);
+        }
+        setGenByEntry(next);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [idsKey, supabase]);
+
+  const labels = new Map<string, string>();
+  for (const [entryId, generationId] of genByEntry) {
+    const gen = generations.state.generations.find((g) => g.id === generationId);
+    if (!gen) continue;
+    const product = gen.project_id ? products.getById(gen.project_id) : undefined;
+    const version = gen.version_id ? versions.getById(gen.version_id) : undefined;
+    const name = [product?.name, version?.name].filter(Boolean).join(" · ");
+    if (name) labels.set(entryId, `Tanda de ${name}`);
+  }
+  return labels;
+}
+
+function LedgerRow({
+  entry,
+  batchLabel,
+}: {
+  entry: LedgerEntry;
+  /** «Tanda de {producto} · {versión}» para las devoluciones, si se sabe. */
+  batchLabel: string | null;
+}) {
   const isPositive = entry.delta > 0;
   const label = REASON_LABELS[entry.reason] ?? entry.reason;
   const date = new Date(entry.created_at).toLocaleDateString("es-PE", {
@@ -205,7 +270,9 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
     <li className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex flex-col">
         <span className="text-sm font-medium text-foreground">{label}</span>
-        <span className="text-[11px] text-muted-foreground">{date}</span>
+        <span className="text-[11px] text-muted-foreground">
+          {batchLabel ? `${batchLabel} · ${date}` : date}
+        </span>
       </div>
       <span
         className={cn(

@@ -73,7 +73,7 @@ function FabricaContent() {
   //    del FilterBar cae en el bucket `draft` (ver `bucketFor` más abajo).
   //  - `draft`: sin generations.
   const effectiveStatus = useMemo(() => {
-    const map = new Map<string, "processing" | "completed" | "draft">();
+    const map = new Map<string, EffectiveStatus>();
     for (const v of versions.state.versions) {
       const gens = generations.state.generations.filter(
         (g) => g.version_id === v.id,
@@ -92,6 +92,11 @@ function FabricaContent() {
       );
       if (hasProcessing) {
         map.set(v.id, "processing");
+        continue;
+      }
+      // Tuvo tandas y TODAS fallaron (avisos): la card dice "Error", no "En cola".
+      if (gens.some((g) => g.status === "failed")) {
+        map.set(v.id, "failed");
         continue;
       }
       map.set(v.id, "draft");
@@ -399,9 +404,13 @@ function FabricaSkeleton() {
  * y muestra el mismo badge que draft.
  *  - draft | processing → pending (badge "En cola")
  *  - completed → completed (badge "Listo")
+ *  - failed (todas sus tandas fallaron) → failed (badge "Error")
  */
-function statusFor(effective: "processing" | "completed" | "draft"): StatusBadgeStatus {
+type EffectiveStatus = "processing" | "completed" | "failed" | "draft";
+
+function statusFor(effective: EffectiveStatus): StatusBadgeStatus {
   if (effective === "completed") return "completed";
+  if (effective === "failed") return "failed";
   return "pending";
 }
 

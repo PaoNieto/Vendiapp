@@ -62,22 +62,40 @@ async function rowsExist(query: string): Promise<boolean | null> {
   return null;
 }
 
-export async function userHasPaidAccess(userId: string): Promise<boolean> {
+/**
+ * Resultado del chequeo de acceso con las TRES respuestas posibles:
+ *  - 'paid'    → compró (o es cortesía): entra.
+ *  - 'unpaid'  → confirmamos que NO compró: se le puede vender (/plan).
+ *  - 'unknown' → no pudimos verificar (falta config, red, timeout). NO es "no
+ *                pagó": nunca mandar a /comprar ni /plan con esto (podría ser un
+ *                fundador que vuelve a pagar el Pase). Pantalla de error con
+ *                messageText('access_check_failed') + alerta M con escalada.
+ */
+export type PaidAccessResult = "paid" | "unpaid" | "unknown";
+
+export async function checkPaidAccess(userId: string): Promise<PaidAccessResult> {
   const id = encodeURIComponent(userId);
   const [paid, unlimited] = await Promise.all([
     rowsExist(`credit_ledger?user_id=eq.${id}&reason=eq.purchase&select=id&limit=1`),
     rowsExist(`unlimited_users?user_id=eq.${id}&select=user_id&limit=1`),
   ]);
+  // Cualquier confirmación positiva alcanza para entrar.
+  if (paid === true || unlimited === true) return "paid";
+  // "No pagó" solo si las DOS consultas respondieron que no.
+  if (paid === false && unlimited === false) return "unpaid";
+  return "unknown";
+}
 
+/**
+ * Atajo booleano (FAIL-CLOSED): `true` solo si `checkPaidAccess` dio 'paid'.
+ * Sirve para el candado 403 de las APIs; para decidir a dónde MANDAR a alguien
+ * (pantalla de error vs. /plan) usá `checkPaidAccess`.
+ */
+export async function userHasPaidAccess(userId: string): Promise<boolean> {
   // FAIL-CLOSED (regla dura de Paolo: "el que no paga NO entra"). Damos acceso
   // SOLO si confirmamos POSITIVAMENTE que pagó (compra en `credit_ledger`) o que
-  // es cortesía (`unlimited_users`). Todo lo demás es NO:
-  //   - `false` en ambas       → no pagó.
-  //   - `null` (no se pudo      → NO SABEMOS si pagó ⇒ ante la duda, AFUERA.
-  //      confirmar: falta de env,    Antes acá había fail-open (`return true`) y
-  //      red caída, timeout)         ESE era el agujero: cualquier hipo del
-  //                                  chequeo colaba a un no-pagador. Preferimos
-  //                                  rebotar a un pagador ante un error raro
-  //                                  (reintenta) antes que dejar entrar gratis.
-  return paid === true || unlimited === true;
+  // es cortesía (`unlimited_users`). 'unpaid' y 'unknown' son NO; quien necesite
+  // distinguirlos (para no venderle el Pase de nuevo a un pagador) usa
+  // checkPaidAccess.
+  return (await checkPaidAccess(userId)) === "paid";
 }

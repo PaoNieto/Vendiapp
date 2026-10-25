@@ -9,5 +9,9 @@ export const dynamic = "force-dynamic";
  * Pago. (Se ignora cualquier ?producto: hoy el único checkout es el lifetime-pass.)
  */
 export async function GET(request: Request) {
-  return NextResponse.redirect(new URL("/comprar", request.url));
+  // Conserva el query (utm_*, fbclid): la atribución la guarda el proxy, pero
+  // si el salto lo tirara, el próximo paso no lo vería.
+  const destino = new URL("/comprar", request.url);
+  destino.search = new URL(request.url).search;
+  return NextResponse.redirect(destino);
 }

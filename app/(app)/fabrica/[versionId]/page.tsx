@@ -2,13 +2,20 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { AlertCircle, ArrowLeft, ImageIcon, Plus, X } from "lucide-react";
 
 import { AvatarCircle, PillButton } from "@/components/dashboard";
 import { Topbar } from "@/components/app/topbar";
 import { CreditBadge } from "@/components/app/credit-badge";
 import { GeneratingOverlay } from "@/components/app/generating-overlay";
+import {
+  BatchFailureCard,
+  BatchInProgressNote,
+  isBatchInProgress,
+  useFailedBatch,
+} from "@/components/app/avisos/batch-failure-card";
+import { INSUFFICIENT_CREDITS, useBatchLauncher } from "@/components/app/avisos/use-batch-launcher";
 import {
   VersionGallery,
   type VersionSettings,
@@ -46,8 +53,8 @@ export default function FabricaVersionPage() {
   const creditos = useCreditos();
   const brandInitials = useUserInitials();
 
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const launcher = useBatchLauncher();
+  const isSubmitting = launcher.isSubmitting;
 
   const allHydrated =
     versions.hydrated && products.hydrated && generations.hydrated;
@@ -90,50 +97,25 @@ export default function FabricaVersionPage() {
     if (!version) router.replace("/fabrica");
   }, [allHydrated, version, router]);
 
-  async function handleGenerateMore() {
+  // Avisos de la tanda: la última falló (tarjeta "No salió") o sigue corriendo.
+  const failedBatch = useFailedBatch(versionGens);
+  const batchRunning = isBatchInProgress(versionGens[0]);
+  const generateBlocked = launcher.aiDown || batchRunning;
+
+  function handleGenerateMore() {
     if (!version) return;
     if (!isVersionReady(version)) return;
-    if (isSubmitting) return;
-
-    setErrorBanner(null);
-    setIsSubmitting(true);
-    try {
-      const res = await fetch("/api/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          versionId: version.id,
-          styleFragment: getStyleFragment(generacion.state.selectedStyleId),
-          // Identidad de marca → coherencia de la imagen con la marca del usuario.
-          brand: {
-            name: negocio.state.brandName,
-            industry: negocio.state.industry,
-            description: negocio.state.description,
-          },
-        }),
-      });
-      if (res.status === 402) {
-        setErrorBanner("insufficient_credits");
-        return;
-      }
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { message?: string; error?: string }
-          | null;
-        setErrorBanner(
-          data?.message ?? data?.error ?? "No se pudo generar. Intentá de nuevo.",
-        );
-        return;
-      }
-      await creditos.refetch();
-      window.location.reload();
-    } catch {
-      setErrorBanner(
-        "No se pudo conectar. Revisá tu internet e intentá de nuevo.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+    if (generateBlocked) return;
+    void launcher.launch({
+      versionId: version.id,
+      styleFragment: getStyleFragment(generacion.state.selectedStyleId),
+      // Identidad de marca → coherencia de la imagen con la marca del usuario.
+      brand: {
+        name: negocio.state.brandName,
+        industry: negocio.state.industry,
+        description: negocio.state.description,
+      },
+    });
   }
 
   if (!allHydrated || !version) {
@@ -148,6 +130,9 @@ export default function FabricaVersionPage() {
       </div>
     );
   }
+
+  const retryCost = creditos.stats.unlimited ? null : version.variations_default;
+  const failureMessage = launcher.sessionFailure ?? failedBatch?.message ?? null;
 
   return (
     <>
@@ -174,16 +159,35 @@ export default function FabricaVersionPage() {
             Volver a la Fábrica
           </Link>
 
-          <PillButton size="md" onClick={handleGenerateMore}>
-            <Plus className="h-4 w-4" />
-            {versionImages.length > 0 ? "Más variaciones" : "Generar"}
-          </PillButton>
+          {/* PillButton no expone `disabled`: lo apagamos desde el wrapper. */}
+          <div
+            className={isSubmitting || generateBlocked ? "pointer-events-none opacity-50" : undefined}
+            aria-disabled={isSubmitting || generateBlocked}
+          >
+            <PillButton size="md" onClick={handleGenerateMore}>
+              <Plus className="h-4 w-4" />
+              {versionImages.length > 0 ? "Más variaciones" : "Generar"}
+            </PillButton>
+          </div>
         </div>
 
-        {errorBanner ? (
+        {launcher.errorBanner ? (
           <ErrorBanner
-            message={errorBanner}
-            onDismiss={() => setErrorBanner(null)}
+            message={launcher.errorBanner}
+            onDismiss={launcher.dismissError}
+          />
+        ) : null}
+
+        {launcher.networkCut || batchRunning ? <BatchInProgressNote /> : null}
+
+        {failureMessage ? (
+          <BatchFailureCard
+            createdAt={launcher.sessionFailure ? null : (failedBatch?.gen.created_at ?? null)}
+            count={version.variations_default}
+            message={failureMessage}
+            onRetry={handleGenerateMore}
+            retryDisabled={isSubmitting || generateBlocked || !isVersionReady(version)}
+            retryCost={retryCost}
           />
         ) : null}
 
@@ -196,7 +200,26 @@ export default function FabricaVersionPage() {
         />
       </div>
 
-      {isSubmitting ? <GeneratingOverlay /> : null}
+      {isSubmitting || launcher.overlayFailure ? (
+        <GeneratingOverlay
+          reservedCredits={retryCost}
+          failure={
+            launcher.overlayFailure
+              ? {
+                  message: launcher.overlayFailure,
+                  retryCost,
+                  onClose: launcher.closeOverlayFailure,
+                  onRetry: generateBlocked
+                    ? undefined
+                    : () => {
+                        launcher.closeOverlayFailure();
+                        handleGenerateMore();
+                      },
+                }
+              : null
+          }
+        />
+      ) : null}
     </>
   );
 }
@@ -327,7 +350,7 @@ function ErrorBanner({
   message: string;
   onDismiss: () => void;
 }) {
-  const isNoCredits = message === "insufficient_credits";
+  const isNoCredits = message === INSUFFICIENT_CREDITS;
   const displayMessage = isNoCredits
     ? "Te quedaste sin créditos. Comprá más para seguir generando."
     : message;
@@ -353,7 +376,7 @@ function ErrorBanner({
         type="button"
         onClick={onDismiss}
         aria-label="Descartar mensaje"
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
+        className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground"
       >
         <X className="h-3.5 w-3.5" />
       </button>

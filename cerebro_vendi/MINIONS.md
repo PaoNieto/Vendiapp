@@ -6,7 +6,7 @@
 >
 > **Registración:** los agentes se registran en el harness desde `vendi/.claude/agents/*.md` (un archivo por agente). Esos archivos son la definición que ejecuta el harness; esta es la vista consolidada. Cambios a un `.md` de agente surten efecto **tras reiniciar la sesión**, no en caliente.
 
-Última actualización: **2026-09-04**.
+Última actualización: **2026-10-18**.
 
 ---
 
@@ -318,3 +318,31 @@ Decisión de Paolo: **el cobro de Vendí sale de Mercado Pago y pasa a WHOP**, e
 ⛔ **Bloqueante de go-live, en la cancha de Paolo:** `WHOP_API_KEY` + webhook `payment.succeeded` a `https://vendilatam.com/api/webhooks/whop` (el secret `ws_...` se muestra una sola vez → `WHOP_WEBHOOK_SECRET`) + `WHOP_ACCOUNT_ID=biz_k4v3iljkFYxhCO`, las tres seteadas en Vercel. El MCP de Whop no expone webhooks ni API keys propias → va a mano en el dashboard.
 
 💰 **Abierto para El Comerciante:** el programa de afiliados al 30% que Whop prende por default quedó **enabled en el Pase y en el Pack Inicial**, y **disabled (0%) en Pro y Negocio**. Sin resolver.
+
+### 2026-09-10 — EL CONTADOR DE AGENTES DEL FOOTER: 11 → 43 → 11 (marketplace fantasma, RESUELTO)
+Paolo vio que el footer de Claude Code pasó de marcar **11 agentes** (el roster real) a marcar **43** de un día para el otro. **No era la flota ni un alta de minions: el contador cuenta ARCHIVOS de definición de agente en disco**, no agentes usables.
+
+**Causa:** Claude Code traía registrado por defecto el marketplace oficial de Anthropic (`anthropics/claude-plugins-official`) y lo **auto-sincroniza solo**. Al sincronizar **clona el repo entero** (cientos de plugins, no solo lo instalado). De esos, 8 plugins traen carpeta `agents/` con **32 definiciones** (`claude-security` 8, `code-modernization` 8, `pr-review-toolkit` 6, `feature-dev` 3, `plugin-dev` 3, `agent-sdk-dev` 2, `code-simplifier` 1, `hookify` 1). **11 nuestros + 32 fantasma = 43.** Prueba: los 32 `.md` tenían todos la misma marca de tiempo, `2026-09-09 16:32`; los nuestros son de julio/agosto/04-sep.
+
+⚠️ **Sumaban al contador aunque NINGUNO estuviera habilitado** (el único plugin activo es `whop@whop`, que trae 0 agentes). Eran archivos muertos inflando el número.
+
+**Fix aplicado (2026-09-10):** `claude plugin marketplace remove claude-plugins-official`. Verificado: 0 `.md` de agente en marketplaces, el directorio ya no existe, **whop@whop sigue instalado y enabled**, y los 11 nuestros intactos. **El footer vuelve a 11 recién al reiniciar Claude Code** (el descubrimiento de agentes pasa al arrancar la sesión).
+
+🔁 **Si vuelve a aparecer:** ese marketplace **no** estaba en `settings.json` (ahí solo está `whop` en `extraKnownMarketplaces`) → lo re-agrega Claude Code por default. Si reaparece tras un update, hay que buscar cómo silenciarlo, no volver a borrarlo a mano cada vez.
+
+📌 **Hallazgo lateral, SIN resolver:** hay **44 agentes de fondo en estado `blocked`** acumulados desde mayo/junio (27 son de junio), cada uno parado esperando una respuesta de Paolo que nunca llegó. 11 viven dentro de worktrees que **siguen vivos**. Se listan con `claude agents` (o `←` en el footer) y con `claude agents --json`. De los 44, sólo ~5 tienen una decisión real pendiente (créditos de Alan/Edgardo a 0; emails post-compra Google Workspace vs Resend; `/comenzar` vs `/comprar` como ruta canónica + apex domain; por dónde arrancar la landing competitiva; el `.bat` de audio). El resto es chatarra caduca (casi todo Mercado Pago, superado por Whop). **Ojo: esto es OTRA cosa que el contador del footer — no confundir.**
+
+### 2026-10-15/16 — Misión "Sistema de avisos": 8 minions, sin cambios de roster
+Roster igual: **10 lanzables + Capataz = 11**. Diseñaron la spec **Adsioso (100ads)** (cómo avisa 100ads, ej. el saldo de Kie), **Bujía (backend)** (migr 0028, devoluciones, cron), **Integral (integraciones)** (cruce con Whop, ¿quién pagó?, webhook en < 5 s), **Frontero (frontend)** (campanita, banners, panel `/admin/avisos`), **El Comerciante (comercial)** (sin regalo de créditos) y el **Capataz**. **JonSnow (seguridad)** atacó la v1 y **sus cambios mandan** (#1: fotos gratis borrando la tanda; #3: RLS + revoke en todas las tablas nuevas). **Hawkeye (testing-qa)** sumó 5 eventos, casos borde y 5 tests mínimos. Spec: `AVISOS_SPEC_V1.md`. Estado del código: ver §29 de `MEMORIA_DE_DIOS.md`.
+
+**Lecciones para el escuadrón (de estas semanas):**
+- **"Apoyate de los agentes" = ESTOS 11, nunca Explore ni general-purpose** (2026-10-15, Paolo se enojó: "por qué no usaste los nuestros"). Tandas/Gemini/DB → Bujía; cobro/Whop → Integral; seguridad → JonSnow; cruza áreas → Capataz.
+- **100ads → Adsioso directo**, sin ofrecerlo ni pedir permiso (2026-09-18: "está de más que lo diga"). Vale para cualquier especialista cuando el tema es claramente suyo.
+- **Mockups: Hawkeye NO entra antes del primer link** (2026-10-16). Se armaron 12 opciones de tour, Hawkeye las revisó y hubo ronda de correcciones antes de publicar; Paolo: *"chat apura mierda solo es un mock up"*. En mockups se publica apenas compila y se ve; la QA es para el código real.
+- **"Solo pon X y ya" corta la deliberación** (2026-10-16): no armar equipos para calcular montos que no pidió ni volver a preguntar si arranca. Se implementa con lo ya recomendado y los supuestos van al reporte.
+- **Gotcha de Hawkeye:** en la terminal de Claude el `next build` puede fallar porque no bajan las fuentes de Google, y en otro intento se quedó sin memoria. `tsc` + `eslint` en 0 NO equivalen a build verde: decirlo así.
+
+### 2026-10-18 — Memoria suelta absorbida (sin cambios de roster)
+Había 8 archivos de memoria en `C:\Users\Usuario\.claude\projects\C--Users-Usuario-vendiapp-vendi\memory\` (fuera de `cerebro_vendi`, contra la regla). Se pasaron a `MEMORIA_DE_DIOS.md` (§1 y §29) y a esta entrada. **Ningún minion escriba memoria fuera de estos dos archivos.**
+
+📌 **Ojo, otro proyecto:** en la sesión aparecen skills de Digital-Products (El Panadero, Aristóteles/Bibliomon, Bilbito, El Gato, Diseñante, Whoper, Vegeta…). **NO son minions de Vendí** y no se lanzan para Vendí.
