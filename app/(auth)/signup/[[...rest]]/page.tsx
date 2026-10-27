@@ -1,4 +1,5 @@
 import { SignUp } from "@clerk/nextjs";
+import { isInAppBrowser, soloMailAppearance } from "@/lib/auth/in-app-browser";
 
 /**
  * Signup con el componente prebuilt <SignUp/> de Clerk. Clerk maneja todo el
@@ -22,13 +23,18 @@ import { SignUp } from "@clerk/nextjs";
  * Degradación elegante: si por algún camino el force no aplicara, la cadena cae
  * a `redirect_url=/comprar` → /comprar → Mercado Pago, que es exactamente el
  * comportamiento de hoy. Falla hacia lo que ya funciona.
+ *
+ * Dentro de Instagram/Facebook (de donde llegan los anuncios) se esconde
+ * "Continuar con Google": Google bloquea su login ahí. Ver `in-app-browser.ts`.
  */
-export default function SignupPage() {
+export default async function SignupPage() {
+  const inApp = await isInAppBrowser();
   return (
     <SignUp
       path="/signup"
       signInUrl="/login"
       forceRedirectUrl="/onboarding"
+      appearance={inApp ? soloMailAppearance : undefined}
     />
   );
 }

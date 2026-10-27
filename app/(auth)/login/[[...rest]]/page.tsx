@@ -1,4 +1,5 @@
 import { SignIn } from "@clerk/nextjs";
+import { isInAppBrowser, soloMailAppearance } from "@/lib/auth/in-app-browser";
 
 /**
  * Login con el componente prebuilt <SignIn/> de Clerk (themeado vía el
@@ -17,13 +18,18 @@ import { SignIn } from "@clerk/nextjs";
  * Redirects post-login: si venimos con `?redirect_url=/ruta` (lo setea el proxy
  * al interceptar un deep-link sin sesión), Clerk lo honra y vuelve ahí. Sin ese
  * param, cae en el fallback `/dashboard` (prop fallbackRedirectUrl de abajo).
+ *
+ * Dentro de Instagram/Facebook se esconde "Continuar con Google" (Google
+ * bloquea su login ahí), igual que en signup. Ver `in-app-browser.ts`.
  */
-export default function LoginPage() {
+export default async function LoginPage() {
+  const inApp = await isInAppBrowser();
   return (
     <SignIn
       path="/login"
       signUpUrl="/signup"
       fallbackRedirectUrl="/dashboard"
+      appearance={inApp ? soloMailAppearance : undefined}
     />
   );
 }
